@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, like, or } from "drizzle-orm";
 import { createDb } from "../db/client";
 import { items } from "../db/schema";
 import { ulid } from "ulidx";
@@ -10,14 +10,19 @@ type Variables = { userId: string };
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // GET /api/items — list items for current user
+// Supports ?status=, ?content_type=, ?q= (full-text search on title + creator)
 router.get("/", async (c) => {
   const userId = c.get("userId");
-  const { status, content_type } = c.req.query();
+  const { status, content_type, q } = c.req.query();
   const db = createDb(c.env.DB);
 
   const conditions = [eq(items.userId, userId)];
   if (status) conditions.push(eq(items.status, status));
   if (content_type) conditions.push(eq(items.contentType, content_type));
+  if (q?.trim()) {
+    const pattern = `%${q.trim()}%`;
+    conditions.push(or(like(items.title, pattern), like(items.creator, pattern))!);
+  }
 
   const result = await db
     .select()

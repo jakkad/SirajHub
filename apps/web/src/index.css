@@ -85,3 +85,11 @@ body {
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
+
+/* ── Grid view — responsive column count ─────────────────────────────────── */
+.grid-view {
+  column-count: 4;
+}
+@media (max-width: 1100px) { .grid-view { column-count: 3; } }
+@media (max-width: 720px)  { .grid-view { column-count: 2; } }
+@media (max-width: 480px)  { .grid-view { column-count: 1; } }

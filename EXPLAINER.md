@@ -1141,3 +1141,337 @@ The "Refresh" button calls `useRefreshNextList()`, which calls `getNextList(true
 | UI: next list | Modal panel from nav bar button | Lightweight interaction; doesn't disrupt the board view |
 | Drag safety | `onPointerDown: stopPropagation` on panel elements | Prevents @dnd-kit from treating clicks inside the panel as drag starts |
 | Content-type prompts | Different guide text per `content_type` | The analysis is relevant to what the item actually is, not a generic summary |
+
+---
+
+---
+
+---
+
+# Phase 6 — Polish & Search
+
+## What Phase 6 Was About
+
+Phase 6 is the layer that makes the app feel finished. The core features (add items, view them, AI analysis) were all working, but the app had one view, no search, no way to organise by tag, no settings, and no real mobile experience. Phase 6 adds all of that.
+
+By the end of Phase 6 we had:
+- A masonry Grid view alongside the Kanban Board, with a toggle that remembers your preference
+- Content-type filter pills above both views so you can focus on just books, or just movies
+- A full tags system: create tags, assign them to items, filter the board/grid by tag
+- A Cmd+K search palette that searches your library instantly from any page
+- An Item Detail side panel that opens when you click a card title — with status, rating, tags, and notes all editable in one place
+- A Settings page for profile, AI taste preferences, tag management, JSON export, and cache clearing
+- A mobile-responsive nav with a hamburger menu
+
+---
+
+## The Big Picture: How the New Pieces Connect
+
+```
+Nav bar
+  ├── Search bar (desktop) / 🔍 icon (mobile) → opens SearchCommand (Cmd+K)
+  ├── ✨ Next to Consume → NextListPanel (Phase 5, unchanged)
+  ├── + Add → AddItemDialog (Phase 3, unchanged)
+  ├── ⚙ → /settings page
+  └── ☰ (mobile) → dropdown with all of the above
+
+Index page (/)
+  ├── Filter bar: [All] [📚 Book 12] [🎬 Movie 4] …
+  ├── Tag filter row: [sci-fi] [must-read] [in-queue] …
+  ├── View toggle: [⊞ Board] [⊟ Grid]  ← saved to localStorage
+  │
+  ├── BoardView (4 Kanban columns)       ← same drag-and-drop
+  │    └── ItemCard × N
+  │         ├── click title → ItemDetailPanel
+  │         └── tag pills on card
+  │
+  └── GridView (masonry CSS columns)
+       └── ItemCard × N (same component)
+
+ItemDetailPanel (right slide-over)
+  ├── Cover / title / creator / release date / source link
+  ├── Status selector
+  ├── Star rating
+  ├── Tags: assign existing, create new, remove
+  └── Notes textarea (auto-saves on blur)
+
+/settings
+  ├── Profile: display name, email
+  ├── AI Preferences: taste profile text → fed to Gemini ranking
+  ├── Tags: view + delete all tags
+  └── Data: Export JSON · Clear AI cache
+```
+
+---
+
+## Part 1: The Grid View (`components/GridView.tsx`)
+
+The Grid view is a masonry layout — cards stack in columns and each card is as tall as its content, creating an organic magazine-like layout rather than uniform rows.
+
+**CSS `columns` — the right tool for masonry:**
+```css
+.grid-view {
+  column-count: 4;
+  column-gap: 14px;
+}
+```
+
+`column-count` is a CSS property that distributes content across vertical columns the same way a newspaper lays out text. Each child element is placed in the next available column position. `break-inside: avoid` on each card prevents a card from being split across two columns.
+
+Compare this to a CSS Grid approach (which requires JavaScript to measure card heights and calculate placement) — the pure CSS `columns` approach does it all natively with zero JavaScript.
+
+**Responsive breakpoints in `index.css`:**
+```css
+.grid-view { column-count: 4; }
+@media (max-width: 1100px) { .grid-view { column-count: 3; } }
+@media (max-width: 720px)  { .grid-view { column-count: 2; } }
+@media (max-width: 480px)  { .grid-view { column-count: 1; } }
+```
+
+This is set in a CSS class rather than inline styles because inline styles can't contain media queries — they apply unconditionally regardless of screen width.
+
+**View toggle persisted to `localStorage`:**
+```ts
+const [view, setView] = useState<ViewMode>(() => {
+  return (localStorage.getItem("sirajhub-view") as ViewMode) ?? "board";
+});
+```
+
+The `useState` initialiser is a function (called "lazy initialisation"). Instead of reading localStorage on every render, React only calls this function once — when the component first mounts. Setting the view calls `localStorage.setItem(...)` to persist it for the next visit.
+
+---
+
+## Part 2: The Tags System
+
+Tags are a many-to-many relationship: one item can have many tags, one tag can belong to many items. This is implemented with three database tables (already created in Phase 1):
+
+```
+tags table:      id, user_id, name, color
+items table:     (existing)
+item_tags table: item_id, tag_id  ← the join table
+```
+
+### The API Routes (`worker/src/routes/tags.ts`)
+
+**Tag CRUD:**
+
+| Route | What it does |
+|---|---|
+| `GET /api/tags` | Returns all tags owned by the current user |
+| `POST /api/tags` | Creates a new tag `{ name, color }` |
+| `DELETE /api/tags/:id` | Deletes a tag — cascades to `item_tags` via FK, so all assignments are removed automatically |
+
+**Item-tag assignment:**
+
+| Route | What it does |
+|---|---|
+| `GET /api/tags/item/:itemId` | Returns all tags currently on an item (JOIN query) |
+| `POST /api/tags/item/:itemId` | Adds a tag to an item `{ tagId }` |
+| `DELETE /api/tags/item/:itemId/:tagId` | Removes a specific tag from an item |
+
+The POST assignment uses `.onConflictDoNothing()` so adding a tag that's already there is silently ignored — it's idempotent, no error if you click "add" twice.
+
+**The JOIN query to get an item's tags:**
+```ts
+const rows = await db
+  .select({ tag: tags })
+  .from(itemTags)
+  .innerJoin(tags, eq(itemTags.tagId, tags.id))
+  .where(eq(itemTags.itemId, itemId));
+
+return c.json(rows.map((r) => r.tag));
+```
+
+`innerJoin` fetches rows from `item_tags` and simultaneously pulls the matching `tags` row for each. The result is the full tag objects (id, name, color) for the item, not just IDs.
+
+### Frontend Tag Hooks (`hooks/useTags.ts`)
+
+The hooks follow the same TanStack Query pattern as items: mutations invalidate the relevant query keys so the UI stays in sync.
+
+`useItemTags(itemId)` is configured with `enabled: !!itemId` — the query only fires when an `itemId` is actually provided. When you close the detail panel (`itemId` becomes `null`), the query is automatically disabled. This prevents unnecessary API calls.
+
+### Tag Display on Cards
+
+The `ItemCard` component now accepts `allTags?: Tag[]` — the tags that are currently assigned to that specific item. It renders up to 3 as colored pills and shows "+N more" for the rest. This keeps cards compact while still showing the tags at a glance.
+
+---
+
+## Part 3: The Item Detail Panel (`components/ItemDetailPanel.tsx`)
+
+Clicking any card's title opens a right-side slide-over panel. It's not a new route — it's a component that renders in a fixed position overlay, keeping the board visible behind it.
+
+**Why a slide-over instead of a new page?**
+A page navigation would lose the board's drag state and require loading the item data again. The slide-over keeps everything in context — you can see which column the item is in, close the panel, and immediately drag it somewhere else.
+
+**Auto-save on notes:**
+```ts
+<textarea
+  value={notes}
+  onChange={(e) => setNotes(e.target.value)}
+  onBlur={saveNotes}    // ← fires when textarea loses focus
+/>
+```
+
+Notes are stored in local `useState` while the user types (so every keystroke doesn't trigger a PATCH request). `onBlur` fires when the user clicks away from the textarea — at that point we compare the current value to `item.notes` and only call `updateItem` if something actually changed. This pattern is called "save on blur" and feels natural for notes fields.
+
+**Star rating — click to set, click same star to clear:**
+```ts
+onClick={() => updateItem({ id: item.id, rating: item.rating === n ? null : n })}
+```
+
+Clicking the same star you already have selected clears the rating (`null`). Clicking a different star updates to that value. One line handles both cases.
+
+**Tag picker inside the panel:**
+The tag picker has two sections: existing tags to pick from (colored buttons filtered to those not already on the item), and a "create new tag" row with a name input and a color swatch picker. Creating a new tag automatically adds it to the current item via `createTag()` → `onSuccess: addTag(tag.id)`.
+
+---
+
+## Part 4: The Search Command (`components/SearchCommand.tsx`)
+
+The search palette opens with **Cmd+K** (or Ctrl+K on Windows). It's registered globally in `__root.tsx`:
+
+```ts
+useEffect(() => {
+  function onKey(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      setSearchOpen((o) => !o);
+    }
+  }
+  window.addEventListener("keydown", onKey);
+  return () => window.removeEventListener("keydown", onKey);
+}, []);
+```
+
+`e.preventDefault()` stops the browser from opening its own "find in page" dialog (which Cmd+K sometimes triggers). The cleanup function (`return () => removeEventListener(...)`) runs when the component unmounts, preventing memory leaks.
+
+**Why client-side search instead of always calling the API?**
+
+The items are already in the TanStack Query cache from the board/grid load. Filtering that array is instant — zero network latency, no loading spinner. For a personal library that tops out at a few hundred items, JavaScript can filter the entire list in under a millisecond.
+
+```ts
+const results = q.length < 1
+  ? []
+  : allItems.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) ||
+        (item.creator ?? "").toLowerCase().includes(q) ||
+        (item.description ?? "").toLowerCase().includes(q)
+    ).slice(0, 20);
+```
+
+`slice(0, 20)` caps results to 20 to keep the list navigable. The `?? ""` handles nullable fields — `item.creator` can be `null`, and calling `.toLowerCase()` on `null` would crash.
+
+The API-side `?q=` support was added to the items GET route (`LIKE %query%` on title and creator) for completeness and any future use case where you want server-side filtered results.
+
+**Results grouped by content type:**
+```ts
+const grouped: Record<string, Item[]> = {};
+for (const item of results) {
+  if (!grouped[item.contentType]) grouped[item.contentType] = [];
+  grouped[item.contentType].push(item);
+}
+```
+
+This builds a plain object keyed by content type. `Object.entries(grouped)` then renders a section header per type (e.g. "📚 Book", "🎬 Movie") with its items below. Grouping makes scanning the results faster when you roughly know what type you're looking for.
+
+---
+
+## Part 5: The Settings Page (`routes/settings.tsx`)
+
+The settings page lives at `/settings` — a full TanStack Router file-based route. The nav bar's `⚙` button is a `<Link to="/settings">` (not a `button`), so the browser treats it like navigation and the back button works.
+
+**Profile and AI Preferences save independently:**
+Each section has its own "Save" button that calls `updateProfile({ name })` or `updateProfile({ preferences })`. They share the same `PATCH /api/user/me` endpoint which only updates fields that are provided. This avoids a race condition where saving name and saving preferences simultaneously could overwrite each other.
+
+**The "Saved ✓" flash pattern:**
+```ts
+updateProfile({ name }, {
+  onSuccess: () => {
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2000);
+  }
+});
+```
+
+The button text changes to "Saved ✓" for 2 seconds then reverts. `setTimeout` inside `onSuccess` is a simple, reliable way to implement this without a library. No toast component needed.
+
+**JSON export — triggering a download from JavaScript:**
+```ts
+async function handleExport() {
+  const res = await userApi.exportItems();  // fetch with credentials
+  const blob = await res.blob();            // read the response body as a binary blob
+  const url = URL.createObjectURL(blob);    // create a temporary in-memory URL
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sirajhub-export-${...}.json`;  // filename for the download
+  a.click();                                     // programmatically trigger the download
+  URL.revokeObjectURL(url);                      // release memory
+}
+```
+
+The Worker sets `Content-Disposition: attachment; filename="..."` on the export response. This header tells the browser to download the response as a file rather than display it. The JavaScript above creates a temporary `<a>` element and simulates a click on it — this is the standard pattern for triggering file downloads from a `fetch` response.
+
+`URL.revokeObjectURL` releases the temporary object URL from memory. Without it, the URL would persist until the page unloads.
+
+**Clearing AI cache — two places to clear:**
+```ts
+// D1: delete all ai_cache rows for this user's items
+await db.delete(aiCache).where(inArray(aiCache.contentId, itemIds));
+
+// KV: delete the cached "next list" ranking
+await c.env.SIRAJHUB_KV.delete(`next_list:v1:${userId}`);
+```
+
+The AI cache lives in two places — per-item analyses in D1, and the ranked next-list in KV. Both need to be cleared together or the "next list" would show stale data while item analyses were refreshed.
+
+---
+
+## Part 6: Responsive Mobile
+
+**Board view — horizontal scroll:**
+```ts
+style={{
+  display: "grid",
+  gridTemplateColumns: "repeat(4, minmax(200px, 1fr))",
+  overflowX: "auto",
+}}
+```
+
+`minmax(200px, 1fr)` means each column is at least 200px wide and grows to fill available space on larger screens. On a 375px phone screen, 4 × 200px = 800px — wider than the viewport — so the container becomes horizontally scrollable. The four columns stay intact and the user swipes left/right to reveal them. No JavaScript needed.
+
+**Nav — hiding elements by screen size:**
+```tsx
+<div className="hidden sm:flex items-center gap-2">
+  {/* Desktop nav items */}
+</div>
+<div className="flex sm:hidden items-center gap-2">
+  {/* Mobile: search icon + hamburger */}
+</div>
+```
+
+Tailwind's `sm:` prefix applies a style from the `sm` breakpoint (640px) upward. `hidden sm:flex` means: hidden by default, flex from 640px up. `flex sm:hidden` means: flex by default, hidden from 640px up. This is the standard responsive pattern — no JavaScript, no resize listeners, just CSS.
+
+The mobile hamburger menu renders as a dropdown below the nav bar when open, listing "Add Item", "Settings", and "Log out" as full-width buttons. Tapping any of them closes the menu.
+
+---
+
+## Phase 6 Summary
+
+| What | How | Why |
+|---|---|---|
+| Grid view | CSS `column-count` masonry | Zero JavaScript, native browser layout, naturally responsive |
+| View preference | `localStorage` in lazy `useState` initialiser | Read once on mount, not on every render |
+| Tags DB | `tags` + `item_tags` join table, FK cascade | Standard many-to-many; cascade delete keeps data consistent |
+| Tags API | Separate `tags.ts` router, idempotent `.onConflictDoNothing()` | Clean separation; safe to call add-tag multiple times |
+| Item detail | Right slide-over, not a route | Keeps board context visible; no re-fetch needed |
+| Notes | Controlled textarea + save on blur | Natural UX; avoids a PATCH on every keystroke |
+| Star rating | Click same star to clear | Ternary in the onClick — one line for set and unset |
+| Search | Client-side filter over TanStack Query cache | Instant; no API call needed for personal-scale data |
+| Cmd+K | Global `keydown` listener in root layout | Available from any page; cleanup on unmount prevents leaks |
+| Search results | Grouped by content type | Easier to scan when you roughly know the type |
+| Settings | Independent save buttons per section | Avoids race conditions; clear feedback per field group |
+| JSON export | `fetch` → blob → `URL.createObjectURL` → `<a>.click()` | Standard browser pattern for downloading API responses |
+| Clear cache | Deletes D1 `ai_cache` rows + KV next-list key | Both caches must be cleared together or state is inconsistent |
+| Mobile board | `minmax(200px, 1fr)` + `overflowX: auto` | Columns stay intact; horizontal scroll is native and free |
+| Mobile nav | `hidden sm:flex` / `flex sm:hidden` Tailwind classes | Pure CSS — no resize listeners or JavaScript state |

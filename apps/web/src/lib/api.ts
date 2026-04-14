@@ -115,13 +115,79 @@ export const aiApi = {
   },
 };
 
+// ── Tags API ──────────────────────────────────────────────────────────────────
+
+export interface Tag {
+  id: string;
+  userId: string;
+  name: string;
+  color: string;
+}
+
+export const tagsApi = {
+  list(): Promise<Tag[]> {
+    return request<Tag[]>("/api/tags");
+  },
+
+  create(data: { name: string; color?: string }): Promise<Tag> {
+    return request<Tag>("/api/tags", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  delete(id: string): Promise<{ ok: boolean }> {
+    return request<{ ok: boolean }>(`/api/tags/${id}`, { method: "DELETE" });
+  },
+
+  getItemTags(itemId: string): Promise<Tag[]> {
+    return request<Tag[]>(`/api/tags/item/${itemId}`);
+  },
+
+  addToItem(itemId: string, tagId: string): Promise<{ ok: boolean }> {
+    return request<{ ok: boolean }>(`/api/tags/item/${itemId}`, {
+      method: "POST",
+      body: JSON.stringify({ tagId }),
+    });
+  },
+
+  removeFromItem(itemId: string, tagId: string): Promise<{ ok: boolean }> {
+    return request<{ ok: boolean }>(`/api/tags/item/${itemId}/${tagId}`, { method: "DELETE" });
+  },
+};
+
+// ── User API ──────────────────────────────────────────────────────────────────
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  preferences: string | null;
+}
+
+export const userApi = {
+  getMe(): Promise<UserProfile> {
+    return request<UserProfile>("/api/user/me");
+  },
+
+  updateMe(data: { name?: string; preferences?: string }): Promise<UserProfile> {
+    return request<UserProfile>("/api/user/me", { method: "PATCH", body: JSON.stringify(data) });
+  },
+
+  exportItems(): Promise<Response> {
+    return fetch("/api/user/export", { credentials: "include" });
+  },
+
+  clearAiCache(): Promise<{ ok: boolean; cleared: number }> {
+    return request<{ ok: boolean; cleared: number }>("/api/user/ai-cache", { method: "DELETE" });
+  },
+};
+
 // ── Items API ─────────────────────────────────────────────────────────────────
 
 export const itemsApi = {
-  list(filters?: { status?: StatusId; content_type?: ContentTypeId }): Promise<Item[]> {
+  list(filters?: { status?: StatusId; content_type?: ContentTypeId; q?: string }): Promise<Item[]> {
     const params = new URLSearchParams();
     if (filters?.status) params.set("status", filters.status);
     if (filters?.content_type) params.set("content_type", filters.content_type);
+    if (filters?.q) params.set("q", filters.q);
     const qs = params.toString();
     return request<Item[]>(`/api/items${qs ? `?${qs}` : ""}`);
   },

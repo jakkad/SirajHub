@@ -3,13 +3,16 @@ import type { Item, AiAnalysis } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
 import { useDeleteItem, useUpdateItem } from "../hooks/useItems";
 import { useAnalyzeItem } from "../hooks/useAI";
+import type { Tag } from "../hooks/useTags";
 
 interface Props {
   item: Item;
   isDragging?: boolean;
+  allTags?: Tag[];
+  onTitleClick?: () => void;
 }
 
-export function ItemCard({ item, isDragging }: Props) {
+export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
@@ -80,13 +83,17 @@ export function ItemCard({ item, isDragging }: Props) {
 
       {/* Title */}
       <div
+        onClick={onTitleClick ? (e) => { e.stopPropagation(); onTitleClick(); } : undefined}
+        onPointerDown={onTitleClick ? (e) => e.stopPropagation() : undefined}
         style={{
           fontSize: 13,
           fontWeight: 600,
           lineHeight: 1.35,
           marginBottom: 3,
           paddingRight: 20,
+          cursor: onTitleClick ? "pointer" : "inherit",
         }}
+        title={onTitleClick ? "Click to open details" : undefined}
       >
         {item.title}
       </div>
@@ -100,8 +107,8 @@ export function ItemCard({ item, isDragging }: Props) {
         </div>
       )}
 
-      {/* Content type badge */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {/* Content type badge + rating */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         {contentType && (
           <span
             style={{
@@ -122,6 +129,30 @@ export function ItemCard({ item, isDragging }: Props) {
           </span>
         )}
       </div>
+
+      {/* Tag pills (shown if parent passes allTags) */}
+      {allTags.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+          {allTags.slice(0, 3).map((tag) => (
+            <span
+              key={tag.id}
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                padding: "1px 6px",
+                borderRadius: 999,
+                background: `${tag.color}28`,
+                color: tag.color,
+              }}
+            >
+              {tag.name}
+            </span>
+          ))}
+          {allTags.length > 3 && (
+            <span style={{ fontSize: 9, color: "var(--color-muted)" }}>+{allTags.length - 3}</span>
+          )}
+        </div>
+      )}
 
       {/* AI Analysis panel */}
       {analysisOpen && (

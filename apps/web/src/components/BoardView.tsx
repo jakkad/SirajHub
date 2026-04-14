@@ -10,16 +10,22 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { useItems, useUpdateItem } from "../hooks/useItems";
+import { useUpdateItem } from "../hooks/useItems";
 import { ItemCard } from "./ItemCard";
 import type { Item } from "../lib/api";
+import type { Tag } from "../hooks/useTags";
 import { STATUSES } from "../lib/constants";
 import type { StatusId } from "../lib/constants";
 
 const STATUS_IDS = new Set<string>(STATUSES.map((s) => s.id));
 
-export function BoardView() {
-  const { data: items = [], isLoading } = useItems();
+interface Props {
+  filteredItems: Item[];
+  allTags: Tag[];
+  onItemClick: (item: Item) => void;
+}
+
+export function BoardView({ filteredItems, allTags, onItemClick }: Props) {
   const { mutate: updateItem } = useUpdateItem();
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -30,18 +36,17 @@ export function BoardView() {
   const byStatus = useMemo(() => {
     const map: Record<string, Item[]> = {};
     for (const s of STATUSES) map[s.id] = [];
-    for (const item of items) {
+    for (const item of filteredItems) {
       const col = map[item.status];
       if (col) col.push(item);
     }
-    // Sort within each column by position then createdAt
     for (const key of Object.keys(map)) {
       map[key]?.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.createdAt - b.createdAt);
     }
     return map;
-  }, [items]);
+  }, [filteredItems]);
 
-  const activeItem = items.find((i) => i.id === activeId) ?? null;
+  const activeItem = filteredItems.find((i) => i.id === activeId) ?? null;
 
   function findItemColumn(itemId: string): StatusId | null {
     for (const s of STATUSES) {
@@ -68,12 +73,12 @@ export function BoardView() {
       : findItemColumn(overId);
 
     if (!sourceColumn || !destColumn) return;
-    if (sourceColumn === destColumn) return; // no cross-column movement
+    if (sourceColumn === destColumn) return;
 
     updateItem({ id: activeItemId, status: destColumn });
   }
 
-  if (isLoading) {
+  if (filteredItems.length === 0 && allTags.length === 0) {
     return (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         {STATUSES.map((s) => (
@@ -84,7 +89,7 @@ export function BoardView() {
               border: "1px solid var(--color-border)",
               borderTop: `3px solid ${s.color}`,
               background: "var(--color-surface)",
-              height: 200,
+              minHeight: 200,
               opacity: 0.4,
             }}
           />
@@ -95,12 +100,15 @@ export function BoardView() {
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      {/* Horizontal scroll on mobile, grid on desktop */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(4, minmax(200px, 1fr))",
           gap: 16,
           alignItems: "start",
+          overflowX: "auto",
+          paddingBottom: 8,
         }}
       >
         {STATUSES.map((status) => (
@@ -111,6 +119,8 @@ export function BoardView() {
             color={status.color}
             items={byStatus[status.id] ?? []}
             activeId={activeId}
+            allTags={allTags}
+            onItemClick={onItemClick}
           />
         ))}
       </div>
@@ -128,12 +138,16 @@ function BoardColumn({
   color,
   items,
   activeId,
+  allTags,
+  onItemClick,
 }: {
   statusId: string;
   label: string;
   color: string;
   items: Item[];
   activeId: string | null;
+  allTags: Tag[];
+  onItemClick: (item: Item) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: statusId });
 
@@ -180,7 +194,13 @@ function BoardColumn({
       {/* Cards */}
       <div style={{ padding: "0 10px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
         {items.map((item) => (
-          <DraggableCard key={item.id} item={item} isGhost={item.id === activeId} />
+          <DraggableCard
+            key={item.id}
+            item={item}
+            isGhost={item.id === activeId}
+            allTags={allTags}
+            onItemClick={onItemClick}
+          />
         ))}
         {items.length === 0 && (
           <p
@@ -200,7 +220,17 @@ function BoardColumn({
   );
 }
 
-function DraggableCard({ item, isGhost }: { item: Item; isGhost: boolean }) {
+function DraggableCard({
+  item,
+  isGhost,
+  allTags,
+  onItemClick,
+}: {
+  item: Item;
+  isGhost: boolean;
+  allTags: Tag[];
+  onItemClick: (item: Item) => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id });
 
   return (
@@ -214,7 +244,11 @@ function DraggableCard({ item, isGhost }: { item: Item; isGhost: boolean }) {
         outline: "none",
       }}
     >
-      <ItemCard item={item} />
+      <ItemCard
+        item={item}
+        allTags={allTags}
+        onTitleClick={() => onItemClick(item)}
+      />
     </div>
   );
 }
