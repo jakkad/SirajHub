@@ -90,6 +90,31 @@ export const ingestApi = {
   },
 };
 
+// ── AI API ────────────────────────────────────────────────────────────────────
+
+export interface AiAnalysis {
+  summary: string;
+  key_points: string[];
+  recommendation: string;
+  mood?: string;
+}
+
+export interface RankedSuggestion {
+  id: string;
+  rank: number;
+  reason: string;
+}
+
+export const aiApi = {
+  analyze(itemId: string): Promise<{ cached: boolean; result: AiAnalysis }> {
+    return request(`/api/ai/analyze/${itemId}`, { method: "POST" });
+  },
+
+  getNextList(refresh = false): Promise<{ cached: boolean; result: RankedSuggestion[] }> {
+    return request(`/api/ai/next${refresh ? "?refresh=1" : ""}`);
+  },
+};
+
 // ── Items API ─────────────────────────────────────────────────────────────────
 
 export const itemsApi = {

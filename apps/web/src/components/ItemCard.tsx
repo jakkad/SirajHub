@@ -1,7 +1,8 @@
 import { useState } from "react";
-import type { Item } from "../lib/api";
+import type { Item, AiAnalysis } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
 import { useDeleteItem, useUpdateItem } from "../hooks/useItems";
+import { useAnalyzeItem } from "../hooks/useAI";
 
 interface Props {
   item: Item;
@@ -10,10 +11,26 @@ interface Props {
 
 export function ItemCard({ item, isDragging }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+
   const { mutate: updateItem } = useUpdateItem();
   const { mutate: deleteItem } = useDeleteItem();
+  const { mutate: analyzeItem, isPending: analyzing, error: analyzeError } = useAnalyzeItem();
 
   const contentType = CONTENT_TYPES.find((t) => t.id === item.contentType);
+
+  function handleAnalyze() {
+    setMenuOpen(false);
+    setAnalysisOpen(true);
+    if (!analysis) {
+      analyzeItem(item.id, {
+        onSuccess(data) {
+          setAnalysis(data.result);
+        },
+      });
+    }
+  }
 
   return (
     <div
@@ -106,6 +123,87 @@ export function ItemCard({ item, isDragging }: Props) {
         )}
       </div>
 
+      {/* AI Analysis panel */}
+      {analysisOpen && (
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px solid var(--color-border)",
+          }}
+        >
+          {analyzing && (
+            <p style={{ fontSize: 11, color: "var(--color-muted)", margin: 0 }}>
+              Analyzing…
+            </p>
+          )}
+          {analyzeError && (
+            <p style={{ fontSize: 11, color: "oklch(65% 0.2 25)", margin: 0 }}>
+              {(analyzeError as Error).message}
+            </p>
+          )}
+          {analysis && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {analysis.mood && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: "color-mix(in oklch, var(--color-accent) 15%, transparent)",
+                    color: "var(--color-accent)",
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  {analysis.mood}
+                </span>
+              )}
+              <p style={{ fontSize: 12, lineHeight: 1.5, margin: 0, color: "var(--color-foreground)" }}>
+                {analysis.summary}
+              </p>
+              {analysis.key_points.length > 0 && (
+                <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 3 }}>
+                  {analysis.key_points.map((pt, i) => (
+                    <li key={i} style={{ fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4 }}>
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p
+                style={{
+                  fontSize: 11,
+                  fontStyle: "italic",
+                  color: "var(--color-muted)",
+                  margin: 0,
+                  lineHeight: 1.4,
+                }}
+              >
+                {analysis.recommendation}
+              </p>
+            </div>
+          )}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setAnalysisOpen(false); }}
+            style={{
+              marginTop: 8,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 11,
+              color: "var(--color-muted)",
+              padding: 0,
+              textDecoration: "underline",
+            }}
+          >
+            Close
+          </button>
+        </div>
+      )}
+
       {/* 3-dot menu */}
       <div style={{ position: "absolute", top: 6, right: 6 }}>
         <button
@@ -148,6 +246,10 @@ export function ItemCard({ item, isDragging }: Props) {
                 minWidth: 140,
               }}
             >
+              <MenuButton
+                label={analysisOpen ? "Hide Analysis" : "Analyze"}
+                onClick={handleAnalyze}
+              />
               {item.status !== "archived" && (
                 <MenuButton
                   label="Archive"

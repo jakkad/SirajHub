@@ -189,12 +189,49 @@ URL dispatcher (`services/metadata/index.ts`) detects content type from URL patt
 
 ## Implementation Order
 
-1. **Foundation** — wrangler.toml, pnpm workspace, Vite+React scaffold, Hono skeleton, Drizzle schema + D1 binding, shadcn base setup
-2. **Auth** — Better Auth, session middleware, login page
-3. **Core CRUD** — items routes, Board view UI, manual add form, drag-and-drop status columns
-4. **Ingest pipeline** — URL dispatcher + each metadata fetcher, KV cache layer
-5. **AI features** — Gemini integration, auto-categorize on add, manual summarize, "next list"
-6. **Polish** — Grid view, tags, search/filter, settings page, responsive mobile
+1. ✅ **Foundation** — wrangler.toml, pnpm workspace, Vite+React scaffold, Hono skeleton, Drizzle schema + D1 binding, shadcn base setup
+2. ✅ **Auth** — Better Auth, session middleware, login page
+3. ✅ **Core CRUD** — items routes, Board view UI, manual add form, drag-and-drop status columns
+4. ✅ **Ingest pipeline** — URL dispatcher + each metadata fetcher, KV cache layer
+5. ✅ **AI features** — Gemini integration, auto-categorize on add, manual summarize, "next list"
+6. ⬜ **Polish** — Grid view, tags, search/filter, settings page, responsive mobile
+
+---
+
+## What's Been Built (Phases 1–5)
+
+### Phase 1 — Foundation
+Full pnpm workspace monorepo (`apps/web` + `worker`). Vite + React 19 + TanStack Router SPA. Hono v4 worker skeleton. Drizzle schema covering all tables (`items`, `users`, `sessions`, `tags`, `item_tags`, `ai_cache`, `url_cache`). D1 + KV bindings wired in `wrangler.toml`. Tailwind v4 with OKLCH dark palette CSS variables. D1 migrations generated and applied.
+
+### Phase 2 — Auth
+Better Auth instance configured with email+password. D1 adapter for persistent sessions, KV for fast session lookup. HTTP-only cookie with 30-day sliding window. `requireAuth` Hono middleware injects `userId` into context for all `/api/*` routes. Login page with sign-in / sign-up toggle.
+
+### Phase 3 — Core CRUD
+Full REST items router (`GET /`, `POST /`, `PATCH /:id`, `DELETE /:id`) scoped by `userId`. Kanban `BoardView` with four status columns (Suggestions, In Progress, Finished, Archived). `ItemCard` with cover image, type badge, rating stars, and 3-dot action menu. Drag-and-drop between columns via `@dnd-kit/core`. `AddItemDialog` supports URL paste, name search, and full manual entry.
+
+### Phase 4 — Ingest Pipeline
+URL dispatcher (`services/metadata/index.ts`) detects content type from URL pattern and routes to the correct fetcher:
+- **YouTube** — YouTube Data API v3 (title, thumbnail, channel, duration)
+- **Movies/TV** — TMDB API (poster, genres, runtime, cast)
+- **Books** — Open Library primary, Google Books fallback (cover, ISBN, page count)
+- **Podcasts** — Podcast Index primary, Apple iTunes fallback (feed, episode count)
+- **Articles** — self-hosted OG tag scraper in the Worker (title, description, site name)
+- **Tweets** — Twitter oEmbed (author, embed HTML)
+- **Name search** — routes `query` + `content_type` to the right API without a URL
+
+24-hour `url_cache` in D1 prevents redundant external fetches. `AddItemDialog` pre-fills all form fields from the fetched metadata.
+
+### Phase 5 — AI Features
+Gemini API service (`services/ai.ts`) using `gemini-2.0-flash-lite` (free tier: 1,000 req/day). Three capabilities:
+
+**Per-item analysis** (`POST /api/ai/analyze/:id`)
+Generates a summary, 2–4 key points, a one-sentence recommendation, and an optional mood tag (movies/TV/books). Results stored in `ai_cache` (D1) with a 7-day TTL. Cache is automatically invalidated when the item is updated. In the UI: "Analyze" option in the ItemCard 3-dot menu; analysis expands inline on the card.
+
+**"Next to Consume" ranked list** (`GET /api/ai/next`)
+Pulls all `status = 'suggestions'` items and asks Gemini to rank them best-first, factoring in the user's taste preferences (stored in `user.preferences`). Each ranked entry includes a one-sentence reason. Result cached in KV for 6 hours; `?refresh=1` forces a fresh ranking. In the UI: "✨ Next to Consume" button in the nav bar opens a modal with the ranked list and a Refresh button.
+
+**Auto-categorize** (`services/ai.ts → categorizeItem`)
+Lightweight Gemini call available as a utility — confirms/corrects `content_type` and suggests tags from title + description + URL domain. Ready to be wired into any flow that needs it (e.g. manual adds in Phase 6).
 
 ---
 

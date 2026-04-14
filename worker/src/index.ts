@@ -4,6 +4,7 @@ import { createAuth } from "./auth";
 import { requireAuth } from "./middleware/auth";
 import itemsRouter from "./routes/items";
 import ingestRouter from "./routes/ingest";
+import aiRouter from "./routes/ai";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -42,6 +43,7 @@ app.get("/api/health", (c) => {
 // ── API routes ────────────────────────────────────────────────────────────────
 app.route("/api/items", itemsRouter);
 app.route("/api/ingest", ingestRouter);
+app.route("/api/ai", aiRouter);
 
 export default app;
 

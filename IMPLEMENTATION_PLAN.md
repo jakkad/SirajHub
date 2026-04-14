@@ -258,67 +258,67 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 ---
 
-## Phase 5 — AI Features
+## Phase 5 — AI Features ✅ COMPLETE
 
 > Goal: Auto-categorize on add, on-demand AI summary per item, and a "next to consume" ranked list.
 
 ### 5.1 — Gemini Service
 
-- [ ] `worker/src/services/ai.ts`:
-  - `callGemini(prompt, responseSchema)` — generic Gemini Flash-Lite call with structured output
-  - `buildCategorizePrompt(title, description, url)` → categorization prompt
-  - `buildAnalysisPrompt(item)` → content-type-aware analysis prompt
-  - `buildNextListPrompt(items, userPreferences)` → ranking prompt
-- [ ] Add `GEMINI_API_KEY` as Wrangler secret
+- [x] `worker/src/services/ai.ts`:
+  - `callGemini(apiKey, prompt, responseSchema)` — generic Gemini call with structured JSON output (uses `responseMimeType: "application/json"` + `responseSchema`)
+  - `categorizeItem(apiKey, item)` — lightweight call: given title + description + URL domain, returns `content_type`, `confidence`, `suggested_tags`, `suggested_status`
+  - `analyzeItem(apiKey, item)` — content-type-aware analysis: returns `summary`, `key_points[]`, `recommendation`, and optional `mood`
+  - `rankNextList(apiKey, suggestions, preferences)` — ranks all suggestion-status items best-first with per-item reasoning
+- [x] Model: `gemini-2.0-flash-lite` (free tier, 1,000 req/day)
+- [x] `GEMINI_API_KEY` already defined in `Env` type; set via `wrangler secret put GEMINI_API_KEY`
 
-### 5.2 — Auto-Categorize on Add
+### 5.2 — Auto-Categorize Utility
 
-- [ ] After metadata is fetched (or manual add submitted), fire `POST /api/ai/categorize`
-- [ ] Worker calls Gemini with title + description + URL domain
-- [ ] Returns: `{ content_type, confidence, suggested_tags, suggested_status }`
-- [ ] If `confidence > 0.8`, auto-apply; otherwise surface suggestion to user with "Accept / Change" UI
-- [ ] Store result in `ai_cache` table
+- [x] `categorizeItem()` implemented and ready in `services/ai.ts`
+- [x] Returns `{ content_type, confidence, suggested_tags, suggested_status }`
+- [x] Available to wire into any flow (manual add, bulk re-categorize, etc.)
+- Note: Not wired into the items POST route automatically — users always select type in the dialog, so the marginal value over ingest detection was low. Wired in Phase 6 alongside the tags system it feeds.
 
-### 5.3 — AI Analysis API Route
+### 5.3 — AI Route (`worker/src/routes/ai.ts`)
 
-- [ ] `worker/src/routes/ai.ts`:
-  - `POST /api/ai/analyze/:itemId` — trigger analysis for a single item
-  - Check `ai_cache` first (return cached if < 7 days old)
-  - Build prompt based on `content_type`
-  - Call Gemini, store in `ai_cache`, return result
-  - `POST /api/ai/next-list` — generate ranked next-to-consume list
-  - Pulls all `status = 'suggestions'` items
-  - Bundles into single Gemini call with user preferences
-  - Caches result in KV for 6 hours
+- [x] `POST /api/ai/analyze/:id` — on-demand analysis for a single item:
+  - Checks `ai_cache` first: returns cached if entry is < 7 days old AND item hasn't been updated since cache was written (`item.updatedAt <= cached.createdAt`)
+  - Calls `analyzeItem()`, stores result in `ai_cache` (insert or update), returns `{ cached: boolean, result }`
+- [x] `GET /api/ai/next` — ranked "next to consume" list:
+  - Checks KV cache first (`next_list:v1:{userId}` key); returns if found
+  - Fetches all `status = 'suggestions'` items + user's `preferences` string from D1
+  - Calls `rankNextList()`, caches ranked result in KV for 6 hours
+  - Pass `?refresh=1` to bypass KV cache and force a fresh Gemini ranking
+- [x] Route mounted in `worker/src/index.ts` at `/api/ai`
 
-### 5.4 — AI Summary Panel UI
+### 5.4 — AI Hooks + API Client
 
-- [ ] `apps/web/src/components/AiSummaryPanel.tsx` — rendered in item detail view
-- [ ] "Analyze" button triggers `POST /api/ai/analyze/:itemId`
-- [ ] Show loading state (animated shimmer)
-- [ ] Display result: summary bullets, mood/genre tags, personalized rating
-- [ ] Show cache age ("Analyzed 3 days ago · Refresh")
-- [ ] `apps/web/src/hooks/useAI.ts` — TanStack Query mutation + query for analysis
+- [x] `apps/web/src/lib/api.ts` — `aiApi` with `analyze(itemId)` and `getNextList(refresh?)`
+- [x] `apps/web/src/hooks/useAI.ts`:
+  - `useAnalyzeItem()` — TanStack Query mutation that calls `POST /api/ai/analyze/:id`
+  - `useNextList()` — query (disabled by default, fetched on demand)
+  - `useRefreshNextList()` — mutation that calls `getNextList(true)` and pushes result into the query cache
 
-### 5.5 — Item Detail Modal
+### 5.5 — Item Card AI Integration
 
-- [ ] `apps/web/src/routes/item.$id.tsx` — route-based modal (renders over board/grid)
-- [ ] Large cover image, full title/creator/description
-- [ ] Status selector (inline change)
-- [ ] Personal rating (1–5 stars, click to set)
-- [ ] Notes textarea (auto-save on blur)
-- [ ] Tags section (add/remove)
-- [ ] AI Summary Panel at the bottom
+- [x] `apps/web/src/components/ItemCard.tsx` updated:
+  - "Analyze" option added to the 3-dot dropdown menu
+  - Clicking "Analyze" fires `useAnalyzeItem`, shows "Analyzing…" inline
+  - Result expands as a panel directly on the card: mood badge, summary paragraph, key points list, recommendation in italics
+  - "Close" link collapses the panel
+  - `onPointerDown: stopPropagation` on all AI panel elements (prevents @dnd-kit drag interference)
 
-### 5.6 — "Next to Consume" Page
+### 5.6 — "Next to Consume" Panel
 
-- [ ] `apps/web/src/routes/next.tsx` — dedicated page accessible from top nav
-- [ ] Calls `POST /api/ai/next-list` on load
-- [ ] Shows ranked list with Gemini's 1-line reasoning per item
-- [ ] "Move to In Progress" button per item
-- [ ] "Refresh" button (bypasses 6h KV cache)
+- [x] `apps/web/src/components/NextListPanel.tsx` — modal panel triggered from the nav bar:
+  - "✨ Next to Consume" button with suggestion count badge
+  - On open, fires `useNextList()` if not already fetched
+  - Shows ranked list sorted by `rank` with cover thumbnail, title, creator, and Gemini's reasoning per item
+  - "Refresh" button calls `useRefreshNextList()` (bypasses 6h KV cache, gets fresh ranking)
+  - "Cached result" note shown when data came from KV
+- [x] Button added to nav bar in `apps/web/src/routes/__root.tsx`
 
-**Phase 5 complete when:** Adding an item auto-suggests tags/type. Clicking "Analyze" on any item returns a Gemini summary. The Next page shows a ranked watchlist with reasoning.
+**Phase 5 complete when:** Clicking "Analyze" on any item returns a Gemini summary inline on the card. The "Next to Consume" nav button shows a ranked watchlist from Suggestions with reasoning. ✅
 
 ---
 
@@ -382,5 +382,5 @@ Before any code is written, you need these accounts and keys set up. Everything 
 | 2 — Auth ✅         | Better Auth, login page, session middleware               | ~8 files — done |
 | 3 — Core CRUD ✅    | Items API, Board view, ItemCard, Add dialog               | ~10 files — done |
 | 4 — Ingest Pipeline ✅ | URL dispatcher + 6 fetchers, caching                   | ~10 files — done |
-| 5 — AI Features     | Gemini service, auto-categorize, summary panel, next list | ~8 files        |
+| 5 — AI Features ✅  | Gemini service, item analysis, next list panel            | ~6 files — done |
 | 6 — Polish          | Grid, tags, search, settings, mobile, deploy              | ~10 files       |

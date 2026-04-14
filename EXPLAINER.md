@@ -860,4 +860,284 @@ The state machine is simple: `mode` is `"url" | "search" | "manual"`. When a fet
 
 ---
 
-*Next section will be added after Phase 5 (AI Features) is complete.*
+---
+
+---
+
+---
+
+# Phase 5 — AI Features
+
+## What Phase 5 Was About
+
+Phase 5 adds three AI-powered capabilities on top of the existing app: on-demand analysis of any item (summary, key points, recommendation), a "Next to Consume" feature that ranks your Suggestions list best-first, and a utility that can automatically categorise an item from its title and description. All AI calls go to Google's Gemini API, which has a free tier of 1,000 requests per day — far more than a personal tracker will ever use.
+
+By the end of Phase 5 we had:
+- A `POST /api/ai/analyze/:id` endpoint that generates a rich summary for any item and caches it for 7 days
+- A `GET /api/ai/next` endpoint that asks Gemini to rank your Suggestions and caches the result in KV for 6 hours
+- An "Analyze" option in every item card's 3-dot menu, with the result expanding inline on the card
+- A "✨ Next to Consume" button in the nav bar that opens a ranked modal panel
+
+---
+
+## The Big Picture: How AI Calls Work
+
+```
+Browser clicks "Analyze" on a card
+    │
+    │  POST /api/ai/analyze/01JQVHZ3B...
+    ▼
+Hono Worker (worker/src/routes/ai.ts)
+    │
+    │  1. Fetch item from D1 (verify it belongs to this user)
+    │  2. Check ai_cache table in D1
+    │     — cached AND < 7 days old AND item not updated since cache? → return immediately
+    │     — otherwise → continue
+    │
+    │  3. Build a content-type-aware prompt
+    │     e.g. for a movie: "Focus on premise, tone, themes, no spoilers..."
+    │
+    │  4. POST to Gemini API
+    ▼
+https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent
+    │
+    │  { summary, key_points[], recommendation, mood }  (structured JSON)
+    ▼
+Worker
+    │  5. INSERT or UPDATE ai_cache row
+    │  6. Return { cached: false, result: { ... } }
+    ▼
+Browser
+    │  Expands inline panel on the ItemCard with the analysis
+```
+
+---
+
+## Part 1: Why Gemini Instead of OpenAI?
+
+Google's Gemini API has a completely free tier: 1,000 requests per day with the `gemini-2.0-flash-lite` model. For a personal content tracker that might make 10–30 AI calls on an active day, this budget is essentially infinite. OpenAI has no meaningful free tier for API usage.
+
+Gemini also supports **structured output** natively. You can pass a JSON schema describing exactly what shape you want the response in, and Gemini guarantees its output matches that schema. This is called "constrained decoding" — Gemini generates tokens that always produce valid JSON matching the schema. No parsing, no "sometimes it returns markdown with JSON inside" surprises.
+
+---
+
+## Part 2: The Gemini Service (`worker/src/services/ai.ts`)
+
+The service file has one private helper and three public functions.
+
+**`callGemini(apiKey, prompt, schema)`**
+
+This is the core function everything else builds on. It makes one HTTPS request to the Gemini API:
+
+```ts
+const res = await fetch(`${GEMINI_BASE}?key=${apiKey}`, {
+  method: "POST",
+  body: JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",  // ← tells Gemini to respond in JSON
+      responseSchema: schema,                // ← the exact shape we want
+      temperature: 0.3,                      // ← lower = more predictable, less creative
+      maxOutputTokens: 1024,
+    },
+  }),
+});
+```
+
+`temperature: 0.3` is a dial between 0 (completely deterministic, always picks the most likely next token) and 1 (more varied and creative). For factual analysis and ranking tasks we want consistency, so 0.3 keeps it grounded.
+
+The response looks like:
+```json
+{
+  "candidates": [{
+    "content": {
+      "parts": [{ "text": "{ \"summary\": \"...\", \"key_points\": [...] }" }]
+    }
+  }]
+}
+```
+
+We dig into `candidates[0].content.parts[0].text` and `JSON.parse` it. Because of structured output the parse never fails.
+
+---
+
+**`categorizeItem(apiKey, item)`**
+
+Given an item's title, description, and URL domain, asks Gemini to confirm or correct its content type:
+
+```
+Classify this content item for a personal media tracker.
+Title: Interstellar
+Description: A team of explorers travel through a wormhole...
+URL domain: themoviedb.org
+Current type assigned by user: movie
+
+Valid content types: book, movie, tv, podcast, youtube, article, tweet
+Return the best matching type, your confidence (0-1), 1-4 short lowercase tags, and suggested status.
+```
+
+Returns: `{ content_type: "movie", confidence: 0.99, suggested_tags: ["sci-fi", "christopher-nolan"], suggested_status: "suggestions" }`
+
+This function is implemented and ready but not yet wired into the item creation flow — Phase 6 will connect it to the tags system (suggested tags need the tags table fully built out first).
+
+---
+
+**`analyzeItem(apiKey, item)`**
+
+Builds a content-type-aware prompt so the analysis is relevant to what the item actually is. A book prompt asks about themes and writing style; a movie prompt asks about tone and cinematography; a podcast prompt asks about host style and episode quality.
+
+```ts
+const TYPE_GUIDE: Record<string, string> = {
+  book:    "Focus on: main themes, writing style, key insights, and who would most enjoy it.",
+  movie:   "Focus on: premise, tone, cinematography, themes (no spoilers).",
+  tv:      "Focus on: premise, pacing, season count/commitment, what makes it worth watching.",
+  podcast: "Focus on: topics covered, host style, episode quality, target audience.",
+  youtube: "Focus on: content type, production quality, creator style.",
+  article: "Focus on: main argument, key takeaways, source credibility, reading time value.",
+  tweet:   "Focus on: the core idea, significance, and context.",
+};
+```
+
+The schema returned:
+```ts
+{
+  summary: string;       // 2-3 sentences
+  key_points: string[];  // 2-4 bullet points
+  recommendation: string; // one sentence
+  mood?: string;         // optional — e.g. "dark sci-fi thriller", "cozy mystery"
+}
+```
+
+`mood` is optional in the schema. For articles and YouTube videos it's usually irrelevant; for movies and books it's a useful one-line vibe indicator.
+
+---
+
+**`rankNextList(apiKey, suggestions, preferences)`**
+
+Takes the full list of Suggestions items and the user's taste preferences (a freeform string they can set in their profile, like "I love hard sci-fi and literary fiction, dislike horror"). Asks Gemini to rank them:
+
+```
+Rank these 12 content items from best to consume next (#1) to last.
+User taste preferences: I love hard sci-fi and literary fiction, dislike horror
+
+Items:
+- [01JQVHZ3...] "Dune" (book by Frank Herbert)
+- [01JQVHZ4...] "Severance" (tv)
+- ...
+
+Return all 12 items ranked. Each needs its exact id, rank number, and a 1-sentence reason.
+```
+
+The structured output schema is an array of `{ id, rank, reason }` objects. Gemini returns all items, ranked, without hallucinating extra ones or dropping any.
+
+---
+
+## Part 3: Caching Strategy
+
+AI calls are expensive (even on the free tier — you have a daily budget). Two levels of caching prevent redundant calls:
+
+### D1 cache for item analysis (`ai_cache` table)
+
+```ts
+const isFresh =
+  cached &&
+  Date.now() - cached.createdAt < CACHE_MAX_AGE_MS &&  // < 7 days old
+  item.updatedAt <= cached.createdAt;                   // item not changed since cache
+```
+
+The second condition is the smart part. If a user edits the item's description or title after it was analysed, the cached analysis is now about an old version of the item. By comparing `item.updatedAt` against `cached.createdAt`, the cache is automatically invalidated when the item changes — no manual "refresh analysis" needed.
+
+If the cache is stale, the worker calls Gemini and then does an **upsert**:
+- If there's an existing cache row: `UPDATE ai_cache SET result = ..., createdAt = ... WHERE id = ...`
+- If there isn't: `INSERT INTO ai_cache ...`
+
+This keeps the `ai_cache` table lean — one row per item per analysis type, never accumulating history.
+
+### KV cache for the "Next" list
+
+The ranked list is cached in **Cloudflare KV** (not D1) for 6 hours. Why KV instead of D1?
+
+D1 is a relational database — good for structured data you need to query and filter. KV is a key-value store — good for caching entire blobs by a simple key. The ranked list is fetched as a complete unit (we always want the whole ranking, never a filtered subset), so KV is the right tool:
+
+```ts
+await c.env.SIRAJHUB_KV.put(
+  `next_list:v1:${userId}`,     // key
+  JSON.stringify(ranked),        // value (the full ranked array as JSON)
+  { expirationTtl: 21600 }       // 6 hours in seconds — KV deletes it automatically
+);
+```
+
+`expirationTtl` is built into KV — you don't need a cron job to clean up old entries. Pass `?refresh=1` to the endpoint to bypass this cache and force a fresh Gemini ranking.
+
+---
+
+## Part 4: The AI Route (`worker/src/routes/ai.ts`)
+
+The AI router follows the same pattern as the items and ingest routers: a separate `new Hono()` mounted at `/api/ai` in `index.ts`.
+
+**Why `POST` for analyze instead of `GET`?**
+`GET` requests are sometimes cached by browsers, CDNs, and proxies. For a request that triggers a potentially expensive AI call and writes to the database, `POST` is semantically correct — it has side effects (the cache write) and should never be cached by intermediaries.
+
+**The `?refresh=1` parameter on `GET /api/ai/next`:**
+Rather than a separate `DELETE /api/ai/next/cache` endpoint, the refresh is just a query parameter on the same `GET`. The logic:
+```ts
+if (!refresh) {
+  const cached = await c.env.SIRAJHUB_KV.get(kvKey, "json");
+  if (cached) return c.json({ cached: true, result: cached });
+}
+// ... fetch fresh from D1 + Gemini
+```
+When `refresh=1`, the KV check is skipped entirely. The fresh result from Gemini overwrites the KV entry, so the next normal request sees the updated ranking.
+
+---
+
+## Part 5: The ItemCard AI Panel
+
+The "Analyze" button is added to the 3-dot dropdown alongside "Archive" and "Delete". When clicked:
+
+1. `setAnalysisOpen(true)` — immediately shows the panel area below the card content
+2. If `analysis` state is `null` (first time), fire `analyzeItem(item.id)` via the mutation
+3. While pending: show "Analyzing…" text
+4. On success: `setAnalysis(data.result)` → the panel fills in with the full analysis
+
+The analysis renders inline, expanding the card downward. This is intentional — showing it in a separate modal would lose the spatial context of which column the item is in. An inline panel keeps everything visible.
+
+**The drag interference problem:**
+All elements inside the analysis panel need `onPointerDown: e.stopPropagation()`. Without this, clicking anywhere inside the panel — including the "Close" button — starts a drag operation through `@dnd-kit`'s pointer event handlers. `stopPropagation()` prevents the event from bubbling up to the draggable wrapper.
+
+---
+
+## Part 6: The "Next to Consume" Panel (`NextListPanel.tsx`)
+
+The panel is a modal overlay, not a full page route. This keeps the interaction lightweight — you click the button, see your ranking, close it, and drag an item straight into "In Progress" without a navigation. The nav button itself shows the suggestion count as a badge so you can see at a glance how many unranked items are waiting.
+
+The `useNextList()` hook is configured with `enabled: false`:
+```ts
+useQuery({
+  queryKey: ["ai-next"],
+  queryFn: () => aiApi.getNextList(),
+  enabled: false,           // don't auto-fetch on mount
+  staleTime: 6 * 60 * 60 * 1000,  // treat as fresh for 6 hours
+})
+```
+
+`enabled: false` means TanStack Query won't fire this query automatically when the component mounts. It only fetches when `refetch()` is called manually (triggered by the panel opening). `staleTime` matches the KV cache TTL — the browser won't re-request if you close and reopen the panel within 6 hours, because the cached data is considered fresh.
+
+The "Refresh" button calls `useRefreshNextList()`, which calls `getNextList(true)` (the `?refresh=1` endpoint) and then does `qc.setQueryData(["ai-next"], data)` to push the fresh result directly into the query cache without a second fetch.
+
+---
+
+## Phase 5 Summary
+
+| What | How | Why |
+|---|---|---|
+| AI model | `gemini-2.0-flash-lite` | Free tier (1,000 req/day), structured output support |
+| Structured output | `responseSchema` in Gemini config | Guarantees valid JSON with the exact shape we need — no parsing fragility |
+| Item analysis | `POST /api/ai/analyze/:id` in Hono | Server-side keeps the API key private; easy to add rate limiting later |
+| Analysis cache | `ai_cache` D1 table, 7-day TTL | Avoids re-calling Gemini on every card open; auto-invalidates when item is edited |
+| Next list cache | Cloudflare KV, 6-hour TTL with `expirationTtl` | KV is the right tool for whole-blob caching; auto-expiry handled by the platform |
+| Stale cache detection | `item.updatedAt <= cached.createdAt` | Analysis automatically refreshes when the item changes, without manual intervention |
+| UI: analyze button | Inline panel on the ItemCard | Keeps spatial context; no navigation needed |
+| UI: next list | Modal panel from nav bar button | Lightweight interaction; doesn't disrupt the board view |
+| Drag safety | `onPointerDown: stopPropagation` on panel elements | Prevents @dnd-kit from treating clicks inside the panel as drag starts |
+| Content-type prompts | Different guide text per `content_type` | The analysis is relevant to what the item actually is, not a generic summary |

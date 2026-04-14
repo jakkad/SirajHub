@@ -2,6 +2,7 @@ import { createRootRoute, Outlet, redirect, useRouter } from "@tanstack/react-ro
 import { useState } from "react";
 import { authClient } from "../lib/auth-client";
 import { AddItemDialog } from "../components/AddItemDialog";
+import { NextListPanel } from "../components/NextListPanel";
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
@@ -67,6 +68,7 @@ function RootLayout() {
           {/* Right side */}
           {user && (
             <div className="flex items-center gap-3">
+              <NextListPanel />
               <button
                 onClick={() => setAddItemOpen(true)}
                 style={{
