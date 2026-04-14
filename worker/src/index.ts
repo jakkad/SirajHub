@@ -4,11 +4,18 @@ import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Allow local Vite dev server to call the Worker API
+// CORS — allow the Vite dev server locally, and your production domain.
+// Add your custom domain here once set (e.g. "https://sirajhub.yourdomain.com").
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  // "https://sirajhub.yourdomain.com",  ← uncomment and fill in Phase 6
+];
+
 app.use(
   "/api/*",
   cors({
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: ALLOWED_ORIGINS,
     credentials: true,
   })
 );
