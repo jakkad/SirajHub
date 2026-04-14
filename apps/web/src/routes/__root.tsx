@@ -1,12 +1,37 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, redirect, useRouter } from "@tanstack/react-router";
+import { authClient } from "../lib/auth-client";
 
 export const Route = createRootRoute({
+  beforeLoad: async ({ location }) => {
+    // Login page is always accessible
+    if (location.pathname === "/login") return;
+
+    const { data: session } = await authClient.getSession();
+    if (!session) {
+      throw redirect({ to: "/login" });
+    }
+
+    return { user: session.user };
+  },
   component: RootLayout,
 });
 
 function RootLayout() {
+  const router = useRouter();
+  const context = Route.useRouteContext();
+  const user = (context as { user?: { name?: string; email?: string } }).user;
+
+  async function handleLogout() {
+    await authClient.signOut();
+    await router.invalidate();
+    router.navigate({ to: "/login" });
+  }
+
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--color-background)", color: "var(--color-foreground)" }}>
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: "var(--color-background)", color: "var(--color-foreground)" }}
+    >
       {/* Top Navigation Bar */}
       <header
         style={{
@@ -39,10 +64,29 @@ function RootLayout() {
             </span>
           </div>
 
-          {/* Right side — placeholder for Phase 2 (auth) + Phase 3 (add button) */}
-          <div style={{ color: "var(--color-muted)", fontSize: 13 }}>
-            Phase 1 — Foundation
-          </div>
+          {/* Right side — user menu */}
+          {user && (
+            <div className="flex items-center gap-3">
+              <span style={{ fontSize: 13, color: "var(--color-muted)" }}>
+                {user.name ?? user.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  padding: "5px 12px",
+                  borderRadius: 6,
+                  border: "1px solid var(--color-border)",
+                  backgroundColor: "transparent",
+                  color: "var(--color-foreground)",
+                  cursor: "pointer",
+                }}
+              >
+                Log out
+              </button>
+            </div>
+          )}
         </div>
       </header>
 

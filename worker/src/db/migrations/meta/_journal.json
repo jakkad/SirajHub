@@ -8,6 +8,13 @@
       "when": 1776173852962,
       "tag": "0000_rare_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776186699658,
+      "tag": "0001_stale_ogun",
+      "breakpoints": true
     }
   ]
 }

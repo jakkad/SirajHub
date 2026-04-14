@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createAuth } from "./auth";
+import { requireAuth } from "./middleware/auth";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -20,6 +22,16 @@ app.use(
   })
 );
 
+// ── Better Auth handler ───────────────────────────────────────────────────────
+// Handles all auth operations: sign-in, sign-up, sign-out, session, etc.
+app.all("/api/auth/*", async (c) => {
+  const auth = createAuth(c.env);
+  return auth.handler(c.req.raw);
+});
+
+// ── Session middleware — all /api/* routes below this require auth ────────────
+app.use("/api/*", requireAuth);
+
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get("/api/health", (c) => {
   return c.json({ ok: true, timestamp: Date.now() });
@@ -29,7 +41,6 @@ app.get("/api/health", (c) => {
 // app.route("/api/items", itemsRouter);
 // app.route("/api/ingest", ingestRouter);
 // app.route("/api/ai", aiRouter);
-// app.route("/auth", authHandler);
 
 export default app;
 
