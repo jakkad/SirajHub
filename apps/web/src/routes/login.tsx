@@ -29,7 +29,7 @@ function LoginPage() {
         const { error: err } = await authClient.signUp.email({
           email,
           password,
-          name: name || email.split("@")[0],
+          name: name || email.split("@")[0] || email,
         });
         if (err) {
           console.error("Sign up error:", err);
