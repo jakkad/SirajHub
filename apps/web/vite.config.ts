@@ -3,10 +3,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   plugins: [
@@ -17,14 +13,10 @@ export default defineConfig({
     }),
     react(),
     tailwindcss(),
-    // Runs the Hono Worker in the Vite dev server via Miniflare
+    // Runs the Hono Worker in the Vite dev server via Miniflare.
+    // configPath is relative to the root where `vite build` / `pnpm dev` runs (apps/web/).
     cloudflare({
-      configPath: path.resolve(__dirname, "../../wrangler.toml"),
+      configPath: "../../wrangler.toml",
     }),
   ],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
 });
