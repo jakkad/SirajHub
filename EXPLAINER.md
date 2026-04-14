@@ -424,4 +424,440 @@ This targets the same SQLite file that the Vite dev server reads from.
 
 ---
 
-*Next section will be added after Phase 3 (Core CRUD) is complete.*
+---
+
+---
+
+# Phase 3 — Core CRUD
+
+## What Phase 3 Was About
+
+Phase 3 is where the app becomes usable. We built the ability to manually add items (books, movies, shows, etc.), see them on a Kanban board organised by status, and drag cards between columns to update their status. Every change persists to D1.
+
+By the end of Phase 3 we had:
+- A full items API (create, read, update, delete)
+- A Kanban board with four columns: Suggestions / In Progress / Finished / Archived
+- Drag-and-drop between columns
+- A modal dialog for adding items manually
+- A shared constants + typed API client layer on the frontend
+
+---
+
+## The Big Picture: Data Flow for an Item
+
+```
+User fills out Add Item dialog
+    │
+    │  POST /api/items  { title, contentType, status, ... }
+    ▼
+Hono Worker
+    │  requireAuth middleware: confirm session cookie is valid
+    │  createDb(env.DB): get a Drizzle connection
+    │  db.insert(items).values({ id: ulid(), userId, ... })
+    ▼
+Cloudflare D1 (SQLite)
+    │  Row written to `items` table
+    ▼
+Worker returns the new row as JSON (201 Created)
+    │
+    ▼
+TanStack Query invalidates the "items" cache
+    │
+    ▼
+useItems() re-fetches → BoardView re-renders with the new card
+```
+
+---
+
+## Part 1: The Items API (`worker/src/routes/items.ts`)
+
+The items router is a self-contained Hono sub-app that gets mounted at `/api/items` in `index.ts`.
+
+**Why a sub-app instead of inline routes?**
+As the Worker grows it would get unwieldy to define every route in `index.ts`. Hono lets you create a small `new Hono()` in a separate file and mount it at a path prefix with `app.route(...)`. The sub-app doesn't know or care what prefix it's mounted at — it just defines `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id`.
+
+**The four routes:**
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET /api/items` | list | Returns all items for the logged-in user, optionally filtered by `?status=` or `?content_type=` |
+| `POST /api/items` | create | Inserts a new item row; generates a ULID for the id, sets `createdAt`/`updatedAt` to `Date.now()` |
+| `PATCH /api/items/:id` | update | Updates any subset of fields; verifies the item belongs to the current user before touching it |
+| `DELETE /api/items/:id` | delete | Hard-deletes the row after verifying ownership |
+
+**What is a ULID?**
+A ULID (Universally Unique Lexicographically Sortable Identifier) is like a UUID but it encodes a timestamp in the first part. That means items sort chronologically when sorted by ID, which is useful for ordering. Example: `01JQVHZ3B4KRNM2P5QGWXY8D7F`.
+
+**Security: user scoping**
+Every query that touches an item includes `eq(items.userId, userId)` in its WHERE clause. This means a user can never read, update, or delete another user's items — even if they somehow know the item's ID. The `userId` always comes from the session (injected by the auth middleware), never from the request body.
+
+**The update field allowlist:**
+Rather than passing the raw request body directly to Drizzle's `update().set()`, the PATCH handler explicitly loops over an allowlist of column names and only includes them in the update. This prevents a crafty client from trying to overwrite fields like `userId` or `createdAt`.
+
+---
+
+## Part 2: Shared Constants and Typed API Layer
+
+**`apps/web/src/lib/constants.ts`**
+The list of content types (book, movie, tv, etc.) and statuses (suggestions, in_progress, finished, archived) were previously defined inline in `routes/index.tsx`. They're now extracted to a central constants file so `BoardView`, `ItemCard`, `AddItemDialog`, and any future component all reference the same source of truth.
+
+```ts
+export const CONTENT_TYPES = [
+  { id: "book", label: "Book", color: "var(--color-book)", icon: "📚" },
+  // ...
+] as const;
+```
+
+The `as const` tells TypeScript to infer the exact string literals (e.g. `"book"`) rather than the wider `string` type. This makes `ContentTypeId = typeof CONTENT_TYPES[number]["id"]` a union type `"book" | "movie" | "tv" | ...` that TypeScript enforces everywhere.
+
+**`apps/web/src/lib/api.ts`**
+This file defines:
+1. The `Item` interface — the shape of a row from the `items` table, typed on the frontend
+2. The `itemsApi` object — thin wrappers around `fetch` for each CRUD operation
+
+The `request<T>()` helper that powers all four functions:
+- Always sends `Content-Type: application/json` and `credentials: "include"` (so the session cookie is sent)
+- On non-OK responses, parses the JSON error message and throws it as an `Error` — this lets TanStack Query and the UI display meaningful error messages
+
+**`apps/web/src/hooks/useItems.ts`**
+Four TanStack Query hooks that the UI components import. Each mutation hook (`useCreateItem`, `useUpdateItem`, `useDeleteItem`) calls `qc.invalidateQueries({ queryKey: ["items"] })` on success, which tells TanStack Query to re-fetch the items list. This is the standard TanStack Query pattern for keeping the UI in sync after a mutation.
+
+---
+
+## Part 3: The Board View (`apps/web/src/components/BoardView.tsx`)
+
+The board is a four-column Kanban layout. Items are fetched once with `useItems()`, then grouped into columns with `useMemo()`:
+
+```ts
+const byStatus = useMemo(() => {
+  const map = { suggestions: [], in_progress: [], finished: [], archived: [] };
+  for (const item of items) map[item.status].push(item);
+  // sort each column by position then createdAt
+  return map;
+}, [items]);
+```
+
+`useMemo` re-runs this grouping only when `items` changes — not on every render. For large lists this is a meaningful optimisation.
+
+**Drag and drop with @dnd-kit**
+
+`@dnd-kit` is the drag-and-drop library. It has three packages at play here:
+
+| Package | What it provides |
+|---|---|
+| `@dnd-kit/core` | `DndContext`, `useDraggable`, `useDroppable`, `DragOverlay`, sensor system |
+| `@dnd-kit/sortable` | Installed and available for within-column reordering (Phase 6) |
+| `@dnd-kit/utilities` | CSS transform helpers |
+
+The interaction model:
+
+1. **`DndContext`** wraps the entire board. It orchestrates all drag events.
+2. **`PointerSensor`** with `activationConstraint: { distance: 6 }` — the drag doesn't activate until the pointer has moved 6px. Without this, clicking a button inside a card would briefly trigger a drag.
+3. **`useDroppable({ id: statusId })`** on each column — the column registers itself as a valid drop target. `isOver` becomes `true` while a card is being held over that column, enabling the highlight.
+4. **`useDraggable({ id: item.id })`** on each card — spreads `listeners` (pointer event handlers) and `attributes` (ARIA attributes) onto the wrapper div. `isDragging` is `true` for the original card while it's being dragged.
+5. **`DragOverlay`** renders a "ghost" copy of the dragged card that follows the pointer. The original card turns invisible (`opacity: 0`) while dragging, creating the effect of a card "lifting off" and floating to its destination.
+
+**The `onDragEnd` handler:**
+```ts
+function handleDragEnd({ active, over }) {
+  if (!over) return;                         // dropped outside any column
+  const sourceColumn = findItemColumn(active.id);
+  const destColumn = STATUS_IDS.has(over.id)
+    ? over.id                                // dropped on an empty column area
+    : findItemColumn(over.id);               // dropped on another card → find its column
+  if (sourceColumn !== destColumn) {
+    updateItem({ id: active.id, status: destColumn });
+  }
+}
+```
+
+`over.id` is the ID of whatever droppable element the card was released over. If it's a column ID (one of the four status strings) the card was dropped directly on the column background. If it's a card ID, we look up which column that card is in. Either way we end up with the destination column and call the PATCH mutation.
+
+---
+
+## Part 4: The Item Card (`apps/web/src/components/ItemCard.tsx`)
+
+Each card displays: cover image (or a large emoji icon if no URL), title, creator, a colored content-type badge, and an optional star rating.
+
+**The 3-dot menu:**
+A small `···` button in the top-right corner reveals a dropdown with "Archive" and "Delete". Building this without a component library required two things:
+1. A fixed-position invisible overlay div behind the menu — clicking it closes the menu (the "click outside to close" pattern)
+2. A `onPointerDown: e.stopPropagation()` on both the `···` button and all menu buttons — @dnd-kit activates drag on `pointerdown`, so without stopping propagation, clicking the menu would start a drag instead
+
+---
+
+## Part 5: The Add Item Dialog (`apps/web/src/components/AddItemDialog.tsx`)
+
+A controlled modal dialog built with a fixed-position overlay div. The form state is managed with a single `useState` object reset back to defaults when the dialog closes.
+
+**Where the dialog lives:**
+The dialog and its open/close state live in `__root.tsx` (the persistent layout), not inside `index.tsx`. This means the "+ Add Item" button can live in the nav bar and the dialog works from any page, not just the board view.
+
+**Form submit flow:**
+1. `handleSubmit` calls `createItem(formData, { onSuccess: () => { resetForm(); onClose(); } })`
+2. The `onSuccess` callback fires only after the Worker responds with 201
+3. `useCreateItem` internally calls `qc.invalidateQueries({ queryKey: ["items"] })` on success
+4. TanStack Query re-fetches → the new card appears on the board automatically
+
+---
+
+## Phase 3 Summary
+
+| What | How | Why |
+|---|---|---|
+| Items API | Hono sub-router mounted at `/api/items` | Keeps route files small and focused |
+| IDs | ULIDs from `ulidx` | Sortable by creation time, no DB auto-increment needed |
+| User scoping | `eq(items.userId, userId)` on every query | Prevents users from touching each other's data |
+| Typed frontend | `Item` interface in `api.ts` | One source of truth for the item shape across all components |
+| Shared constants | `lib/constants.ts` | Content types and statuses defined once, used everywhere |
+| Data fetching | TanStack Query + `itemsApi` helpers | Caching, invalidation, and loading states handled automatically |
+| Board layout | CSS grid, 4 equal columns | Simple and responsive without a layout library |
+| Drag and drop | `@dnd-kit/core` | Accessible, pointer-based drag with no Flash-of-Unstyled-Drag |
+| Drag overlay | `DragOverlay` component | Card appears to "lift" during drag rather than stretch in place |
+| Add item dialog | Controlled form in `__root.tsx` | Global nav button works from any page |
+
+---
+
+---
+
+---
+
+# Phase 4 — Ingest Pipeline
+
+## What Phase 4 Was About
+
+Before Phase 4, adding an item meant typing every field by hand. Phase 4 makes that a fallback. Now you paste a URL (or type a title) and the app fetches the metadata automatically — title, cover image, creator, description, release date — from the relevant external service. Results are cached in the database so the same URL never gets re-fetched within 24 hours.
+
+By the end of Phase 4 we had:
+- A `POST /api/ingest` endpoint that accepts a URL or a search query
+- Six metadata fetchers: YouTube, TMDB (movies + TV), Open Library / Google Books, iTunes / Podcast Index, Cloudflare HTMLRewriter article scraper, Twitter oEmbed
+- All fetchers returning the same normalised shape
+- 24-hour result caching in the `url_cache` D1 table
+- An updated Add Item dialog with "Paste URL", "Search by name", and "Manual" modes
+
+---
+
+## The Big Picture: The Ingest Pipeline
+
+```
+Dialog: user pastes  https://www.youtube.com/watch?v=abc123
+                         │
+                         │  POST /api/ingest  { url: "..." }
+                         ▼
+               worker/src/routes/ingest.ts
+                         │
+                         │  1. Check url_cache — was this URL fetched < 24h ago?
+                         │     YES → return cached metadata immediately
+                         │     NO  → continue
+                         │
+                         │  2. dispatch(url, env)
+                         ▼
+             worker/src/services/metadata/index.ts
+             detectFromUrl("youtube.com/watch") → "youtube"
+                         │
+                         │  fetchYouTube(url, env)
+                         ▼
+             YouTube Data API v3
+             videos.list?part=snippet,contentDetails&id=abc123
+                         │
+                         │  { title, channelTitle, thumbnail, duration, ... }
+                         ▼
+             Normalised FetchedMetadata
+             { title, contentType: "youtube", creator, coverUrl, ... }
+                         │
+                         │  3. INSERT OR REPLACE INTO url_cache
+                         │
+                         │  4. Return metadata as JSON
+                         ▼
+             Dialog pre-populates all form fields
+             User edits if needed, clicks "Add Item"
+             → POST /api/items → card appears on board
+```
+
+---
+
+## Part 1: The Normalised Metadata Shape
+
+Every fetcher returns the same interface regardless of source:
+
+```ts
+interface FetchedMetadata {
+  title: string;
+  contentType: "book" | "movie" | "tv" | "podcast" | "youtube" | "article" | "tweet";
+  creator?: string;        // author / director / channel / artist
+  description?: string;
+  coverUrl?: string;       // book cover / movie poster / video thumbnail
+  releaseDate?: string;    // YYYY-MM-DD or YYYY
+  durationMins?: number;   // runtime for movies/videos
+  sourceUrl?: string;      // canonical URL for the item
+  externalId?: string;     // TMDB ID / YouTube video ID / iTunes collection ID
+  metadata?: string;       // JSON blob for type-specific extras (genres, ISBN, etc.)
+}
+```
+
+The `metadata` field is a JSON string because D1/SQLite doesn't have a native JSON column type. It stores type-specific extras (e.g. TMDB genres, iTunes feed URL) that don't warrant their own columns.
+
+---
+
+## Part 2: URL Detection (`services/metadata/index.ts`)
+
+The dispatcher uses simple regex patterns to figure out which fetcher to call:
+
+```ts
+function detectFromUrl(url: string): ContentType {
+  if (/youtube\.com\/watch|youtu\.be\//.test(url))    return "youtube";
+  if (/themoviedb\.org\/movie\//.test(url))            return "movie";
+  if (/themoviedb\.org\/tv\//.test(url))               return "tv";
+  if (/twitter\.com\/.+\/status\/|x\.com\/.+\/status\//.test(url)) return "tweet";
+  if (/goodreads\.com|openlibrary\.org/.test(url))     return "book";
+  if (/podcasts\.apple\.com|anchor\.fm/.test(url))     return "podcast";
+  return "article"; // default — try to scrape OG tags
+}
+```
+
+The fallback to `"article"` means any URL that doesn't match a known pattern gets run through the article scraper. Most pages have OG meta tags now, so this works well for blog posts, news articles, and documentation pages.
+
+For search-by-name requests (no URL), the caller must provide `content_type` so the dispatcher knows which API to query.
+
+---
+
+## Part 3: The Fetchers
+
+### YouTube (`youtube.ts`)
+
+Extracts the video ID from three URL patterns (`?v=`, `youtu.be/`, `/embed/`) then calls:
+
+```
+GET https://www.googleapis.com/youtube/v3/videos
+    ?part=snippet,contentDetails
+    &id=VIDEO_ID
+    &key=YOUTUBE_API_KEY
+```
+
+YouTube returns video duration in **ISO 8601 format**: `PT1H23M45S` (1 hour, 23 minutes, 45 seconds). A small parser converts this to minutes:
+```ts
+function parseDuration(iso: string): number {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  return parseInt(m?.[1] ?? "0") * 60 + parseInt(m?.[2] ?? "0");
+}
+```
+
+### TMDB — Movies and TV (`movies.ts`)
+
+Handles two input shapes:
+1. **TMDB URL** (e.g. `themoviedb.org/movie/157336-interstellar`) — extract the numeric ID and media type directly from the URL
+2. **Title string** — call the search endpoint, take the first result, then fetch its detail page
+
+The poster path from TMDB is a relative path like `/abc123.jpg`. The full URL is constructed with a base: `https://image.tmdb.org/t/p/w500` + the path.
+
+### Books (`books.ts`)
+
+Two-tier lookup:
+
+1. **Open Library** (no API key needed) — searches `openlibrary.org/search.json`, constructs cover URL from `cover_i` field: `https://covers.openlibrary.org/b/id/{cover_i}-L.jpg`
+2. **Google Books API** (fallback) — richer metadata including description, page count, categories
+
+### Podcasts (`podcasts.ts`)
+
+Two-tier lookup:
+
+1. **iTunes Search API** (no auth, simple JSON) — fast and reliable for well-known podcasts
+2. **Podcast Index** (fallback) — requires a SHA-1 auth header
+
+The Podcast Index uses an unusual auth scheme: instead of HMAC, they want a plain SHA-1 of the concatenated string `apiKey + apiSecret + unixTimestamp`. Cloudflare Workers have the Web Crypto API built in, so no external crypto library is needed:
+
+```ts
+async function sha1Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+```
+
+`crypto.subtle.digest` is asynchronous (returns a Promise). The `padStart(2, "0")` ensures each byte is always two hex characters (e.g. `0a` not just `a`).
+
+### Articles (`articles.ts`)
+
+The article scraper uses **Cloudflare HTMLRewriter** — a streaming HTML parser built directly into the Workers runtime. Unlike loading the entire HTML into memory and using regex, `HTMLRewriter` processes the response as it streams in, firing callbacks when it encounters matching elements:
+
+```ts
+const rewriter = new HTMLRewriter()
+  .on('meta[property="og:title"]', {
+    element(el) { ogTitle = el.getAttribute("content") ?? ""; },
+  })
+  .on('meta[property="og:description"]', {
+    element(el) { ogDesc = el.getAttribute("content") ?? ""; },
+  })
+  // ... more selectors
+```
+
+`HTMLRewriter` uses CSS selectors just like `document.querySelector` in the browser. This approach is memory-efficient, fast, and works correctly even on very large pages.
+
+### Tweets (`tweets.ts`)
+
+The simplest fetcher. Twitter/X provides an **oEmbed** API endpoint that returns ready-made embed HTML for any tweet URL:
+
+```
+GET https://publish.twitter.com/oembed?url=TWEET_URL&omit_script=true
+```
+
+The response includes `html` (the full embed HTML with links, blockquote, etc.) and `author_name`. We strip HTML tags with a simple regex to produce a plain-text description, and try to extract the date from the embed HTML for `releaseDate`.
+
+---
+
+## Part 4: Caching (`routes/ingest.ts`)
+
+Every URL-based request is checked against the `url_cache` table before hitting any external API:
+
+```ts
+const [cached] = await db.select().from(urlCache).where(eq(urlCache.url, url));
+if (cached && Date.now() - cached.fetchedAt < 24 * 60 * 60 * 1000) {
+  return c.json(JSON.parse(cached.metadata));
+}
+```
+
+After a fresh fetch, the result is upserted (inserted or replaced if the URL already exists) using Drizzle's `.onConflictDoUpdate()`:
+
+```ts
+await db.insert(urlCache).values({ url, metadata, fetchedAt, source })
+  .onConflictDoUpdate({ target: urlCache.url, set: { metadata, fetchedAt, source } });
+```
+
+This means the second time you add the same YouTube video, the API response comes back instantly from the local D1 database with no external network call.
+
+---
+
+## Part 5: The Updated Add Item Dialog
+
+The dialog now has three modes:
+
+1. **Paste URL** — type or paste any URL, hit "Fetch". The app auto-detects the content type and calls `POST /api/ingest`. On success, all form fields are pre-populated and the cover image appears as a preview.
+
+2. **Search by name** — pick a content type (book, movie, TV, podcast), type a title, hit "Search". This also calls `POST /api/ingest` with `query` + `content_type` instead of a URL.
+
+3. **Manual** — hides the fetch section entirely and shows a blank form (same as Phase 3).
+
+The state machine is simple: `mode` is `"url" | "search" | "manual"`. When a fetch succeeds, the returned `FetchedMetadata` is mapped directly onto the `form` state object. The user can then edit any field before clicking "Add Item".
+
+---
+
+## Phase 4 Summary
+
+| What | How | Why |
+|---|---|---|
+| Ingest route | `POST /api/ingest` in a Hono sub-router | Keeps all fetching logic server-side (API keys never exposed to client) |
+| URL detection | Regex pattern matching | Simple, fast, zero dependencies |
+| YouTube | YouTube Data API v3 | Official, rich metadata including duration |
+| Movies/TV | TMDB API | Comprehensive metadata, high-quality posters |
+| Books | Open Library (primary) → Google Books (fallback) | Open Library has no rate limits; Google Books covers more obscure titles |
+| Podcasts | iTunes Search (primary) → Podcast Index (fallback) | iTunes covers the mainstream; Podcast Index has a broader catalogue |
+| Articles | Cloudflare HTMLRewriter | Streaming HTML parser built into Workers; handles large pages efficiently |
+| Tweets | Twitter oEmbed API | Free, no auth, officially supported |
+| Caching | `url_cache` D1 table, 24h TTL | Avoids redundant API calls; stays within free-tier rate limits |
+| Auth for Podcast Index | SHA-1 via `crypto.subtle` (Web Crypto API) | No external crypto library needed in Workers |
+| Dialog URL mode | Three-mode UI (`url` / `search` / `manual`) | Fetch is opt-in; manual mode always available as fallback |
+
+---
+
+*Next section will be added after Phase 5 (AI Features) is complete.*

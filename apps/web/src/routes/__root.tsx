@@ -1,15 +1,14 @@
 import { createRootRoute, Outlet, redirect, useRouter } from "@tanstack/react-router";
+import { useState } from "react";
 import { authClient } from "../lib/auth-client";
+import { AddItemDialog } from "../components/AddItemDialog";
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
-    // Login page is always accessible
     if (location.pathname === "/login") return;
 
     const { data: session } = await authClient.getSession();
-    if (!session) {
-      throw redirect({ to: "/login" });
-    }
+    if (!session) throw redirect({ to: "/login" });
 
     return { user: session.user };
   },
@@ -20,6 +19,7 @@ function RootLayout() {
   const router = useRouter();
   const context = Route.useRouteContext();
   const user = (context as { user?: { name?: string; email?: string } }).user;
+  const [addItemOpen, setAddItemOpen] = useState(false);
 
   async function handleLogout() {
     await authClient.signOut();
@@ -32,7 +32,7 @@ function RootLayout() {
       className="min-h-screen"
       style={{ backgroundColor: "var(--color-background)", color: "var(--color-foreground)" }}
     >
-      {/* Top Navigation Bar */}
+      {/* Top Navigation */}
       <header
         style={{
           borderBottom: "1px solid var(--color-border)",
@@ -64,9 +64,24 @@ function RootLayout() {
             </span>
           </div>
 
-          {/* Right side — user menu */}
+          {/* Right side */}
           {user && (
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setAddItemOpen(true)}
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "none",
+                  backgroundColor: "var(--color-accent)",
+                  color: "white",
+                  cursor: "pointer",
+                }}
+              >
+                + Add Item
+              </button>
               <span style={{ fontSize: 13, color: "var(--color-muted)" }}>
                 {user.name ?? user.email}
               </span>
@@ -90,10 +105,11 @@ function RootLayout() {
         </div>
       </header>
 
-      {/* Page content */}
       <main>
         <Outlet />
       </main>
+
+      <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />
     </div>
   );
 }

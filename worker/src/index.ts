@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createAuth } from "./auth";
 import { requireAuth } from "./middleware/auth";
+import itemsRouter from "./routes/items";
+import ingestRouter from "./routes/ingest";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -37,10 +39,9 @@ app.get("/api/health", (c) => {
   return c.json({ ok: true, timestamp: Date.now() });
 });
 
-// ── Future routes will be mounted here ───────────────────────────────────────
-// app.route("/api/items", itemsRouter);
-// app.route("/api/ingest", ingestRouter);
-// app.route("/api/ai", aiRouter);
+// ── API routes ────────────────────────────────────────────────────────────────
+app.route("/api/items", itemsRouter);
+app.route("/api/ingest", ingestRouter);
 
 export default app;
 

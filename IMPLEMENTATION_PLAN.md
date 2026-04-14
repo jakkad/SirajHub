@@ -126,137 +126,135 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 ---
 
-## Phase 3 — Core CRUD
+## Phase 3 — Core CRUD ✅ COMPLETE
 
 > Goal: Manually add items, see them in a Board view, drag between status columns. No auto-fetch yet.
 
 ### 3.1 — Items API Routes
 
-- [ ] `worker/src/routes/items.ts`:
-  - `GET /api/items` — list all items for current user (filter by `status`, `content_type`, `tag` query params)
+- [x] `worker/src/routes/items.ts`:
+  - `GET /api/items` — list all items for current user (filter by `status`, `content_type` query params)
   - `POST /api/items` — create item (manual add, all fields provided by client)
   - `PATCH /api/items/:id` — update item (status, rating, notes, position, any field)
-  - `DELETE /api/items/:id` — soft-delete (set `status = 'archived'`) or hard delete
-- [ ] All routes filter by `user_id` from middleware context
-- [ ] Export Hono app type from `worker/src/index.ts` for RPC client
+  - `DELETE /api/items/:id` — hard delete
+- [x] All routes filter by `user_id` from middleware context
+- [x] `AppType` exported from `worker/src/index.ts`
 
-### 3.2 — Hono RPC Client
+### 3.2 — API Client + Query Hooks
 
-- [ ] `apps/web/src/lib/api.ts` — `hc<AppType>(baseUrl)` typed client
-- [ ] `apps/web/src/hooks/useItems.ts` — TanStack Query hooks: `useItems(filters)`, `useCreateItem()`, `useUpdateItem()`, `useDeleteItem()`
+- [x] `apps/web/src/lib/api.ts` — typed `Item` interface + `itemsApi` fetch helpers (list/create/update/delete)
+- [x] `apps/web/src/lib/constants.ts` — shared `CONTENT_TYPES` and `STATUSES` arrays
+- [x] `apps/web/src/hooks/useItems.ts` — TanStack Query hooks: `useItems(filters)`, `useCreateItem()`, `useUpdateItem()`, `useDeleteItem()`
 
 ### 3.3 — App Shell
 
-- [ ] `apps/web/src/routes/__root.tsx` — persistent layout: top nav bar + main content outlet
-- [ ] Top nav: SirajHub logo, view toggle (Board / Grid), "Add Item" button, user menu (logout)
-- [ ] Filter sidebar (collapsible): filter by content type chips, filter by status (for grid view)
+- [x] `apps/web/src/routes/__root.tsx` — persistent layout: top nav with "+ Add Item" button, logo, user menu (logout)
+- [x] `AddItemDialog` state and render mounted in `__root.tsx` so it's accessible from any page
 
 ### 3.4 — Board View (Kanban)
 
-- [ ] `apps/web/src/components/BoardView.tsx` — 4 columns: Suggestions / In Progress / Finished / Archived
-- [ ] Each column renders a vertical list of `ItemCard` components
-- [ ] Install `@dnd-kit/core` + `@dnd-kit/sortable`
-- [ ] Drag cards between columns → `PATCH /api/items/:id` with new `status` + recalculated `position`
-- [ ] Column headers show item count badge
+- [x] `apps/web/src/components/BoardView.tsx` — 4 columns: Suggestions / In Progress / Finished / Archived
+- [x] Each column renders a vertical list of `ItemCard` components
+- [x] `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` installed
+- [x] Drag cards between columns → `PATCH /api/items/:id` with new `status`; `DragOverlay` for smooth visual
+- [x] Column headers show item count badge; `isOver` highlight when dragging over a column
 
 ### 3.5 — Item Card
 
-- [ ] `apps/web/src/components/ItemCard.tsx` — shadcn `Card` with:
+- [x] `apps/web/src/components/ItemCard.tsx`:
   - Cover image (poster/thumbnail) — fallback to content-type icon
   - Title + creator line
-  - Content type `Badge` (colored per type)
-  - Status `Badge`
-  - 3-dot `DropdownMenu`: Edit, Analyze (disabled for now), Archive, Delete
-- [ ] Skeleton loading state while fetching
+  - Content type badge (colored per type)
+  - Star rating display
+  - 3-dot dropdown menu: Archive, Delete (with confirm dialog)
+  - `onPointerDown` stopPropagation on menu button to prevent drag interference
 
 ### 3.6 — Manual Add Item Dialog
 
-- [ ] `apps/web/src/components/AddItemDialog.tsx` — shadcn `Dialog` triggered by "Add Item" button
-- [ ] Form fields: Title (required), Content Type (select), Status (select, default: Suggestions), Creator, Description, Cover URL, Release Date, Rating, Notes
-- [ ] Submit → `POST /api/items` → close dialog → invalidate items query → show success toast
+- [x] `apps/web/src/components/AddItemDialog.tsx` — triggered by "Add Item" nav button
+- [x] Form fields: Title (required), Content Type (select), Status (select, default: Suggestions), Creator, Description, Cover URL, Release Date, Rating (1–5), Notes, Source URL
+- [x] Submit → `POST /api/items` → close dialog → reset form → invalidate items query
 
-**Phase 3 complete when:** Items can be manually added, appear on the Board, and can be dragged between columns. All changes persist in D1.
+**Phase 3 complete when:** Items can be manually added, appear on the Board, and can be dragged between columns. All changes persist in D1. ✅
 
 ---
 
-## Phase 4 — Ingest Pipeline
+## Phase 4 — Ingest Pipeline ✅ COMPLETE
 
 > Goal: Paste a URL or type a title → metadata auto-populated. Manual add form becomes a fallback.
 
 ### 4.1 — Ingest API Route
 
-- [ ] `worker/src/routes/ingest.ts`:
-  - `POST /api/ingest` — accepts `{ url?: string, query?: string, content_type?: string }`
+- [x] `worker/src/routes/ingest.ts`:
+  - `POST /api/ingest` — accepts `{ url?, query?, content_type? }`
   - Detects content type from URL pattern (or uses provided `content_type`)
   - Calls the appropriate metadata fetcher
-  - Caches result in `url_cache` table (skip fetch if URL already cached and < 24h old)
-  - Returns normalized metadata object (same shape for all types)
+  - Caches result in `url_cache` table with upsert (skip fetch if < 24h old)
+  - Returns normalised `FetchedMetadata` object (same shape for all types)
 
 ### 4.2 — URL Dispatcher
 
-- [ ] `worker/src/services/metadata/index.ts` — pattern matching:
+- [x] `worker/src/services/metadata/index.ts` — pattern matching:
   - `youtube.com/watch` or `youtu.be` → YouTube fetcher
-  - `amazon.com/.*book` or `goodreads.com` or bare ISBN → Books fetcher
-  - `themoviedb.org` or manual type=movie/tv → TMDB fetcher
-  - Podcast RSS URLs (`.xml`, `feeds.`) → Podcast fetcher
-  - `twitter.com` or `x.com` → Tweet fetcher
+  - `goodreads.com`, `openlibrary.org`, `google.com/books` → Books fetcher
+  - `themoviedb.org/movie` or `content_type=movie` → TMDB fetcher
+  - `themoviedb.org/tv` or `content_type=tv` → TMDB fetcher
+  - `podcasts.apple.com`, `anchor.fm`, etc. → Podcast fetcher
+  - `twitter.com/.../status/` or `x.com/.../status/` → Tweet fetcher
   - Everything else → Article OG scraper
 
 ### 4.3 — YouTube Fetcher
 
-- [ ] `worker/src/services/metadata/youtube.ts`
-- [ ] Parse video ID from URL (`?v=` param or `youtu.be/` path)
-- [ ] Call YouTube Data API v3 `videos.list?part=snippet,contentDetails&id=VIDEO_ID`
-- [ ] Return: title, channel name, description, thumbnail URL, duration, published date
+- [x] `worker/src/services/metadata/youtube.ts`
+- [x] Parses video ID from `?v=`, `youtu.be/`, and `/embed/` URL patterns
+- [x] Calls YouTube Data API v3 `videos.list?part=snippet,contentDetails`
+- [x] Parses ISO 8601 duration (PT1H23M45S) into minutes
+- [x] Returns: title, channel name, description, thumbnail URL, duration, published date
 
 ### 4.4 — TMDB Fetcher (Movies + TV)
 
-- [ ] `worker/src/services/metadata/movies.ts`
-- [ ] Search endpoint: `/3/search/multi?query=TITLE` (handles both movie and TV)
-- [ ] Detail endpoint: `/3/movie/ID` or `/3/tv/ID` for full metadata
-- [ ] Return: title, tagline, overview, poster URL, release date, genres, runtime/seasons, rating
+- [x] `worker/src/services/metadata/movies.ts`
+- [x] Extracts TMDB ID from URL or searches by title via `/3/search/{type}`
+- [x] Detail endpoint: `/3/movie/ID` or `/3/tv/ID` for full metadata
+- [x] Returns: title, overview, poster URL, release date, genres, runtime/seasons, TMDB rating
 
 ### 4.5 — Books Fetcher
 
-- [ ] `worker/src/services/metadata/books.ts`
-- [ ] Primary: Open Library `/api/books?bibkeys=ISBN:&format=json&jscmd=data` (no key)
-- [ ] Search: Open Library `/search.json?q=TITLE&fields=title,author_name,cover_i,first_publish_year`
-- [ ] Fallback: Google Books API `/volumes?q=isbn:` or `intitle:`
-- [ ] Return: title, authors, description, cover URL, publish year, page count, ISBN, genres
+- [x] `worker/src/services/metadata/books.ts`
+- [x] Primary: Open Library search (no API key) with cover image from covers.openlibrary.org
+- [x] Fallback: Google Books API with full volume details
+- [x] Returns: title, authors, description, cover URL, publish year, ISBN
 
 ### 4.6 — Podcast Fetcher
 
-- [ ] `worker/src/services/metadata/podcasts.ts`
-- [ ] Primary: Podcast Index API `/api/1.0/search/byterm?q=TITLE` (HMAC auth with key+secret)
-- [ ] Fallback: iTunes Search `https://itunes.apple.com/search?media=podcast&term=TITLE`
-- [ ] If URL is an RSS feed: fetch + parse XML (use `fast-xml-parser`)
-- [ ] Return: show title, description, author, artwork URL, episode count, feed URL
+- [x] `worker/src/services/metadata/podcasts.ts`
+- [x] Primary: iTunes Search API (no auth, JSON)
+- [x] Fallback: Podcast Index API with SHA-1 auth (Web Crypto API, no external libs)
+- [x] Returns: show title, author, artwork URL, episode count, feed URL, genre
 
 ### 4.7 — Article OG Scraper
 
-- [ ] `worker/src/services/metadata/articles.ts`
-- [ ] Fetch the URL with `Accept: text/html` header
-- [ ] Stream only the `<head>` portion (stop reading after `</head>`)
-- [ ] Parse: `og:title`, `og:description`, `og:image`, `og:site_name`, `article:author`, `article:published_time`, `<title>` fallback
-- [ ] Return normalized metadata
+- [x] `worker/src/services/metadata/articles.ts`
+- [x] Uses Cloudflare `HTMLRewriter` (streaming HTML parser built into Workers)
+- [x] Parses: `og:title`, `og:description`, `og:image`, `og:site_name`, `article:author`, `article:published_time`, `<title>` and `meta[name=description]` fallbacks
+- [x] Returns normalised metadata
 
 ### 4.8 — Tweet Fetcher
 
-- [ ] `worker/src/services/metadata/tweets.ts`
-- [ ] Call `https://publish.twitter.com/oembed?url=TWEET_URL`
-- [ ] Return: author name, tweet text (from HTML embed), timestamp, embed HTML
+- [x] `worker/src/services/metadata/tweets.ts`
+- [x] Calls `https://publish.twitter.com/oembed`
+- [x] Strips HTML tags from embed to produce plain-text description
+- [x] Returns: author name, tweet text, embed HTML (in metadata JSON), date
 
 ### 4.9 — Add Item Dialog — URL Mode
 
-- [ ] Update `AddItemDialog.tsx`:
-  - New first step: URL input field with "Fetch" button
-  - On fetch: call `POST /api/ingest`, show loading skeleton
-  - Pre-populate form fields from returned metadata
-  - User can edit any field before saving
-  - Manual mode toggle (skip URL, fill manually) remains available
-- [ ] Show content type badge auto-detected from URL
+- [x] `AddItemDialog.tsx` updated with three modes: "Paste URL", "Search by name", "Manual"
+- [x] URL / search → calls `POST /api/ingest`, shows "Fetching…" state
+- [x] Pre-populates all form fields from returned metadata (user can edit before saving)
+- [x] Cover image preview rendered alongside the title field when a cover URL is fetched
+- [x] "Skip — fill in manually" link always available
 
-**Phase 4 complete when:** Pasting a YouTube URL, TMDB movie URL, book title, or article URL auto-fills title, cover, description, and creator. Metadata is cached — second fetch of same URL is instant.
+**Phase 4 complete when:** Pasting a YouTube URL, TMDB movie URL, book title, or article URL auto-fills title, cover, description, and creator. Metadata is cached — second fetch of same URL is instant. ✅
 
 ---
 
@@ -382,7 +380,7 @@ Before any code is written, you need these accounts and keys set up. Everything 
 | ------------------- | --------------------------------------------------------- | --------------- |
 | 1 — Foundation ✅   | Monorepo, Worker skeleton, D1 schema, React scaffold, CI  | 28 files — done |
 | 2 — Auth ✅         | Better Auth, login page, session middleware               | ~8 files — done |
-| 3 — Core CRUD       | Items API, Board view, ItemCard, Add dialog               | ~12 files       |
-| 4 — Ingest Pipeline | URL dispatcher + 6 fetchers, caching                      | ~10 files       |
+| 3 — Core CRUD ✅    | Items API, Board view, ItemCard, Add dialog               | ~10 files — done |
+| 4 — Ingest Pipeline ✅ | URL dispatcher + 6 fetchers, caching                   | ~10 files — done |
 | 5 — AI Features     | Gemini service, auto-categorize, summary panel, next list | ~8 files        |
 | 6 — Polish          | Grid, tags, search, settings, mobile, deploy              | ~10 files       |

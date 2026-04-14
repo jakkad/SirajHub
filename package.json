@@ -8,7 +8,7 @@
     "deploy": "pnpm build && wrangler deploy --config apps/web/dist/sirajhub/wrangler.json",
     "db:generate": "pnpm --filter worker db:generate",
     "db:migrate:local": "wrangler d1 migrations apply sirajhub-db --local --persist-to ./apps/web/.wrangler/state",
-    "db:migrate": "wrangler d1 migrations apply sirajhub-db",
+    "db:migrate": "wrangler d1 migrations apply sirajhub-db --remote",
     "typecheck": "pnpm --filter worker typecheck && pnpm --filter web typecheck"
   },
   "devDependencies": {

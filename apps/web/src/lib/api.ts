@@ -1,0 +1,115 @@
+import type { ContentTypeId, StatusId } from "./constants";
+
+// ── Item type (mirrors DB schema) ─────────────────────────────────────────────
+
+export interface Item {
+  id: string;
+  userId: string;
+  contentType: ContentTypeId;
+  status: StatusId;
+  title: string;
+  subtitle: string | null;
+  creator: string | null;
+  description: string | null;
+  coverUrl: string | null;
+  releaseDate: string | null;
+  durationMins: number | null;
+  sourceUrl: string | null;
+  externalId: string | null;
+  metadata: string | null;
+  position: number | null;
+  rating: number | null;
+  notes: string | null;
+  startedAt: number | null;
+  finishedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CreateItemInput {
+  title: string;
+  contentType: ContentTypeId;
+  status?: StatusId;
+  creator?: string;
+  description?: string;
+  coverUrl?: string;
+  releaseDate?: string;
+  rating?: number;
+  notes?: string;
+  sourceUrl?: string;
+}
+
+export type UpdateItemInput = Partial<
+  Pick<Item,
+    | "title" | "contentType" | "status" | "creator" | "description"
+    | "coverUrl" | "releaseDate" | "rating" | "notes" | "position"
+    | "startedAt" | "finishedAt"
+  >
+>;
+
+// ── Fetch helper ──────────────────────────────────────────────────────────────
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(path, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
+// ── Ingest / metadata fetch ───────────────────────────────────────────────────
+
+export interface FetchedMetadata {
+  title: string;
+  contentType: ContentTypeId;
+  creator?: string;
+  description?: string;
+  coverUrl?: string;
+  releaseDate?: string;
+  durationMins?: number;
+  sourceUrl?: string;
+  externalId?: string;
+  metadata?: string;
+}
+
+export const ingestApi = {
+  fetch(input: {
+    url?: string;
+    query?: string;
+    content_type?: ContentTypeId;
+  }): Promise<FetchedMetadata> {
+    return request<FetchedMetadata>("/api/ingest", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+};
+
+// ── Items API ─────────────────────────────────────────────────────────────────
+
+export const itemsApi = {
+  list(filters?: { status?: StatusId; content_type?: ContentTypeId }): Promise<Item[]> {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.content_type) params.set("content_type", filters.content_type);
+    const qs = params.toString();
+    return request<Item[]>(`/api/items${qs ? `?${qs}` : ""}`);
+  },
+
+  create(data: CreateItemInput): Promise<Item> {
+    return request<Item>("/api/items", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  update(id: string, data: UpdateItemInput): Promise<Item> {
+    return request<Item>(`/api/items/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  },
+
+  delete(id: string): Promise<{ ok: boolean }> {
+    return request<{ ok: boolean }>(`/api/items/${id}`, { method: "DELETE" });
+  },
+};
