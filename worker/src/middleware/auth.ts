@@ -13,7 +13,7 @@ export const requireAuth = createMiddleware<{
   Bindings: Env;
   Variables: Variables;
 }>(async (c, next) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(c.env, c.req.raw);
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
 
   if (!session) {

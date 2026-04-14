@@ -27,7 +27,7 @@ app.use(
 // ── Better Auth handler ───────────────────────────────────────────────────────
 // Handles all auth operations: sign-in, sign-up, sign-out, session, etc.
 app.all("/api/auth/*", async (c) => {
-  const auth = createAuth(c.env);
+  const auth = createAuth(c.env, c.req.raw);
   return auth.handler(c.req.raw);
 });
 
