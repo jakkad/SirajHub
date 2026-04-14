@@ -27,8 +27,15 @@ app.use(
 // ── Better Auth handler ───────────────────────────────────────────────────────
 // Handles all auth operations: sign-in, sign-up, sign-out, session, etc.
 app.all("/api/auth/*", async (c) => {
-  const auth = createAuth(c.env, c.req.raw);
-  return auth.handler(c.req.raw);
+  try {
+    const auth = createAuth(c.env, c.req.raw);
+    return await auth.handler(c.req.raw);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[auth error]", message, stack);
+    return c.json({ error: message, stack }, 500);
+  }
 });
 
 // ── Session middleware — all /api/* routes below this require auth ────────────
