@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+/* ── SirajHub Design Tokens ──────────────────────────────────────────────── */
+@theme {
+  /* Dark palette — OKLCH for perceptually uniform colors */
+  --color-background:    oklch(12% 0.01 240);
+  --color-surface:       oklch(16% 0.012 240);
+  --color-surface-hover: oklch(19% 0.012 240);
+  --color-border:        oklch(26% 0.012 240);
+  --color-border-subtle: oklch(22% 0.01 240);
+
+  /* Text */
+  --color-foreground:    oklch(92% 0 0);
+  --color-muted:         oklch(60% 0.01 240);
+  --color-muted-hover:   oklch(72% 0.01 240);
+
+  /* Accent — indigo/violet */
+  --color-accent:        oklch(65% 0.18 260);
+  --color-accent-hover:  oklch(70% 0.20 260);
+  --color-accent-subtle: oklch(30% 0.08 260);
+
+  /* Content-type badge colors */
+  --color-book:          oklch(68% 0.15 150);   /* green */
+  --color-movie:         oklch(68% 0.18 30);    /* orange */
+  --color-tv:            oklch(68% 0.17 280);   /* purple */
+  --color-podcast:       oklch(68% 0.16 20);    /* red */
+  --color-youtube:       oklch(62% 0.20 25);    /* youtube red */
+  --color-article:       oklch(68% 0.12 200);   /* teal */
+  --color-tweet:         oklch(65% 0.14 220);   /* sky blue */
+
+  /* Status colors */
+  --color-suggestions:   oklch(68% 0.12 240);
+  --color-in-progress:   oklch(72% 0.16 80);    /* amber */
+  --color-finished:      oklch(68% 0.15 150);   /* green */
+  --color-archived:      oklch(55% 0.01 240);   /* grey */
+
+  /* Radius */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* ── Base Styles ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
+}
+
+/* ── Focus ring ──────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

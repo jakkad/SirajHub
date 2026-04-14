@@ -1,0 +1,33 @@
+name = "sirajhub"
+main = "worker/src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./apps/web/dist"
+not_found_handling = "single-page-application"
+
+# ── Cloudflare D1 (SQLite database) ──────────────────────────────────────────
+# Run: wrangler d1 create sirajhub-db
+# Then replace the database_id below with the output ID.
+[[d1_databases]]
+binding = "DB"
+database_name = "sirajhub-db"
+database_id = "REPLACE_WITH_REAL_D1_ID"
+migrations_dir = "worker/src/db/migrations"
+
+# ── Cloudflare KV (session cache + URL metadata cache) ───────────────────────
+# Run: wrangler kv namespace create SIRAJHUB_KV
+# Then replace the id below with the output ID.
+[[kv_namespaces]]
+binding = "SIRAJHUB_KV"
+id = "REPLACE_WITH_REAL_KV_ID"
+
+# ── Secrets (set via: wrangler secret put SECRET_NAME) ───────────────────────
+# GEMINI_API_KEY
+# TMDB_API_KEY
+# YOUTUBE_API_KEY
+# GOOGLE_BOOKS_API_KEY
+# PODCAST_INDEX_KEY
+# PODCAST_INDEX_SECRET
+# AUTH_SECRET

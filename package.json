@@ -1,0 +1,20 @@
+{
+  "name": "sirajhub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "deploy": "pnpm build && wrangler deploy",
+    "db:generate": "pnpm --filter worker db:generate",
+    "db:migrate:local": "wrangler d1 migrations apply sirajhub-db --local",
+    "db:migrate": "wrangler d1 migrations apply sirajhub-db",
+    "typecheck": "pnpm --filter worker typecheck && pnpm --filter web typecheck"
+  },
+  "devDependencies": {
+    "wrangler": "^4.82.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "workerd", "sharp"]
+  }
+}
