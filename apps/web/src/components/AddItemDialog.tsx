@@ -92,7 +92,7 @@ export function AddItemDialog({ open, onClose }: Props) {
   }
 
   const error = fetchError ?? saveError;
-  const formReady = form.title !== "" || mode === "manual";
+  const formReady = form.title !== "";
 
   if (!open) return null;
 

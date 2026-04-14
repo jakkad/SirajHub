@@ -31,11 +31,12 @@ export function BoardView() {
     const map: Record<string, Item[]> = {};
     for (const s of STATUSES) map[s.id] = [];
     for (const item of items) {
-      if (map[item.status]) map[item.status].push(item);
+      const col = map[item.status];
+      if (col) col.push(item);
     }
     // Sort within each column by position then createdAt
     for (const key of Object.keys(map)) {
-      map[key].sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.createdAt - b.createdAt);
+      map[key]?.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.createdAt - b.createdAt);
     }
     return map;
   }, [items]);
