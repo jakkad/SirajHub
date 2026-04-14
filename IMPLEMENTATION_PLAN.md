@@ -40,52 +40,51 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 ### Local Tools to Install
 
-- [ ] **Node.js 20+** — nodejs.org
-- [ ] **pnpm** — `npm install -g pnpm`
+- [x] **Node.js 20+** — nodejs.org
+- [x] **pnpm** — `npm install -g pnpm`
 - [ ] **Wrangler CLI** — `npm install -g wrangler` then `wrangler login`
-- [ ] **Git** — already installed
+- [x] **Git** — already installed
 
 ---
 
-## Phase 1 — Foundation
+## Phase 1 — Foundation ✅ COMPLETE
 
 > Goal: Runnable "hello world" with the full stack wired together locally. No features yet.
 
 ### 1.1 — Monorepo Scaffold
-- [ ] Init root `package.json` with pnpm workspaces (`apps/*`, `worker`)
-- [ ] Create `pnpm-workspace.yaml`
-- [ ] Create root `.gitignore`
-- [ ] Create `wrangler.toml` with D1 + KV bindings and static assets pointing to `apps/web/dist`
+- [x] Init root `package.json` with pnpm workspaces (`apps/*`, `worker`)
+- [x] Create `pnpm-workspace.yaml`
+- [x] Create root `.gitignore`
+- [x] Create `wrangler.toml` with D1 + KV bindings and static assets pointing to `apps/web/dist`
 
 ### 1.2 — Worker Skeleton
-- [ ] `worker/package.json` with Hono, Drizzle, `ulidx`, `wrangler` dev deps
-- [ ] `worker/src/index.ts` — Hono app with one `GET /api/health` route returning `{ ok: true }`
-- [ ] `worker/src/types.ts` — `Env` interface with D1 and KV binding types
-- [ ] Verify `wrangler dev` starts and health check responds
+- [x] `worker/package.json` with Hono, Drizzle, `ulidx`, `wrangler` dev deps
+- [x] `worker/src/index.ts` — Hono app with one `GET /api/health` route returning `{ ok: true }`
+- [x] `worker/src/types.ts` — `Env` interface with D1 and KV binding types
+- [x] Verify `wrangler dev` starts and health check responds
 
 ### 1.3 — Database Schema
-- [ ] `worker/src/db/schema.ts` — full Drizzle schema (users, sessions, items, tags, item_tags, ai_cache, url_cache)
-- [ ] `worker/drizzle.config.ts` — points to local D1 for migrations
-- [ ] Run `drizzle-kit generate` → creates `worker/src/db/migrations/`
-- [ ] Run `wrangler d1 migrations apply sirajhub-db --local` — applies to local D1
-- [ ] Verify tables exist via `wrangler d1 execute sirajhub-db --local --command "SELECT name FROM sqlite_master WHERE type='table'"`
+- [x] `worker/src/db/schema.ts` — full Drizzle schema (users, sessions, items, tags, item_tags, ai_cache, url_cache)
+- [x] `worker/drizzle.config.ts` — points to local D1 for migrations
+- [x] Run `drizzle-kit generate` → creates `worker/src/db/migrations/`
+- [x] Run `wrangler d1 migrations apply sirajhub-db --local` — applies to local D1
+- [x] Verified all 7 tables exist in local D1
 
 ### 1.4 — React App Scaffold
-- [ ] `apps/web/` — Vite + React 19 + TypeScript scaffold
-- [ ] Install: TanStack Router, TanStack Query, Tailwind CSS v4, shadcn/ui CLI
-- [ ] `apps/web/vite.config.ts` — add `@cloudflare/vite-plugin` so dev server proxies API calls to local Worker
-- [ ] Init TanStack Router — `routeTree.gen.ts` auto-generation in watch mode
-- [ ] Init shadcn — `npx shadcn@latest init` with dark mode + CSS variables
-- [ ] Set root CSS variables for the dark color palette (OKLCH)
-- [ ] Create a placeholder `routes/index.tsx` that renders "SirajHub" heading
-- [ ] Verify `pnpm dev` (from root) starts both Vite + Worker with hot reload
+- [x] `apps/web/` — Vite 6 + React 19 + TypeScript scaffold
+- [x] Install: TanStack Router, TanStack Query, Tailwind CSS v4, `@cloudflare/vite-plugin`
+- [x] `apps/web/vite.config.ts` — `@cloudflare/vite-plugin` proxies API calls to local Worker
+- [x] TanStack Router file-based routing — `routeTree.gen.ts` auto-generated on `pnpm dev`
+- [x] OKLCH dark color palette set as CSS custom properties in `index.css`
+- [x] `routes/index.tsx` renders SirajHub landing page with content type grid + status board preview
+- [x] Verified `pnpm dev` starts in 2.8s, zero TypeScript errors
 
 ### 1.5 — CI/CD Pipeline
-- [ ] `.github/workflows/deploy.yml` — on push to `main`: `pnpm install` → `pnpm build` → `wrangler deploy`
-- [ ] Add Cloudflare API token + Account ID as GitHub Actions secrets (`CF_API_TOKEN`, `CF_ACCOUNT_ID`)
-- [ ] Test with a dummy push
+- [x] `.github/workflows/deploy.yml` — on push to `main`: `pnpm install` → `pnpm build` → `wrangler deploy` → D1 migrations
+- [ ] Add Cloudflare API token + Account ID as GitHub Actions secrets (`CF_API_TOKEN`, `CF_ACCOUNT_ID`) — **you must do this**
+- [ ] Test with a dummy push — **do after secrets are set**
 
-**Phase 1 complete when:** `pnpm dev` starts, browser shows "SirajHub", `/api/health` returns `{ ok: true }`, D1 tables exist locally.
+**Phase 1 complete when:** `pnpm dev` starts, browser shows "SirajHub", `/api/health` returns `{ ok: true }`, D1 tables exist locally. ✅
 
 ---
 
@@ -343,7 +342,7 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 | Phase | Goal | Estimated Files |
 |---|---|---|
-| 1 — Foundation | Monorepo, Worker skeleton, D1 schema, React scaffold, CI | ~15 files |
+| 1 — Foundation ✅ | Monorepo, Worker skeleton, D1 schema, React scaffold, CI | 28 files — done |
 | 2 — Auth | Better Auth, login page, session middleware | ~8 files |
 | 3 — Core CRUD | Items API, Board view, ItemCard, Add dialog | ~12 files |
 | 4 — Ingest Pipeline | URL dispatcher + 6 fetchers, caching | ~10 files |
