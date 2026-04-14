@@ -32,9 +32,15 @@ app.all("/api/auth/*", async (c) => {
     return await auth.handler(c.req.raw);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
-    console.error("[auth error]", message, stack);
-    return c.json({ error: message, stack }, 500);
+    console.error("[auth error]", message);
+    return c.json({
+      error: message,
+      debug: {
+        hasAuthSecret: !!c.env.AUTH_SECRET,
+        authSecretLength: c.env.AUTH_SECRET?.length ?? 0,
+        envKeys: Object.keys(c.env as object),
+      },
+    }, 500);
   }
 });
 
