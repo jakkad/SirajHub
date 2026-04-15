@@ -115,18 +115,18 @@ export function ItemDetailPanel({ item, onClose }: Props) {
 
   return (
     <Sheet open={!!item} onOpenChange={(next) => (!next ? onClose() : undefined)}>
-      <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto border-l-2 border-[hsl(var(--border-strong))] bg-card px-0">
-        <SheetHeader className="border-b-2 border-[hsl(var(--border-strong))] px-6 py-5">
-          <SheetTitle className="font-display text-3xl">{currentItem.title}</SheetTitle>
+      <SheetContent side="right" className="w-full max-w-2xl overflow-y-auto border-l border-[hsl(var(--border))] bg-card px-0">
+        <SheetHeader className="border-b border-[hsl(var(--border))] px-6 py-5">
+          <SheetTitle className="text-[2rem]">{currentItem.title}</SheetTitle>
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-6 py-6">
           <div className="flex gap-4">
-            <div className="flex h-40 w-28 shrink-0 items-center justify-center overflow-hidden rounded-[24px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+            <div className="cover-frame flex h-40 w-28 shrink-0 items-center justify-center overflow-hidden rounded-[24px]">
               {currentItem.coverUrl ? (
                 <img src={currentItem.coverUrl} alt={currentItem.title} className="h-full w-full object-cover" />
               ) : (
-                <span className="font-display text-4xl">{contentType?.icon ?? "📄"}</span>
+                <span className="text-4xl">{contentType?.icon ?? "📄"}</span>
               )}
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-3">

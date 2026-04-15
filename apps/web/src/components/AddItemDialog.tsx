@@ -147,84 +147,86 @@ export function AddItemDialog({ open, onClose }: Props) {
         }
       }}
     >
-      <DialogContent className="max-w-4xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] max-w-4xl flex-col overflow-hidden p-0">
+        <DialogHeader className="border-b border-[hsl(var(--border))] px-6 py-5">
           <DialogTitle>Add Item</DialogTitle>
           <DialogDescription>Pull metadata from a link, search by title, or fill everything in manually.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <Card>
-            <CardContent className="flex flex-col gap-5 p-5">
-              <Tabs value={mode} onValueChange={(value) => setMode(value as "url" | "search" | "manual")}>
-                <TabsList className="flex w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
-                  <TabsTrigger value="url" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Paste URL</TabsTrigger>
-                  <TabsTrigger value="search" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Search by Name</TabsTrigger>
-                  <TabsTrigger value="manual" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Manual</TabsTrigger>
-                </TabsList>
-              </Tabs>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+            <div className="flex flex-col gap-6">
+              <Card>
+                <CardContent className="flex flex-col gap-5 p-5">
+                  <Tabs value={mode} onValueChange={(value) => setMode(value as "url" | "search" | "manual")}>
+                    <TabsList className="flex w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
+                      <TabsTrigger value="url" className="border border-[hsl(var(--border))] bg-card shadow-none">Paste URL</TabsTrigger>
+                      <TabsTrigger value="search" className="border border-[hsl(var(--border))] bg-card shadow-none">Search by Name</TabsTrigger>
+                      <TabsTrigger value="manual" className="border border-[hsl(var(--border))] bg-card shadow-none">Manual</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
 
-              {mode === "url" ? (
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Input
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="https://youtube.com/watch?v=... or any URL"
-                  />
-                  <Button type="button" onClick={handleFetch} disabled={fetchDisabled || fetching}>
-                    {fetching ? "Fetching…" : "Fetch"}
-                  </Button>
-                </div>
-              ) : null}
+                  {mode === "url" ? (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <Input
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        placeholder="https://youtube.com/watch?v=... or any URL"
+                      />
+                      <Button type="button" onClick={handleFetch} disabled={fetchDisabled || fetching}>
+                        {fetching ? "Fetching…" : "Fetch"}
+                      </Button>
+                    </div>
+                  ) : null}
 
-              {mode === "search" ? (
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Select value={searchType} onValueChange={(value) => setSearchType(value as ContentTypeId)}>
-                    <SelectTrigger className="sm:w-56">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {CONTENT_TYPES.filter((t) => !["article", "tweet", "youtube"].includes(t.id)).map((type) => (
-                          <SelectItem key={type.id} value={type.id}>
-                            {type.icon} {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    value={queryInput}
-                    onChange={(e) => setQueryInput(e.target.value)}
-                    placeholder="Search by title"
-                  />
-                  <Button type="button" onClick={handleFetch} disabled={fetchDisabled || fetching}>
-                    {fetching ? "Searching…" : "Search"}
-                  </Button>
-                </div>
-              ) : null}
+                  {mode === "search" ? (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <Select value={searchType} onValueChange={(value) => setSearchType(value as ContentTypeId)}>
+                        <SelectTrigger className="sm:w-56">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            {CONTENT_TYPES.filter((t) => !["article", "tweet", "youtube"].includes(t.id)).map((type) => (
+                              <SelectItem key={type.id} value={type.id}>
+                                {type.icon} {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={queryInput}
+                        onChange={(e) => setQueryInput(e.target.value)}
+                        placeholder="Search by title"
+                      />
+                      <Button type="button" onClick={handleFetch} disabled={fetchDisabled || fetching}>
+                        {fetching ? "Searching…" : "Search"}
+                      </Button>
+                    </div>
+                  ) : null}
 
-              {mode === "manual" ? (
-                <p className="text-sm text-muted-foreground">Manual mode skips ingest and lets you fill in everything yourself.</p>
-              ) : null}
+                  {mode === "manual" ? (
+                    <p className="text-sm text-muted-foreground">Manual mode skips ingest and lets you fill in everything yourself.</p>
+                  ) : null}
 
-              {aiTypeHint ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge variant="secondary">AI hint</Badge>
-                  <p className="text-sm text-muted-foreground">Suggested type: {aiTypeHint.label}</p>
-                  <Button type="button" variant="outline" onClick={() => setField("contentType", aiTypeHint.type)}>
-                    Use suggestion
-                  </Button>
-                </div>
-              ) : null}
+                  {aiTypeHint ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Badge variant="secondary">AI hint</Badge>
+                      <p className="text-sm text-muted-foreground">Suggested type: {aiTypeHint.label}</p>
+                      <Button type="button" variant="outline" onClick={() => setField("contentType", aiTypeHint.type)}>
+                        Use suggestion
+                      </Button>
+                    </div>
+                  ) : null}
 
-              {error ? <p className="text-sm text-destructive">{(error as Error).message}</p> : null}
-            </CardContent>
-          </Card>
+                  {error ? <p className="text-sm text-destructive">{(error as Error).message}</p> : null}
+                </CardContent>
+              </Card>
 
-          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <Card>
-              <CardContent className="grid gap-4 p-5">
+              <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                <Card>
+                  <CardContent className="grid gap-4 p-5">
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="Title">
                     <Input value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Title" required />
@@ -296,17 +298,17 @@ export function AddItemDialog({ open, onClose }: Props) {
                 <Field label="Notes">
                   <Textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} placeholder="Private notes" />
                 </Field>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
-            <Card>
-              <CardContent className="flex h-full flex-col gap-4 p-5">
+                <Card>
+                  <CardContent className="flex h-full flex-col gap-4 p-5">
                 <p className="hero-kicker text-xs">Preview</p>
-                <div className="flex h-56 items-center justify-center overflow-hidden rounded-[24px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+                <div className="cover-frame flex h-56 items-center justify-center overflow-hidden rounded-[24px]">
                   {form.coverUrl ? (
                     <img src={form.coverUrl} alt={form.title || "cover"} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="font-display text-5xl">
+                    <span className="text-5xl">
                       {CONTENT_TYPES.find((t) => t.id === form.contentType)?.icon ?? "📄"}
                     </span>
                   )}
@@ -316,23 +318,27 @@ export function AddItemDialog({ open, onClose }: Props) {
                   <Badge variant="secondary">{STATUSES.find((s) => s.id === form.status)?.label ?? form.status}</Badge>
                 </div>
                 <div>
-                  <h3 className="font-display text-3xl leading-none text-foreground">{form.title || "Untitled item"}</h3>
+                  <h3 className="text-3xl font-semibold leading-none tracking-[-0.05em] text-foreground">{form.title || "Untitled item"}</h3>
                   {form.creator ? <p className="mt-2 text-sm text-muted-foreground">{form.creator}</p> : null}
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {form.description || "Metadata will appear here as you fetch it or fill in the form."}
                 </p>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-wrap justify-end gap-3">
+          <div className="shrink-0 border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] px-6 py-4">
+            <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => { reset(); onClose(); }}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving || !form.title.trim()}>
               {saving ? "Saving…" : "Save item"}
             </Button>
+          </div>
           </div>
         </form>
       </DialogContent>

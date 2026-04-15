@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useTags, useItemTags, useAddTagToItem, useRemoveTagFromItem, useCreateTag, TAG_COLORS } from "../hooks/useTags";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface InlineTagManagerProps {
   itemId: string;
@@ -47,108 +49,54 @@ export function InlineTagManager({ itemId, suggestedTags, onSuggestionsApplied }
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      {/* Applied tags */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2">
         {itemTags.map((tag) => (
           <span
             key={tag.id}
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              padding: "3px 10px",
-              borderRadius: 999,
-              background: `${tag.color}28`,
-              color: tag.color,
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-            }}
+            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.05em]"
+            style={{ background: `${tag.color}24`, color: tag.color }}
           >
             {tag.name}
             <button
               onClick={() => removeTag(tag.id)}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: tag.color, fontSize: 14, lineHeight: 1, padding: 0, opacity: 0.7 }}
+              className="p-0 text-[14px] leading-none opacity-70"
+              style={{ background: "transparent", border: "none", cursor: "pointer", color: tag.color }}
             >
               ×
             </button>
           </span>
         ))}
-        <button
-          onClick={() => setPickerOpen((o) => !o)}
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            padding: "3px 10px",
-            borderRadius: 999,
-            border: "1px dashed var(--color-border)",
-            background: "transparent",
-            color: "var(--color-muted)",
-            cursor: "pointer",
-          }}
-        >
+        <Button onClick={() => setPickerOpen((o) => !o)} variant="outline" size="sm">
           + Add tag
-        </button>
+        </Button>
       </div>
 
-      {/* AI-suggested tags */}
       {suggestedTags && suggestedTags.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: "var(--color-muted)", marginRight: 2 }}>AI suggests:</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">AI suggests:</span>
           {suggestedTags
             .filter((name) => !itemTags.some((t) => t.name.toLowerCase() === name.toLowerCase()))
             .map((name) => (
-              <button
-                key={name}
-                onClick={() => handleApplySuggested(name)}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: "2px 9px",
-                  borderRadius: 999,
-                  border: "1px solid var(--color-accent)",
-                  background: "transparent",
-                  color: "var(--color-accent)",
-                  cursor: "pointer",
-                }}
-              >
+              <Button key={name} onClick={() => handleApplySuggested(name)} variant="secondary" size="sm">
                 + {name}
-              </button>
+              </Button>
             ))}
         </div>
       )}
 
-      {/* Tag picker */}
       {pickerOpen && (
-        <div
-          style={{
-            background: "var(--color-background)",
-            border: "1px solid var(--color-border)",
-            borderRadius: 8,
-            padding: 12,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
+        <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
           {allTags.filter((t) => !itemTagIds.has(t.id)).length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+            <div className="mb-3 flex flex-wrap gap-2">
               {allTags
                 .filter((t) => !itemTagIds.has(t.id))
                 .map((tag) => (
                   <button
                     key={tag.id}
                     onClick={() => addTag(tag.id)}
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      padding: "2px 9px",
-                      borderRadius: 999,
-                      border: "none",
-                      background: `${tag.color}28`,
-                      color: tag.color,
-                      cursor: "pointer",
-                    }}
+                    className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.05em]"
+                    style={{ border: "none", background: `${tag.color}24`, color: tag.color, cursor: "pointer" }}
                   >
                     {tag.name}
                   </button>
@@ -156,57 +104,27 @@ export function InlineTagManager({ itemId, suggestedTags, onSuggestionsApplied }
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <input
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleCreateTag(); }}
               placeholder="New tag name…"
-              style={{
-                flex: 1,
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: 6,
-                padding: "5px 9px",
-                fontSize: 12,
-                color: "var(--color-foreground)",
-                outline: "none",
-              }}
+              className="flex-1"
             />
-            <div style={{ display: "flex", gap: 3 }}>
+            <div className="flex gap-2">
               {TAG_COLORS.slice(0, 5).map((c) => (
                 <button
                   key={c.value}
                   onClick={() => setNewTagColor(c.value)}
-                  style={{
-                    width: 16,
-                    height: 16,
-                    borderRadius: "50%",
-                    background: c.value,
-                    border: newTagColor === c.value ? "2px solid white" : "2px solid transparent",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
+                  className="size-5 rounded-full"
+                  style={{ background: c.value, border: newTagColor === c.value ? "2px solid hsl(var(--foreground))" : "2px solid transparent", cursor: "pointer", padding: 0 }}
                 />
               ))}
             </div>
-            <button
-              onClick={handleCreateTag}
-              disabled={!newTagName.trim() || creatingTag}
-              style={{
-                padding: "5px 10px",
-                borderRadius: 6,
-                border: "none",
-                background: "var(--color-accent)",
-                color: "white",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: !newTagName.trim() || creatingTag ? "not-allowed" : "pointer",
-                opacity: !newTagName.trim() || creatingTag ? 0.5 : 1,
-              }}
-            >
+            <Button onClick={handleCreateTag} disabled={!newTagName.trim() || creatingTag} size="sm">
               Create
-            </button>
+            </Button>
           </div>
         </div>
       )}

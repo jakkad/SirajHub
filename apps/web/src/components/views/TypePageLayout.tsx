@@ -37,13 +37,13 @@ export function TypePageLayout({ contentType, title, color, icon, children }: Ty
       <Card>
         <CardContent className="flex flex-col gap-6 p-6">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex size-16 items-center justify-center rounded-[22px] border-2 border-[hsl(var(--border-strong))] bg-card shadow-[4px_4px_0_hsl(var(--shadow-ink))]">
-              <span className="font-display text-4xl">{icon}</span>
+            <div className="flex size-16 items-center justify-center rounded-[22px] bg-secondary shadow-[var(--shadow-subtle)]">
+              <span className="text-4xl">{icon}</span>
             </div>
             <div>
               <p className="hero-kicker mb-1 text-xs">Collection View</p>
               <div className="flex flex-wrap items-center gap-3">
-                <h1 className="font-display text-4xl leading-none" style={{ color }}>{title}</h1>
+                <h1 className="text-[2.5rem] font-semibold leading-none tracking-[-0.05em]" style={{ color }}>{title}</h1>
                 <Badge variant="outline">{allItems.length} saved</Badge>
               </div>
             </div>
@@ -55,7 +55,7 @@ export function TypePageLayout({ contentType, title, color, icon, children }: Ty
                 const count = countByStatus(sf.id);
                 if (sf.id !== "all" && count === 0) return null;
                 return (
-                  <TabsTrigger key={sf.id} value={sf.id} className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))] data-[state=active]:bg-accent">
+                  <TabsTrigger key={sf.id} value={sf.id} className="border border-[hsl(var(--border))] bg-card shadow-none data-[state=active]:bg-secondary">
                     {sf.label} <span className="ml-1 text-muted-foreground">{count}</span>
                   </TabsTrigger>
                 );

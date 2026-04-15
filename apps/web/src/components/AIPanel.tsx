@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useAnalyzeItem, useCategorizeItem } from "../hooks/useAI";
 import type { Item } from "../lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface AIPanelProps {
   item: Item;
@@ -43,101 +45,47 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button
-          onClick={handleAnalyze}
-          disabled={analyzing}
-          style={{
-            padding: "7px 14px",
-            borderRadius: 8,
-            border: "1px solid var(--color-accent)",
-            background: "transparent",
-            color: "var(--color-accent)",
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: analyzing ? "not-allowed" : "pointer",
-            opacity: analyzing ? 0.7 : 1,
-          }}
-        >
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={handleAnalyze} disabled={analyzing} variant="outline" size="sm">
           {analyzing ? "Analyzing…" : "✨ Analyze"}
-        </button>
+        </Button>
 
         {onSuggestTags && (
-          <button
-            onClick={handleSuggestTags}
-            disabled={categorizing}
-            style={{
-              padding: "7px 14px",
-              borderRadius: 8,
-              border: "1px dashed var(--color-accent)",
-              background: "transparent",
-              color: "var(--color-accent)",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: categorizing ? "not-allowed" : "pointer",
-              opacity: categorizing ? 0.7 : 1,
-            }}
-          >
+          <Button onClick={handleSuggestTags} disabled={categorizing} variant="secondary" size="sm">
             {categorizing ? "…" : "Suggest Tags"}
-          </button>
+          </Button>
         )}
       </div>
 
       {analysisError && (
-        <div style={{ fontSize: 12, color: "oklch(65% 0.2 25)", padding: "8px 10px", borderRadius: 8, background: "oklch(18% 0.04 25)", border: "1px solid oklch(30% 0.08 25)" }}>
+        <div className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {analysisError}
         </div>
       )}
 
       {analysis && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {analysis.mood && (
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "3px 10px",
-                borderRadius: 999,
-                background: "var(--color-surface-hover)",
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--color-muted)",
-                width: "fit-content",
-              }}
-            >
-              {analysis.mood}
-            </div>
-          )}
-
+        <div className="flex flex-col gap-4">
+          {analysis.mood ? <Badge variant="secondary" className="w-fit">{analysis.mood}</Badge> : null}
           <div>
             <AiLabel>Summary</AiLabel>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: "var(--color-foreground)" }}>
-              {analysis.summary}
-            </p>
+            <p className="m-0 text-sm leading-7 text-foreground">{analysis.summary}</p>
           </div>
 
           <div>
             <AiLabel>Key Points</AiLabel>
-            <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+            <ul className="flex list-disc flex-col gap-1 pl-4">
               {analysis.key_points.map((pt, i) => (
-                <li key={i} style={{ fontSize: 13, lineHeight: 1.6, color: "var(--color-foreground)" }}>
+                <li key={i} className="text-sm leading-6 text-foreground">
                   {pt}
                 </li>
               ))}
             </ul>
           </div>
 
-          <div
-            style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              background: "oklch(20% 0.04 265 / 0.3)",
-              border: "1px solid oklch(35% 0.08 265 / 0.4)",
-            }}
-          >
+          <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.45)] px-4 py-3">
             <AiLabel>Recommendation</AiLabel>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>{analysis.recommendation}</p>
+            <p className="m-0 text-sm leading-6">{analysis.recommendation}</p>
           </div>
         </div>
       )}
@@ -147,7 +95,7 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
 
 function AiLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+    <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
       {children}
     </div>
   );

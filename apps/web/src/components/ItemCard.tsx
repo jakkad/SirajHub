@@ -44,14 +44,14 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
   }
 
   return (
-    <Card className={isDragging ? "rotate-1" : "transition-transform hover:-translate-y-1"}>
+    <Card className={isDragging ? "rotate-1" : "transition-transform hover:-translate-y-0.5"}>
       <CardContent className="relative flex flex-col gap-3 p-3">
         <div className="absolute top-3 right-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                className="rounded-full border-2 border-[hsl(var(--border-strong))] bg-background p-2 shadow-[2px_2px_0_hsl(var(--shadow-ink))]"
+                className="rounded-full border border-[hsl(var(--border))] bg-card p-2 shadow-[var(--shadow-subtle)]"
               >
                 <MoreHorizontal className="size-4" />
               </button>
@@ -80,11 +80,11 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
           onPointerDown={onTitleClick ? (e) => e.stopPropagation() : undefined}
           className="cursor-pointer"
         >
-          <div className="flex h-28 items-center justify-center overflow-hidden rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+          <div className="cover-frame flex h-28 items-center justify-center overflow-hidden rounded-[20px]">
             {item.coverUrl ? (
               <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
             ) : (
-              <span className="font-display text-4xl">{contentType?.icon ?? "📄"}</span>
+              <span className="text-4xl">{contentType?.icon ?? "📄"}</span>
             )}
           </div>
         </div>
@@ -117,7 +117,7 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
         ) : null}
 
         {analysisOpen ? (
-          <div className="rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-background p-3 shadow-[3px_3px_0_hsl(var(--shadow-ink))]">
+          <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.45)] p-3 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.9)]">
             {analyzing ? <p className="text-xs text-muted-foreground">Analyzing…</p> : null}
             {analyzeError ? <p className="text-xs text-destructive">{(analyzeError as Error).message}</p> : null}
             {analysis ? (

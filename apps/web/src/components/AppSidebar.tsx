@@ -46,21 +46,23 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="offcanvas" className="border-none">
-      <SidebarHeader className="gap-4 p-4">
-        <div className="flex items-center gap-3 rounded-[22px] border-2 border-sidebar-border bg-sidebar-accent px-3 py-3 shadow-[4px_4px_0_hsl(var(--shadow-ink))]">
-          <div className="flex size-12 items-center justify-center rounded-[18px] border-2 border-sidebar-border bg-primary text-primary-foreground shadow-[3px_3px_0_hsl(var(--shadow-ink))]">
-            <span className="font-display text-xl">S</span>
-          </div>
-          <div className="min-w-0">
-            <p className="font-display truncate text-2xl leading-none text-sidebar-foreground">SirajHub</p>
-            <p className="mt-1 text-xs uppercase tracking-[0.24em] text-sidebar-foreground/60">Media Control Room</p>
+      <SidebarHeader className="gap-3 p-4">
+        <div className="rounded-[24px] border border-sidebar-border bg-white/90 px-4 py-4 shadow-[var(--shadow-subtle)]">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-[14px] bg-white text-sidebar-foreground ring-1 ring-sidebar-border">
+              <span className="text-sm font-semibold">S</span>
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-[1.25rem] font-semibold tracking-[-0.05em] text-sidebar-foreground">SirajHub</p>
+              <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/40">Personal media dashboard</p>
+            </div>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Explore</SidebarGroupLabel>
+        <SidebarGroup className="px-4">
+          <SidebarGroupLabel>Library</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.map(({ to, label, icon: Icon, color }) => {
@@ -73,7 +75,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                         <span>{label}</span>
                         {color ? (
                           <span
-                            className="ml-auto size-2.5 rounded-full border border-sidebar-border"
+                            className="ml-auto size-2.5 rounded-full border border-sidebar-border/70"
                             style={{ backgroundColor: color }}
                           />
                         ) : null}
@@ -89,10 +91,10 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
 
       <SidebarFooter className="p-4 pt-2">
         <SidebarSeparator />
-        <div className="flex flex-col gap-3 rounded-[24px] border-2 border-sidebar-border bg-sidebar-accent px-3 py-4 shadow-[4px_4px_0_hsl(var(--shadow-ink))]">
+        <div className="flex flex-col gap-3 rounded-[22px] border border-sidebar-border bg-white/90 px-4 py-3.5 shadow-[var(--shadow-subtle)]">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-display text-xl text-sidebar-foreground">Settings</p>
-            <Badge variant="secondary" className="bg-primary text-primary-foreground">
+            <p className="text-base font-semibold tracking-[-0.04em] text-sidebar-foreground">Workspace</p>
+            <Badge variant="secondary" className="bg-primary/10 text-primary">
               live
             </Badge>
           </div>
@@ -101,7 +103,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
               <SidebarMenuButton asChild isActive={location.pathname === "/settings"}>
                 <Link to="/settings" onClick={onNavigate}>
                   <Settings />
-                  <span>Workspace Preferences</span>
+                  <span>Preferences</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

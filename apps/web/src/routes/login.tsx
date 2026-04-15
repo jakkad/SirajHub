@@ -1,6 +1,10 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { authClient } from "../lib/auth-client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/login")({
   beforeLoad: async () => {
@@ -56,163 +60,113 @@ function LoginPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "var(--color-background)",
-        padding: "1rem",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 400,
-          backgroundColor: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-lg)",
-          padding: "2rem",
-        }}
-      >
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: "1.75rem" }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              backgroundColor: "var(--color-accent)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-              fontSize: 16,
-              color: "white",
-            }}
-          >
-            S
+    <div className="paper-page flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="grid w-full max-w-6xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="soft-panel hidden rounded-[36px] p-10 lg:flex lg:flex-col lg:justify-between">
+          <div>
+            <Badge variant="secondary" className="bg-primary/10 text-primary">SirajHub</Badge>
+            <h1 className="page-title mt-6 max-w-xl">A cleaner home for your reading, watching, and listening queue.</h1>
+            <p className="page-subtitle mt-4 max-w-lg">
+              Keep every saved item in one soft analytics-style workspace with better ranking, metadata, notes, and AI assistance.
+            </p>
           </div>
-          <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "-0.02em" }}>SirajHub</span>
-        </div>
 
-        {/* Title */}
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 6, letterSpacing: "-0.02em" }}>
-          {mode === "signin" ? "Welcome back" : "Create account"}
-        </h1>
-        <p style={{ fontSize: 14, color: "var(--color-muted)", marginBottom: "1.5rem" }}>
-          {mode === "signin"
-            ? "Sign in to your personal content hub."
-            : "Set up your personal content hub."}
-        </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              { label: "Track", value: "7 media types" },
+              { label: "Organize", value: "status + tags" },
+              { label: "Decide", value: "AI ranking" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-[24px] border border-[hsl(var(--border))] bg-white/80 p-5">
+                <p className="metric-label">{item.label}</p>
+                <p className="mt-3 text-lg font-semibold tracking-[-0.04em]">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Card className="mx-auto w-full max-w-md rounded-[32px]">
+          <CardContent className="p-8">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-[16px] bg-primary text-sm font-semibold text-primary-foreground">S</div>
+              <div>
+                <p className="text-lg font-semibold tracking-[-0.04em]">SirajHub</p>
+                <p className="text-xs text-muted-foreground">Personal media dashboard</p>
+              </div>
+            </div>
+
+            <h1 className="text-[1.9rem] font-semibold tracking-[-0.05em]">
+              {mode === "signin" ? "Welcome back" : "Create account"}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {mode === "signin"
+                ? "Sign in to your personal content hub."
+                : "Set up your personal content hub."}
+            </p>
+
+            <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           {mode === "signup" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 500 }}>Name</label>
-              <input
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">Name</label>
+              <Input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your name"
-                style={inputStyle}
               />
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>Email</label>
-            <input
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">Email</label>
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              style={inputStyle}
             />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>Password</label>
-            <input
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium">Password</label>
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
               minLength={8}
-              style={inputStyle}
             />
           </div>
 
           {error && (
-            <p
-              style={{
-                fontSize: 13,
-                color: "oklch(65% 0.2 25)",
-                backgroundColor: "oklch(65% 0.2 25 / 0.1)",
-                padding: "10px 12px",
-                borderRadius: 8,
-                margin: 0,
-              }}
-            >
+            <p className="m-0 rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
             </p>
           )}
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            style={{
-              padding: "10px 0",
-              borderRadius: 8,
-              border: "none",
-              backgroundColor: loading ? "var(--color-muted)" : "var(--color-accent)",
-              color: "white",
-              fontWeight: 600,
-              fontSize: 15,
-              cursor: loading ? "not-allowed" : "pointer",
-              transition: "opacity 0.15s",
-              opacity: loading ? 0.7 : 1,
-            }}
+            className="mt-2"
           >
             {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
-          </button>
+          </Button>
         </form>
 
-        {/* Mode toggle */}
-        <p style={{ textAlign: "center", fontSize: 13, color: "var(--color-muted)", marginTop: "1.25rem" }}>
-          {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
-          <button
-            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--color-accent)",
-              cursor: "pointer",
-              fontWeight: 600,
-              fontSize: 13,
-              padding: 0,
-            }}
-          >
-            {mode === "signin" ? "Create one" : "Sign in"}
-          </button>
-        </p>
+            <p className="mt-5 text-center text-sm text-muted-foreground">
+              {mode === "signin" ? "Don't have an account? " : "Already have an account? "}
+              <button
+                onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); }}
+                className="font-semibold text-primary"
+              >
+                {mode === "signin" ? "Create one" : "Sign in"}
+              </button>
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  padding: "9px 12px",
-  borderRadius: 8,
-  border: "1px solid var(--color-border)",
-  backgroundColor: "var(--color-background)",
-  color: "var(--color-foreground)",
-  fontSize: 14,
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-};

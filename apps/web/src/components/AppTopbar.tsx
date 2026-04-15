@@ -30,26 +30,26 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
     : user?.email?.[0]?.toUpperCase() ?? "?";
 
   return (
-    <header className="sticky top-0 z-30 border-b-2 border-[hsl(var(--border-strong))] bg-[hsl(var(--background)/0.86)] px-4 py-3 backdrop-blur-sm">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 px-4 pt-4 md:px-6">
+      <div className="soft-panel flex items-center gap-3 rounded-[30px] px-4 py-3 backdrop-blur-sm">
         <SidebarTrigger className="md:hidden" />
 
-        <div className="hidden md:flex items-center gap-2">
-          <Badge variant="outline" className="bg-card text-foreground">
-            running live
+        <div className="hidden items-center gap-2 md:flex">
+          <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
+            dashboard
           </Badge>
         </div>
 
         <Button
           variant="outline"
-          className="ml-0 flex h-11 min-w-0 flex-1 items-center justify-between gap-3 px-4 sm:max-w-sm"
+          className="ml-0 flex h-11 min-w-0 flex-1 items-center justify-between gap-3 border-[hsl(var(--border))] bg-[hsl(var(--input))] px-4 shadow-none sm:max-w-md"
           onClick={onSearchOpen}
         >
           <span className="flex items-center gap-2 truncate">
             <Search data-icon="inline-start" />
             Search your library
           </span>
-          <kbd className="hidden rounded-full border border-[hsl(var(--border-strong))] bg-background px-2 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline-flex">
+          <kbd className="hidden rounded-full border border-[hsl(var(--border))] bg-white px-2 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline-flex">
             CMD K
           </kbd>
         </Button>
@@ -57,7 +57,7 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
         <div className="ml-auto flex items-center gap-2">
           <Button
             onClick={onAddItem}
-            variant="secondary"
+            variant="default"
             className="gap-2"
           >
             <Plus data-icon="inline-start" />
@@ -68,9 +68,9 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                  <Avatar className="size-11 cursor-pointer border-2 border-[hsl(var(--border-strong))] shadow-[3px_3px_0_hsl(var(--shadow-ink))]">
+                  <Avatar className="size-11 cursor-pointer border border-[hsl(var(--border))] shadow-[var(--shadow-subtle)]">
                     <AvatarFallback
-                      className="bg-primary text-sm font-semibold text-primary-foreground"
+                      className="bg-secondary text-sm font-semibold text-secondary-foreground"
                     >
                       {initials}
                     </AvatarFallback>
@@ -79,7 +79,7 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <div className="px-2 py-1.5">
-                  <p className="font-display text-xl truncate">{user.name ?? "User"}</p>
+                  <p className="truncate text-lg font-semibold tracking-[-0.04em]">{user.name ?? "User"}</p>
                   <p className="text-xs text-muted-foreground truncate">{user.email}</p>
                 </div>
                 <DropdownMenuSeparator />

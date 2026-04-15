@@ -20,26 +20,29 @@ const TYPE_ROUTES: Record<string, string> = {
 
 export function TypeStats({ items }: TypeStatsProps) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
       {CONTENT_TYPES.map((ct) => {
         const count = items.filter((i) => i.contentType === ct.id).length;
         const route = TYPE_ROUTES[ct.id] ?? "/";
         return (
           <Link key={ct.id} to={route as "/"} className="block no-underline">
-            <Card className="h-full transition-transform hover:-translate-y-1">
-              <CardContent className="flex h-full flex-col gap-4 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="font-display text-4xl">{ct.icon}</span>
-                  <Badge variant="outline" className="bg-card">
-                    type
-                  </Badge>
+            <Card className="h-full transition-transform hover:-translate-y-0.5">
+              <CardContent className="flex h-full items-center gap-4 p-4">
+                <div
+                  className="flex size-12 shrink-0 items-center justify-center rounded-[18px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.55)] text-2xl"
+                  style={{ color: ct.color }}
+                >
+                  {ct.icon}
                 </div>
-                <div className="mt-auto">
-                  <div className="font-display text-4xl leading-none" style={{ color: ct.color }}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-foreground">{ct.label}</p>
+                  <div className="mt-1 text-[1.75rem] font-semibold leading-none tracking-[-0.05em]" style={{ color: ct.color }}>
                     {count}
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-foreground">{ct.label}</p>
                 </div>
+                <Badge variant="secondary" className="shrink-0 bg-white/90 text-muted-foreground">
+                  type
+                </Badge>
               </CardContent>
             </Card>
           </Link>

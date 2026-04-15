@@ -4,27 +4,27 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl border-2 border-[hsl(var(--border-strong))] text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl border text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground shadow-[4px_4px_0_hsl(var(--shadow-ink))] hover:-translate-y-0.5 hover:bg-primary/95",
+          "border-primary/25 bg-primary text-primary-foreground shadow-[var(--shadow-subtle)] hover:bg-primary/92",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-[4px_4px_0_hsl(var(--shadow-ink))] hover:-translate-y-0.5 hover:bg-destructive/95",
+          "border-destructive/20 bg-destructive text-destructive-foreground shadow-[var(--shadow-subtle)] hover:bg-destructive/92",
         outline:
-          "bg-card text-card-foreground shadow-[4px_4px_0_hsl(var(--shadow-ink))] hover:-translate-y-0.5 hover:bg-secondary",
+          "border-[hsl(var(--border))] bg-card text-card-foreground shadow-[var(--shadow-subtle)] hover:bg-secondary/70",
         secondary:
-          "bg-accent text-accent-foreground shadow-[4px_4px_0_hsl(var(--shadow-ink))] hover:-translate-y-0.5 hover:bg-accent/90",
+          "border-[hsl(var(--border))] bg-secondary text-secondary-foreground shadow-[var(--shadow-subtle)] hover:bg-secondary/85",
         ghost:
-          "border-transparent bg-transparent shadow-none hover:border-[hsl(var(--border-strong))] hover:bg-secondary/60",
+          "border-transparent bg-transparent shadow-none hover:bg-secondary/70",
         link: "border-transparent bg-transparent p-0 text-primary shadow-none hover:underline",
       },
       size: {
         default: "h-11 px-5 py-2",
-        sm: "h-9 px-3 text-xs",
+        sm: "h-9 px-3.5 text-xs",
         lg: "h-12 px-8 text-base",
-        icon: "size-11",
+        icon: "size-10",
       },
     },
     defaultVariants: {

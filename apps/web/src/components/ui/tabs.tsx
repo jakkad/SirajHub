@@ -11,7 +11,7 @@ const TabsList = React.forwardRef<
   <TabsNS.List
     ref={ref}
     className={cn(
-      "inline-flex h-auto items-center justify-center rounded-full border-2 border-[hsl(var(--border-strong))] bg-card p-1.5 text-muted-foreground shadow-[4px_4px_0_hsl(var(--shadow-ink))]",
+      "inline-flex h-auto items-center justify-center rounded-full border border-[hsl(var(--border))] bg-card p-1.5 text-muted-foreground shadow-[var(--shadow-subtle)]",
       className
     )}
     {...props}
@@ -26,7 +26,7 @@ const TabsTrigger = React.forwardRef<
   <TabsNS.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-2 data-[state=active]:border-[hsl(var(--border-strong))] data-[state=active]:bg-accent data-[state=active]:text-foreground data-[state=active]:shadow-[2px_2px_0_hsl(var(--shadow-ink))]",
+      "inline-flex items-center justify-center whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border data-[state=active]:border-[hsl(var(--border))] data-[state=active]:bg-secondary data-[state=active]:text-foreground data-[state=active]:shadow-[inset_0_1px_0_hsl(0_0%_100%/0.9)]",
       className
     )}
     {...props}

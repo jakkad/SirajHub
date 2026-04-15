@@ -52,7 +52,7 @@ function SettingsPage() {
         <CardContent className="flex flex-col gap-4 p-6">
           <p className="hero-kicker text-xs">Control room</p>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-display text-5xl leading-none">Settings</h1>
+            <h1 className="text-5xl font-semibold leading-none tracking-[-0.05em]">Settings</h1>
             <Badge variant="secondary">personal</Badge>
           </div>
           <p className="max-w-2xl text-sm text-muted-foreground">
@@ -63,11 +63,11 @@ function SettingsPage() {
 
       <Tabs defaultValue="profile" className="flex flex-col gap-6">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
-          <TabsTrigger value="profile" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Profile</TabsTrigger>
-          <TabsTrigger value="apikeys" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">API Keys</TabsTrigger>
-          <TabsTrigger value="aimodel" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">AI Model</TabsTrigger>
-          <TabsTrigger value="tags" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Tags</TabsTrigger>
-          <TabsTrigger value="data" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Data</TabsTrigger>
+          <TabsTrigger value="profile" className="border border-[hsl(var(--border))] bg-card shadow-none">Profile</TabsTrigger>
+          <TabsTrigger value="apikeys" className="border border-[hsl(var(--border))] bg-card shadow-none">API Keys</TabsTrigger>
+          <TabsTrigger value="aimodel" className="border border-[hsl(var(--border))] bg-card shadow-none">AI Model</TabsTrigger>
+          <TabsTrigger value="tags" className="border border-[hsl(var(--border))] bg-card shadow-none">Tags</TabsTrigger>
+          <TabsTrigger value="data" className="border border-[hsl(var(--border))] bg-card shadow-none">Data</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -281,9 +281,9 @@ function AiModelTab() {
             <Label
               key={model.id}
               htmlFor={model.id}
-              className="flex cursor-pointer items-start gap-4 rounded-[24px] border-2 border-[hsl(var(--border-strong))] bg-background p-4 shadow-[4px_4px_0_hsl(var(--shadow-ink))]"
+              className="flex cursor-pointer items-start gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.85)]"
             >
-              <RadioGroupItem id={model.id} value={model.id} className="mt-1 size-5 border-2 border-[hsl(var(--border-strong))]" />
+              <RadioGroupItem id={model.id} value={model.id} className="mt-1 size-5 border-[hsl(var(--border-strong))]" />
               <div className="flex flex-col gap-1">
                 <span className="font-semibold text-foreground">{model.label}</span>
                 <span className="text-sm text-muted-foreground">{model.description}</span>
@@ -318,7 +318,7 @@ function TagsTab() {
         {tags.map((tag) => (
           <div
             key={tag.id}
-            className="flex items-center justify-between gap-4 rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-background px-4 py-3 shadow-[3px_3px_0_hsl(var(--shadow-ink))]"
+            className="flex items-center justify-between gap-4 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] px-4 py-3 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.85)]"
           >
             <div className="flex items-center gap-3">
               <span className="size-4 rounded-full border border-[hsl(var(--border-strong))]" style={{ backgroundColor: tag.color }} />

@@ -21,16 +21,16 @@ export function RecentlyAdded({ items }: RecentlyAddedProps) {
         const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
         return (
           <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block min-w-[176px] shrink-0 no-underline">
-            <Card className="h-full transition-transform hover:-translate-y-1">
+            <Card className="h-full transition-transform hover:-translate-y-0.5">
               <CardContent className="flex flex-col gap-3 p-3">
                 <div
-                  className="flex h-28 items-center justify-center overflow-hidden rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-secondary"
+                  className="cover-frame flex h-28 items-center justify-center overflow-hidden rounded-[20px]"
                   style={ct ? { backgroundColor: `color-mix(in oklch, ${ct.color} 18%, hsl(var(--card)))` } : undefined}
                 >
                   {item.coverUrl ? (
                     <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="font-display text-4xl">{ct?.icon ?? "📄"}</span>
+                    <span className="text-4xl">{ct?.icon ?? "📄"}</span>
                   )}
                 </div>
                 <div className="flex flex-col gap-2">

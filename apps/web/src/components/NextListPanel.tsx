@@ -25,7 +25,7 @@ export function NextListPanel() {
 
   return (
     <>
-      <Button onClick={handleOpen} variant="outline" className="gap-2">
+      <Button onClick={handleOpen} variant="outline" className="gap-2 bg-white/90">
         <Sparkles data-icon="inline-start" />
         Next To Consume
         <Badge variant="secondary" className="ml-1">
@@ -67,14 +67,14 @@ export function NextListPanel() {
                   return (
                     <li
                       key={entry.id}
-                      className="flex items-start gap-4 rounded-[24px] border-2 border-[hsl(var(--border-strong))] bg-card p-4 shadow-[4px_4px_0_hsl(var(--shadow-ink))]"
+                      className="flex items-start gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-card p-4 shadow-[var(--shadow-subtle)]"
                     >
-                      <div className="font-display text-3xl text-primary">#{entry.rank}</div>
-                      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-semibold text-primary">#{entry.rank}</div>
+                      <div className="cover-frame flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px]">
                         {item.coverUrl ? (
                           <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
                         ) : (
-                          <span className="font-display text-2xl">{ct?.icon ?? "📄"}</span>
+                          <span className="text-2xl">{ct?.icon ?? "📄"}</span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

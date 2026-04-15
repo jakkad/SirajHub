@@ -2243,3 +2243,226 @@ The backend changes are smaller than the frontend redesign, but still important:
 | V2 Phase 5 | Turn `/` into a real dashboard | Complete |
 | V2 Phase 6 | Add a full-page item detail route | Complete |
 | V2 Phase 7 | Build artistic per-type views for all media categories | Complete |
+
+---
+
+# V2.1 — Visual System Refinement
+
+## What V2.1 Was About
+
+The first V2 redesign changed the structure of the app successfully, but the visual result was not where it needed to be yet.
+
+Two issues showed up immediately:
+
+1. the overall look and typography did not match the intended reference well enough
+2. the first redesign introduced some layout problems, especially in the sidebar and the dashboard stats area
+
+So V2.1 is not a brand-new product phase. It is a refinement phase.
+
+Its job was:
+- replace the earlier playful/hand-drawn visual language
+- move the app toward a softer analytics-dashboard feel
+- fix the usability regressions caused by the first pass
+
+In short: V2 built the new shell and pages. V2.1 made that redesign feel more correct.
+
+---
+
+## The Big Picture: What Changed In V2.1
+
+```text
+Earlier V2 redesign
+    ├── cream paper background
+    ├── dotted texture
+    ├── hand-drawn display typography
+    ├── chunky borders and shadows
+    └── some cramped layouts
+
+V2.1
+    ├── soft light dashboard background
+    ├── cleaner sans typography
+    ├── white cards with subtle borders
+    ├── blue/lilac analytics accents
+    ├── calmer sidebar and topbar
+    └── rebalanced dashboard layout
+```
+
+This means V2.1 is both:
+- a design-system correction
+- a layout-polish pass
+
+---
+
+## V2.1 Step 1 — Soft Analytics Theme Pass
+
+### What this step was about
+
+The earlier redesign leaned too hard into a handmade, sketch-like style. That looked distinctive, but it moved too far away from the dashboard reference and made the app feel heavier and noisier than intended.
+
+This step resets the visual language.
+
+### What changed
+
+The global design system in `apps/web/src/index.css` was rebuilt around a soft light analytics palette:
+
+- neutral page background
+- white and near-white surfaces
+- pale blue and lilac accents
+- softer shadows
+- lighter borders
+- cleaner typography
+
+The app also stopped using:
+
+- dotted paper backgrounds
+- marker-style display text
+- thick, ink-like border treatments
+
+### Shared UI components were rethemed
+
+The redesign was pushed down into the reusable primitives, not just painted onto one page.
+
+That includes:
+
+- buttons
+- badges
+- cards
+- inputs
+- textareas
+- tabs
+- selects
+- dropdown menus
+- dialogs
+- sheets
+- sidebar primitives
+
+This is important because it means pages, overlays, and small interactions all now speak the same visual language.
+
+### Which pages changed
+
+The redesign was applied broadly across the frontend:
+
+- app shell
+- dashboard
+- settings
+- login page
+- item detail route
+- item detail slide-over
+- add item dialog
+- search dialog
+- next-to-consume dialog
+- AI panel
+- tag manager
+
+### Why this matters
+
+If you only restyle the homepage, the product feels inconsistent. V2.1 instead makes the design system feel shared across the whole app.
+
+That gives SirajHub a more polished product feeling instead of a "homepage plus leftovers" feeling.
+
+### V2.1 Step 1 Summary
+
+| What | How | Why |
+|---|---|---|
+| New visual direction | soft analytics look | Matches the intended reference more closely |
+| Typography reset | modern sans system | Removes the hand-drawn look that felt off |
+| Surface redesign | lighter cards + softer borders/shadows | Makes the app feel calmer and more premium |
+| Shared primitive update | retheme shadcn UI components | Keeps styling consistent across screens |
+| Whole-app rollout | auth + shell + pages + overlays | Prevents the redesign from feeling partial |
+
+---
+
+## V2.1 Step 2 — Sidebar And Dashboard Corrections
+
+### What this step was about
+
+After the redesign shipped, two concrete usability problems were spotted:
+
+- the sidebar header and footer were taking too much vertical space
+- the media-type stats were squeezed into a narrow area on the dashboard, making them hard to read
+
+This step fixes those problems without changing the underlying routes or features.
+
+### Sidebar correction
+
+The original redesigned sidebar had:
+
+- a large brand card at the top
+- extra descriptive text inside that card
+- a workspace card at the bottom with additional explanatory copy
+
+That looked fine in isolation, but on a real laptop-height viewport it pushed the actual navigation down too far. It also made the bottom card feel clipped.
+
+So the sidebar was simplified:
+
+- the top descriptive block was removed
+- the brand card became more compact
+- the footer card was reduced in height
+- the "Workspace Preferences" label was shortened to "Preferences"
+
+The effect is simple: more space goes to navigation, less space goes to decoration.
+
+### Dashboard stats correction
+
+The first soft redesign kept the type stats inside the hero area. That made the hero try to do too much:
+
+- show the main message
+- show the tracked-items badge
+- show all seven type stats
+
+Because the hero column was not wide enough, the type stats became cramped and difficult to scan.
+
+So the dashboard was rebalanced:
+
+- the hero card now focuses on the message only
+- the type stats moved into their own dedicated full-width `Library Types` card
+- each stat tile became horizontal instead of vertically stacked
+
+That makes each tile easier to read because the icon, label, and count have more room.
+
+### Why this matters
+
+This is a good example of the difference between "styled" and "usable."
+
+A layout can technically look attractive, but if navigation is forced to scroll or key numbers are unreadable, the design still is not doing its job.
+
+V2.1 fixes that by giving the app more visual restraint.
+
+### V2.1 Step 2 Summary
+
+| What | How | Why |
+|---|---|---|
+| Sidebar simplification | remove extra copy, compress header/footer cards | Gives the nav more space and prevents clipping |
+| Footer cleanup | shorter settings label and less text | Makes the lower card fit comfortably |
+| Dashboard rebalance | move type stats into their own card | Prevents the hero from becoming overcrowded |
+| Stat tile redesign | wider horizontal tiles | Makes counts and labels readable on laptop widths |
+
+---
+
+## V2.1 Files Changed
+
+V2.1 mostly modifies existing frontend files rather than introducing many new ones.
+
+The most important updated areas are:
+
+- `apps/web/src/index.css`
+- `apps/web/src/routes/__root.tsx`
+- `apps/web/src/routes/index.tsx`
+- `apps/web/src/routes/login.tsx`
+- `apps/web/src/routes/settings.tsx`
+- `apps/web/src/routes/item.$id.tsx`
+- `apps/web/src/components/AppSidebar.tsx`
+- `apps/web/src/components/AppTopbar.tsx`
+- `apps/web/src/components/AIPanel.tsx`
+- `apps/web/src/components/InlineTagManager.tsx`
+- `apps/web/src/components/dashboard/TypeStats.tsx`
+- shared shadcn UI primitives under `apps/web/src/components/ui/`
+
+---
+
+## V2.1 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.1 Step 1 | Replace the earlier redesign with a softer analytics-style visual system | Complete |
+| V2.1 Step 2 | Simplify the sidebar and make dashboard type stats readable | Complete |

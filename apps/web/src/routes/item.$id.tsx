@@ -70,18 +70,18 @@ function ItemDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Button onClick={() => window.history.back()} variant="outline" className="w-fit">
+      <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-white/90">
         Back
       </Button>
 
       <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
         <Card>
           <CardContent className="flex flex-col gap-5 p-5">
-            <div className="flex aspect-[2/3] items-center justify-center overflow-hidden rounded-[28px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+            <div className="cover-frame flex aspect-[2/3] items-center justify-center overflow-hidden rounded-[28px]">
               {currentItem.coverUrl ? (
                 <img src={currentItem.coverUrl} alt={currentItem.title} className="h-full w-full object-cover" />
               ) : (
-                <span className="font-display text-6xl">{ct?.icon ?? "📄"}</span>
+                <span className="text-6xl">{ct?.icon ?? "📄"}</span>
               )}
             </div>
 
@@ -91,7 +91,7 @@ function ItemDetailPage() {
             </div>
 
             <div>
-              <h1 className="font-display text-5xl leading-none">{currentItem.title}</h1>
+              <h1 className="text-5xl font-semibold leading-none tracking-[-0.06em]">{currentItem.title}</h1>
               {currentItem.subtitle ? <p className="mt-2 text-sm italic text-muted-foreground">{currentItem.subtitle}</p> : null}
               {currentItem.creator ? <p className="mt-2 text-sm text-muted-foreground">{currentItem.creator}</p> : null}
             </div>

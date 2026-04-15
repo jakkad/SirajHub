@@ -59,16 +59,16 @@ function RootLayout() {
           <AppSidebar />
 
           <SidebarInset className="min-w-0">
-            <div className="flex min-h-screen flex-1 flex-col pl-0 md:pl-5">
+            <div className="flex min-h-screen flex-1 flex-col pl-0 md:pl-4">
               <AppTopbar
                 user={user}
                 onSearchOpen={() => setSearchOpen(true)}
                 onAddItem={() => setAddItemOpen(true)}
               />
 
-              <main className="flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6">
-                <div className="mx-auto max-w-[1300px]">
-                  <div className="mb-4 flex justify-end">
+              <main className="flex-1 overflow-y-auto px-4 pb-8 pt-4 md:px-6">
+                <div className="mx-auto max-w-[1400px]">
+                  <div className="mb-5 flex justify-end">
                     <NextListPanel />
                   </div>
                   <Outlet />

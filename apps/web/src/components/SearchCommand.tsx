@@ -51,14 +51,14 @@ export function SearchCommand({ open, onClose, onSelect }: Props) {
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent className="max-w-3xl overflow-hidden p-0">
-        <DialogHeader className="border-b-2 border-[hsl(var(--border-strong))] px-6 py-5">
+        <DialogHeader className="border-b border-[hsl(var(--border))] px-6 py-5">
           <DialogTitle>Search the library</DialogTitle>
           <DialogDescription>
             Jump to titles, creators, or descriptions across your saved items.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="border-b-2 border-[hsl(var(--border-strong))] px-6 py-5">
+        <div className="border-b border-[hsl(var(--border))] px-6 py-5">
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -71,7 +71,7 @@ export function SearchCommand({ open, onClose, onSelect }: Props) {
             {query ? (
               <button
                 onClick={() => setQuery("")}
-                className="absolute top-1/2 right-4 -translate-y-1/2 rounded-full border-2 border-[hsl(var(--border-strong))] bg-card p-1"
+                className="absolute top-1/2 right-4 -translate-y-1/2 rounded-full border border-[hsl(var(--border))] bg-card p-1"
               >
                 <X className="size-3.5" />
               </button>
@@ -109,13 +109,13 @@ export function SearchCommand({ open, onClose, onSelect }: Props) {
                         onSelect(item);
                         onClose();
                       }}
-                      className="flex items-center gap-4 rounded-[24px] border-2 border-[hsl(var(--border-strong))] bg-card px-4 py-3 text-left shadow-[4px_4px_0_hsl(var(--shadow-ink))] transition-transform hover:-translate-y-0.5"
+                      className="flex items-center gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-card px-4 py-3 text-left shadow-[var(--shadow-subtle)] transition-transform hover:-translate-y-0.5"
                     >
-                      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+                      <div className="cover-frame flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px]">
                         {item.coverUrl ? (
                           <img src={item.coverUrl} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          <span className="font-display text-2xl">{ct?.icon ?? "📄"}</span>
+                          <span className="text-2xl">{ct?.icon ?? "📄"}</span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

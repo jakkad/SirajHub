@@ -44,14 +44,16 @@ export function NextToConsume() {
               const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
               return (
                 <Link key={r.id} to="/item/$id" params={{ id: r.id }} className="block no-underline">
-                  <Card className="transition-transform hover:-translate-y-1">
+                  <Card className="transition-transform hover:-translate-y-0.5">
                     <CardContent className="flex items-start gap-4 p-4">
-                      <div className="font-display text-3xl text-primary">{idx + 1}</div>
-                      <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-semibold text-primary">
+                        {idx + 1}
+                      </div>
+                      <div className="cover-frame flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px]">
                         {item.coverUrl ? (
                           <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
                         ) : (
-                          <span className="font-display text-2xl">{ct?.icon ?? "📄"}</span>
+                          <span className="text-2xl">{ct?.icon ?? "📄"}</span>
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

@@ -740,3 +740,86 @@ worker/src/services/ai.ts              ← model param in callGemini()
 | V2–5 — Dashboard | TypeStats, RecentlyAdded, InProgress, NextToConsume widgets | ✅ Done |
 | V2–6 — Item Detail Page | `/item/$id` full-page view + inline edit + AI panel | ✅ Done |
 | V2–7 — Artistic Views | 7 per-type pages: shelf, posters, grid, feed, list | ✅ Done |
+
+---
+
+# V2.1 — Visual System Refinement
+
+> **Motivation:** The initial V2 redesign improved structure, but the first pass at the new look still felt visually off. V2.1 refines the interface into a softer analytics-style dashboard and then corrects the first-round issues discovered during review: an oversized sidebar header/footer and an unreadable squeezed stats area on the homepage.
+
+## V2.1 Step 1 — Soft Analytics Theme Pass
+
+> Goal: Replace the playful paper/marker treatment with a cleaner, premium, light-first dashboard system inspired by the reference.
+
+- [x] Rebuild `apps/web/src/index.css` tokens around a light analytics palette:
+  - neutral/light background
+  - white card surfaces
+  - pale blue / lilac accents
+  - softer border + shadow system
+  - modern sans typography
+- [x] Retheme shared shadcn primitives:
+  - `button`, `badge`, `card`, `input`, `textarea`
+  - `tabs`, `select`, `dropdown-menu`
+  - `dialog`, `sheet`, `sidebar`
+- [x] Rewrite shell styling in `__root.tsx`, `AppSidebar.tsx`, and `AppTopbar.tsx`
+- [x] Redesign key surfaces to match the new visual language:
+  - dashboard
+  - settings
+  - add/search/next-list overlays
+  - item cards and detail views
+  - login page
+  - AI panel + inline tag manager
+
+**Complete when:** The app no longer uses the hand-drawn / chunky-border V2 look and instead renders as a soft light dashboard across signed-in screens and auth.
+
+## V2.1 Step 2 — Review Fixes: Sidebar + Dashboard Stats
+
+> Goal: Fix the layout regressions discovered immediately after the redesign.
+
+### Sidebar correction
+- [x] Remove the large descriptive block from the top sidebar card
+- [x] Compress the branding header so navigation fits without unnecessary scrolling
+- [x] Simplify the bottom workspace card and shorten the action label from "Workspace Preferences" to "Preferences"
+- [x] Preserve the same routes and navigation behavior while reducing vertical footprint
+
+### Dashboard correction
+- [x] Remove the type stats grid from the narrow hero card
+- [x] Create a dedicated full-width `Library Types` card below the hero row
+- [x] Redesign each type stat into a wider horizontal tile with icon, label, count, and badge
+- [x] Keep the hero focused on headline + summary instead of forcing both messaging and analytics into one cramped column
+
+**Complete when:** Sidebar navigation fits comfortably on normal desktop heights, the workspace card is fully visible, and the homepage stats are readable at standard laptop widths.
+
+## V2.1 Files Changed
+
+### Modified
+```text
+apps/web/src/index.css
+apps/web/src/routes/__root.tsx
+apps/web/src/routes/index.tsx
+apps/web/src/routes/login.tsx
+apps/web/src/routes/settings.tsx
+apps/web/src/routes/item.$id.tsx
+apps/web/src/components/AppSidebar.tsx
+apps/web/src/components/AppTopbar.tsx
+apps/web/src/components/AIPanel.tsx
+apps/web/src/components/InlineTagManager.tsx
+apps/web/src/components/AddItemDialog.tsx
+apps/web/src/components/SearchCommand.tsx
+apps/web/src/components/NextListPanel.tsx
+apps/web/src/components/ItemCard.tsx
+apps/web/src/components/ItemDetailPanel.tsx
+apps/web/src/components/dashboard/TypeStats.tsx
+apps/web/src/components/dashboard/RecentlyAdded.tsx
+apps/web/src/components/dashboard/InProgressItems.tsx
+apps/web/src/components/dashboard/NextToConsume.tsx
+apps/web/src/components/views/TypePageLayout.tsx
+apps/web/src/components/ui/*
+```
+
+## V2.1 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.1–1 — Theme Pass | Replace the first redesign with a soft analytics visual system | ✅ Done |
+| V2.1–2 — Layout Fixes | Simplify sidebar and move/readjust squeezed dashboard stats | ✅ Done |

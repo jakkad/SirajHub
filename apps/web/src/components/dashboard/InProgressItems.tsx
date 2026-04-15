@@ -32,16 +32,16 @@ export function InProgressItems({ items }: InProgressItemsProps) {
         const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
         return (
           <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block no-underline">
-            <Card className="transition-transform hover:-translate-y-1">
+            <Card className="transition-transform hover:-translate-y-0.5">
               <CardContent className="flex items-center gap-4 p-4">
                 <div
-                  className="flex size-14 items-center justify-center overflow-hidden rounded-[18px] border-2 border-[hsl(var(--border-strong))] bg-secondary"
+                  className="cover-frame flex size-14 items-center justify-center overflow-hidden rounded-[18px]"
                   style={ct ? { backgroundColor: `color-mix(in oklch, ${ct.color} 18%, hsl(var(--card)))` } : undefined}
                 >
                   {item.coverUrl ? (
                     <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="font-display text-2xl">{ct?.icon ?? "📄"}</span>
+                    <span className="text-2xl">{ct?.icon ?? "📄"}</span>
                   )}
                 </div>
 
@@ -51,8 +51,8 @@ export function InProgressItems({ items }: InProgressItemsProps) {
                 </div>
 
                 <div className="shrink-0 text-right">
-                  <div className="font-display text-lg text-foreground">{item.startedAt ? timeAgo(item.startedAt) : "now"}</div>
-                  <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">in progress</div>
+                  <div className="text-lg font-semibold tracking-[-0.04em] text-foreground">{item.startedAt ? timeAgo(item.startedAt) : "now"}</div>
+                  <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">in progress</div>
                 </div>
               </CardContent>
             </Card>
