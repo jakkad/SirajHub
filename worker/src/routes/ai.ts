@@ -8,8 +8,29 @@ import type { Env } from "../types";
 
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const NEXT_LIST_TTL_S = 6 * 60 * 60; // 6 hours in KV
+const DEFAULT_MODEL = "gemini-2.5-flash";
 
 const nextListKey = (userId: string) => `next_list:v1:${userId}`;
+
+// Resolve Gemini API key: user's stored key takes priority over env secret
+async function resolveGeminiKey(db: ReturnType<typeof import("../db/client").createDb>, userId: string, envKey: string): Promise<string> {
+  const [row] = await db.select({ apiKeys: user.apiKeys }).from(user).where(eq(user.id, userId));
+  if (row?.apiKeys) {
+    const keys = JSON.parse(row.apiKeys) as Record<string, string>;
+    if (keys.gemini) return keys.gemini;
+  }
+  return envKey;
+}
+
+// Resolve AI model: user's stored preference takes priority over default
+async function resolveModel(db: ReturnType<typeof import("../db/client").createDb>, userId: string): Promise<string> {
+  const [row] = await db.select({ apiKeys: user.apiKeys }).from(user).where(eq(user.id, userId));
+  if (row?.apiKeys) {
+    const keys = JSON.parse(row.apiKeys) as Record<string, string>;
+    if (keys.aiModel) return keys.aiModel;
+  }
+  return DEFAULT_MODEL;
+}
 
 type Variables = { userId: string };
 
@@ -20,6 +41,7 @@ const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 // content_type, confidence, suggested_tags, suggested_status. No caching —
 // used in the add-item dialog and item detail panel (fast, one-shot).
 router.post("/categorize", async (c) => {
+  const userId = c.get("userId");
   const body = await c.req.json<{
     title: string;
     description?: string;
@@ -29,8 +51,14 @@ router.post("/categorize", async (c) => {
 
   if (!body.title) return c.json({ error: "title is required" }, 400);
 
+  const db = createDb(c.env.DB);
+  const [apiKey, model] = await Promise.all([
+    resolveGeminiKey(db, userId, c.env.GEMINI_API_KEY),
+    resolveModel(db, userId),
+  ]);
+
   try {
-    const result = await categorizeItem(c.env.GEMINI_API_KEY, {
+    const result = await categorizeItem(apiKey, model, {
       title: body.title,
       description: body.description,
       sourceUrl: body.sourceUrl,
@@ -74,9 +102,14 @@ router.post("/analyze/:id", async (c) => {
   }
 
   // Call Gemini
+  const [apiKey, model] = await Promise.all([
+    resolveGeminiKey(db, userId, c.env.GEMINI_API_KEY),
+    resolveModel(db, userId),
+  ]);
+
   let result;
   try {
-    result = await analyzeItem(c.env.GEMINI_API_KEY, {
+    result = await analyzeItem(apiKey, model, {
       title: item.title,
       contentType: item.contentType,
       creator: item.creator,
@@ -102,7 +135,7 @@ router.post("/analyze/:id", async (c) => {
       id: ulid(),
       contentId: id,
       analysisType: "summary",
-      modelUsed: "gemini-2.0-flash-lite",
+      modelUsed: model,
       promptHash: item.updatedAt.toString(),
       result: resultStr,
       createdAt: now,
@@ -141,10 +174,16 @@ router.get("/next", async (c) => {
     .from(user)
     .where(eq(user.id, userId));
 
+  const [apiKey, model] = await Promise.all([
+    resolveGeminiKey(db, userId, c.env.GEMINI_API_KEY),
+    resolveModel(db, userId),
+  ]);
+
   let ranked;
   try {
     ranked = await rankNextList(
-      c.env.GEMINI_API_KEY,
+      apiKey,
+      model,
       suggestions.map((s) => ({
         id: s.id,
         title: s.title,

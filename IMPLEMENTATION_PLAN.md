@@ -435,7 +435,7 @@ The `started_at` and `finished_at` columns exist in the `items` schema and are s
 
 ---
 
-## Summary Table
+## V1 Summary Table
 
 | Phase               | Goal                                                      | Estimated Files |
 | ------------------- | --------------------------------------------------------- | --------------- |
@@ -446,3 +446,297 @@ The `started_at` and `finished_at` columns exist in the `items` schema and are s
 | 5 — AI Features ✅  | Gemini service, item analysis, next list panel            | ~6 files — done |
 | 6 — Polish ✅       | Grid, tags, search, settings, mobile, deploy              | ~12 files — done |
 | 7 — Deferred Requirements ✅ | Within-column sort, auto-categorize, suggest tags, timestamps, deploy | ~5 files — done |
+
+---
+
+---
+
+# V2 — Full Frontend Redesign
+
+> **Motivation:** V1 shipped a single-page Kanban/grid with no per-media identity. V2 replaces it with a purpose-built design: dedicated pages per media type rendered in an artistically appropriate way, a proper dashboard, a full-page item detail view, shadcn/ui as the component foundation, and per-user API key management in settings.
+
+---
+
+## V2 Phase 1 — shadcn/ui Setup
+
+> Goal: Install shadcn without breaking the existing UI. No functional changes yet.
+
+- [ ] Add `@/*` path alias to `apps/web/tsconfig.app.json` (`baseUrl: "."`, `paths: { "@/*": ["./src/*"] }`)
+- [ ] Add `resolve.alias` to `apps/web/vite.config.ts` (`"@" → "./src"`)
+- [ ] Install deps: `pnpm --filter web add clsx tailwind-merge lucide-react` + `pnpm --filter web add -D @types/node`
+- [ ] Create `apps/web/src/lib/utils.ts` with `cn()` helper (`clsx` + `twMerge`)
+- [ ] Create `apps/web/components.json` (style: `new-york`, baseColor: `zinc`, css: `src/index.css`)
+- [ ] Add shadcn HSL bridge tokens to `apps/web/src/index.css` in `@layer base` — maps existing OKLCH palette to shadcn `--background`, `--foreground`, `--card`, `--primary`, `--border`, `--ring` etc. Keep existing `var(--color-*)` OKLCH tokens intact.
+- [ ] Fix sidebar CSS token conflict: override shadcn's default light-mode sidebar vars with dark palette values
+- [ ] Run: `npx shadcn@latest add button badge tooltip sheet sidebar dialog tabs card separator scroll-area select radio-group input textarea label avatar dropdown-menu`
+
+**Complete when:** `pnpm build` passes with zero errors and the existing UI renders identically.
+
+---
+
+## V2 Phase 2 — Navigation: Sidebar + Topbar
+
+> Goal: Replace the sticky top header with a collapsible sidebar + slim topbar.
+
+### `apps/web/src/routes/__root.tsx` — full rewrite
+Two-column layout: `<AppSidebar /> + <div flex-1><AppTopbar /><Outlet /></div>`. Keep all existing state (addItemOpen, searchOpen, searchSelectedItem) and all existing overlay components (AddItemDialog, SearchCommand, ItemDetailPanel).
+
+### Create `apps/web/src/components/AppSidebar.tsx`
+shadcn `Sidebar` + `SidebarProvider`. Nav items with `lucide-react` icons and per-type color dots:
+
+| Label     | Route      | Icon              | Color var             |
+|-----------|------------|-------------------|-----------------------|
+| Dashboard | `/`        | `LayoutDashboard` | —                     |
+| Books     | `/books`   | `BookOpen`        | `var(--color-book)`   |
+| Movies    | `/movies`  | `Film`            | `var(--color-movie)`  |
+| TV Shows  | `/tv`      | `Tv`              | `var(--color-tv)`     |
+| Podcasts  | `/podcasts`| `Mic`             | `var(--color-podcast)`|
+| Videos    | `/videos`  | `Play`            | `var(--color-youtube)`|
+| Articles  | `/articles`| `FileText`        | `var(--color-article)`|
+| Tweets    | `/tweets`  | `MessageSquare`   | `var(--color-tweet)`  |
+| Settings  | `/settings`| `Settings`        | —                     |
+
+Active state: accent tint background. Mobile: sidebar renders as a `Sheet` drawer, triggered by topbar hamburger.
+
+### Create `apps/web/src/components/AppTopbar.tsx`
+Slim bar (h-14): hamburger (mobile only) → search button (Cmd+K) → `+ Add` → user avatar `DropdownMenu` (Settings, Log out).
+
+**Complete when:** Sidebar visible on all routes, mobile drawer works, existing routes `/`, `/settings`, `/login` still render.
+
+---
+
+## V2 Phase 3 — Backend: Per-User API Keys & Model Selection
+
+> Goal: Let users store their own API keys and choose their AI model via Settings.
+
+### Schema change — `worker/src/db/schema.ts`
+Add to `user` table:
+```ts
+apiKeys: text("api_keys"),
+// JSON shape: { gemini?, tmdb?, youtube?, googleBooks?, podcastIndexKey?, podcastIndexSecret?, aiModel? }
+```
+
+### Create `worker/src/db/migrations/0002_user_api_keys.sql`
+```sql
+ALTER TABLE `user` ADD `api_keys` text;
+```
+Run: `wrangler d1 migrations apply sirajhub-db --local` (and `--remote` for prod)
+
+### New API endpoints — `worker/src/routes/user.ts`
+- `GET /api/user/settings` → returns `{ gemini: "set"|null, tmdb: "set"|null, ... }` — **never returns raw key values**
+- `PATCH /api/user/settings` → body `{ service: string, key: string }`, merges into `apiKeys` JSON column
+
+### Key resolution helper — `worker/src/routes/ai.ts` + `ingest.ts`
+```ts
+async function resolveGeminiKey(c): Promise<string> {
+  // Read user.apiKeys JSON, return keys.gemini if set
+  // Fall back to c.env.GEMINI_API_KEY
+}
+```
+Apply same pattern for TMDB, YouTube, Books, Podcast keys in `ingest.ts`.
+
+### Model resolution — `worker/src/services/ai.ts`
+Change `callGemini(apiKey, prompt, schema)` → `callGemini(apiKey, model, prompt, schema)`. Resolve model from `apiKeys.aiModel` in each AI route handler, defaulting to `"gemini-2.5-flash"`.
+
+### Frontend additions
+- `apps/web/src/lib/api.ts` — add `userSettingsApi.getSettings()` and `userSettingsApi.updateKey(service, key)`
+- `apps/web/src/hooks/useUser.ts` — add `useUserSettings()` and `useUpdateApiKey()` hooks
+
+**Complete when:** Saving a Gemini key in Settings causes AI calls to use it instead of the env secret.
+
+---
+
+## V2 Phase 4 — Expanded Settings Page
+
+> Goal: Full settings page with tabs for profile, API keys, AI model, tags, and data.
+
+### `apps/web/src/routes/settings.tsx` — restructure with shadcn `Tabs`
+
+**Tabs:**
+```
+[Profile]  [API Keys]  [AI Model]  [Tags]  [Data]
+```
+
+**Profile tab** (existing content, minimal changes)
+- Display name (editable), email (read-only), AI taste preferences textarea
+
+**API Keys tab** (new)
+- One row per service: label | masked input | Save button | Test button
+- Services: Gemini, TMDB, YouTube, Google Books, Podcast Index Key, Podcast Index Secret
+- Saved keys render `••••••••` — input shows placeholder "Enter key to update"
+- Save calls `useUpdateApiKey(service, value)`
+
+**AI Model tab** (new)
+- `RadioGroup` with options: `gemini-2.5-flash` (default, recommended), `gemini-2.0-flash-lite` (fast/free), `gemini-2.5-pro` (best quality)
+- Each option shows name + short description
+- Saves to `apiKeys.aiModel` via `useUpdateApiKey("aiModel", model)`
+
+**Tags tab** (moved from current settings)
+**Data tab** (moved from current settings — export + clear AI cache)
+
+**Complete when:** API keys can be saved and masked in settings. Model selection persists and is used by AI calls.
+
+---
+
+## V2 Phase 5 — Dashboard (`/`)
+
+> Goal: Replace the single board/grid page with a useful at-a-glance dashboard.
+
+### `apps/web/src/routes/index.tsx` — full replacement
+
+Layout:
+```
+[TypeStats — 7 colored tiles]
+[InProgress — horizontal scroll row]
+[2-col: RecentlyAdded | NextToConsume]
+```
+
+### Create `apps/web/src/components/dashboard/TypeStats.tsx`
+7 shadcn `Card` tiles in a responsive grid. Each: colored icon + type label + total item count. Click navigates to that type's route. Data from `useItems()` filtered client-side.
+
+### Create `apps/web/src/components/dashboard/RecentlyAdded.tsx`
+Last 8 items by `createdAt` desc. Horizontal scroll row of small cards: cover thumbnail + title + type badge. Click opens `/item/:id`.
+
+### Create `apps/web/src/components/dashboard/InProgressItems.tsx`
+All `status === "in_progress"` items. Compact card list: cover + title + creator + elapsed time since `startedAt`. Click opens `/item/:id`.
+
+### Create `apps/web/src/components/dashboard/NextToConsume.tsx`
+Inline version of `NextListPanel` — no modal wrapper. Renders the AI-ranked suggestions list directly. Reuses `useNextList()` hook. "Refresh" button included.
+
+**Complete when:** Dashboard loads with real data, all 4 widgets render, type stat tiles navigate correctly.
+
+---
+
+## V2 Phase 6 — Item Detail Page (`/item/$id`)
+
+> Goal: Full-page item view with inline editing and AI actions. Replaces the slide-over for direct navigation.
+
+### Create `apps/web/src/routes/item.$id.tsx`
+TanStack Router dynamic route. Reads `id` param, finds item in `useItems()` cache.
+
+**Two-column layout:**
+- **Left:** Large cover image + core metadata display (title, creator, release date, duration, status badge, star rating, source link)
+- **Right:** Inline edit form + AI panel + tags + notes
+
+**Inline editing:** Click-to-edit on all fields. Blur triggers `useUpdateItem()`. Status via shadcn `Select`. Date pickers via `<input type="date">`. Rating via star buttons.
+
+**Back navigation:** `window.history.back()` button, shows "← Back to [type]" label.
+
+### Create `apps/web/src/components/AIPanel.tsx`
+Reusable panel (used by both the detail page and `ItemDetailPanel` slide-over):
+- "Analyze" button → `useAnalyzeItem(id)` → renders summary, key points, mood badge, recommendation
+- "Suggest Tags" button → `useCategorizeItem()` → renders addable tag chips
+
+### Create `apps/web/src/components/InlineTagManager.tsx`
+Extract tag management from `ItemDetailPanel` into a standalone component used by both the detail page and the slide-over.
+
+**Complete when:** `/item/:id` opens with all data, fields are editable and auto-save, AI panel works, back nav returns to correct type page.
+
+---
+
+## V2 Phase 7 — Per-Type Artistic Views
+
+> Goal: One dedicated page per media type, each rendered in a visually appropriate style.
+
+All views use `useItems({ content_type: X })`. Status filter tabs at top (shadcn `Tabs` or pills: All / Suggestions / In Progress / Finished / Archived). Cards link to `/item/${item.id}`.
+
+### `apps/web/src/routes/articles.tsx` + `components/views/ArticleList.tsx`
+Text-first reading list. Each row: domain favicon pill | bold title | creator | date | reading time (`durationMins`). Grouped by status.
+
+### `apps/web/src/routes/tweets.tsx` + `components/views/TweetFeed.tsx`
+Single-column centered feed (max-w-[600px]). Card per tweet: avatar circle + author name | tweet text (`description`) | date | external link.
+
+### `apps/web/src/routes/podcasts.tsx` + `components/views/PodcastGrid.tsx`
+Square album art tiles: `repeat(auto-fill, minmax(160px, 1fr))`. Hover overlay: episode count + publisher from `metadata` JSON.
+
+### `apps/web/src/routes/videos.tsx` + `components/views/VideoGrid.tsx`
+16:9 thumbnail tiles. Below: title (2-line clamp), channel name, duration. Hover: play button overlay.
+
+### `apps/web/src/routes/movies.tsx` + `components/views/MoviePosterGrid.tsx`
+Dense 2:3 poster grid: `repeat(auto-fill, minmax(140px, 1fr))`. Hover: dark overlay slides up with title + year + star rating. Fallback tile: colored gradient + emoji.
+
+### `apps/web/src/routes/tv.tsx` + `components/views/TVPosterGrid.tsx`
+Same as MoviePosterGrid + season count badge top-right (from `metadata.seasons`).
+
+### `apps/web/src/routes/books.tsx` + `components/views/BookshelfView.tsx`
+Three horizontal shelves (Suggestions / In Progress / Finished). Books as vertical spines:
+- Spine: `width: 32px, height: 140px`, `writing-mode: vertical-rl`, rotated title text
+- Hover: expands to show cover + tooltip
+- Drag-to-reorder via dnd-kit `horizontalListSortingStrategy` (same drag logic as `BoardView.tsx`)
+- Fallback spine color: hue variation on `var(--color-book)` derived from item ID
+
+**Complete when:** All 7 type pages load with correct filtered data, artistic layouts render, all items link to detail page.
+
+---
+
+## V2 Files Changed
+
+### Created (frontend)
+```
+apps/web/components.json
+apps/web/src/lib/utils.ts
+apps/web/src/components/ui/              ← shadcn generated
+apps/web/src/components/AppSidebar.tsx
+apps/web/src/components/AppTopbar.tsx
+apps/web/src/components/AIPanel.tsx
+apps/web/src/components/InlineTagManager.tsx
+apps/web/src/components/dashboard/TypeStats.tsx
+apps/web/src/components/dashboard/RecentlyAdded.tsx
+apps/web/src/components/dashboard/InProgressItems.tsx
+apps/web/src/components/dashboard/NextToConsume.tsx
+apps/web/src/components/views/BookshelfView.tsx
+apps/web/src/components/views/MoviePosterGrid.tsx
+apps/web/src/components/views/TVPosterGrid.tsx
+apps/web/src/components/views/PodcastGrid.tsx
+apps/web/src/components/views/VideoGrid.tsx
+apps/web/src/components/views/ArticleList.tsx
+apps/web/src/components/views/TweetFeed.tsx
+apps/web/src/routes/books.tsx
+apps/web/src/routes/movies.tsx
+apps/web/src/routes/tv.tsx
+apps/web/src/routes/podcasts.tsx
+apps/web/src/routes/videos.tsx
+apps/web/src/routes/articles.tsx
+apps/web/src/routes/tweets.tsx
+apps/web/src/routes/item.$id.tsx
+```
+
+### Modified (frontend)
+```
+apps/web/tsconfig.app.json              ← @/* alias
+apps/web/vite.config.ts                 ← resolve.alias
+apps/web/src/index.css                  ← shadcn HSL bridge tokens
+apps/web/src/routes/__root.tsx          ← sidebar + topbar layout
+apps/web/src/routes/index.tsx           ← dashboard
+apps/web/src/routes/settings.tsx        ← tabs + API keys + model
+apps/web/src/lib/api.ts                 ← userSettingsApi
+apps/web/src/hooks/useUser.ts           ← useUserSettings, useUpdateApiKey
+```
+
+### Created (backend)
+```
+worker/src/db/migrations/0002_user_api_keys.sql
+```
+
+### Modified (backend)
+```
+worker/src/db/schema.ts                 ← apiKeys column on user table
+worker/src/routes/user.ts               ← GET/PATCH /api/user/settings
+worker/src/routes/ai.ts                 ← per-user key + model resolution
+worker/src/routes/ingest.ts             ← per-user TMDB/YouTube/Books/Podcast keys
+worker/src/services/ai.ts              ← model param in callGemini()
+```
+
+---
+
+## V2 Summary Table
+
+| Phase | Goal | Status |
+|-------|------|--------|
+| V2–1 — shadcn Setup | Install component library, configure aliases, bridge tokens | ✅ Done |
+| V2–2 — Navigation | Sidebar + topbar, replace sticky header | ✅ Done |
+| V2–3 — Backend Keys | Per-user API keys + model in DB + endpoints | ✅ Done |
+| V2–4 — Settings | Tabs: Profile / API Keys / AI Model / Tags / Data | ✅ Done |
+| V2–5 — Dashboard | TypeStats, RecentlyAdded, InProgress, NextToConsume widgets | ✅ Done |
+| V2–6 — Item Detail Page | `/item/$id` full-page view + inline edit + AI panel | ✅ Done |
+| V2–7 — Artistic Views | 7 per-type pages: shelf, posters, grid, feed, list | ✅ Done |

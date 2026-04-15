@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { userApi } from "../lib/api";
+import { userApi, userSettingsApi } from "../lib/api";
 
 export function useUserProfile() {
   return useQuery({
@@ -21,5 +21,23 @@ export function useUpdateProfile() {
 export function useClearAiCache() {
   return useMutation({
     mutationFn: () => userApi.clearAiCache(),
+  });
+}
+
+export function useUserSettings() {
+  return useQuery({
+    queryKey: ["user-settings"],
+    queryFn: () => userSettingsApi.getSettings(),
+  });
+}
+
+export function useUpdateApiKey() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ service, key }: { service: string; key: string }) =>
+      userSettingsApi.updateKey(service, key),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-settings"] });
+    },
   });
 }

@@ -81,4 +81,76 @@ router.delete("/ai-cache", async (c) => {
   return c.json({ ok: true, cleared: userItems.length });
 });
 
+// ── API Key settings ──────────────────────────────────────────────────────────
+
+type ApiKeysBlob = {
+  gemini?: string;
+  tmdb?: string;
+  youtube?: string;
+  googleBooks?: string;
+  podcastIndexKey?: string;
+  podcastIndexSecret?: string;
+  aiModel?: string;
+};
+
+const VALID_SERVICES = [
+  "gemini", "tmdb", "youtube", "googleBooks",
+  "podcastIndexKey", "podcastIndexSecret", "aiModel",
+] as const;
+
+// GET /api/user/settings — returns which keys are set (never returns raw values)
+router.get("/settings", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+
+  const [row] = await db
+    .select({ apiKeys: user.apiKeys })
+    .from(user)
+    .where(eq(user.id, userId));
+
+  const keys: ApiKeysBlob = row?.apiKeys ? JSON.parse(row.apiKeys) : {};
+
+  return c.json({
+    gemini:           keys.gemini            ? "set" : null,
+    tmdb:             keys.tmdb              ? "set" : null,
+    youtube:          keys.youtube           ? "set" : null,
+    googleBooks:      keys.googleBooks       ? "set" : null,
+    podcastIndexKey:  keys.podcastIndexKey   ? "set" : null,
+    podcastIndexSecret: keys.podcastIndexSecret ? "set" : null,
+    aiModel:          keys.aiModel           ?? null,
+  });
+});
+
+// PATCH /api/user/settings — store or clear a single API key / model selection
+router.patch("/settings", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{ service: string; key: string }>();
+
+  if (!body.service || !VALID_SERVICES.includes(body.service as typeof VALID_SERVICES[number])) {
+    return c.json({ error: "Invalid service" }, 400);
+  }
+
+  const db = createDb(c.env.DB);
+
+  const [row] = await db
+    .select({ apiKeys: user.apiKeys })
+    .from(user)
+    .where(eq(user.id, userId));
+
+  const current: ApiKeysBlob = row?.apiKeys ? JSON.parse(row.apiKeys) : {};
+
+  if (body.key === "") {
+    delete current[body.service as keyof ApiKeysBlob];
+  } else {
+    (current as Record<string, string>)[body.service] = body.key;
+  }
+
+  await db
+    .update(user)
+    .set({ apiKeys: JSON.stringify(current), updatedAt: new Date() })
+    .where(eq(user.id, userId));
+
+  return c.json({ ok: true });
+});
+
 export default router;

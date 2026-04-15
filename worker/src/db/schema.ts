@@ -11,6 +11,9 @@ export const user = sqliteTable("user", {
   image: text("image"),
   // Extended field: AI taste profile ("I like hard sci-fi, dislike horror")
   preferences: text("preferences"),
+  // Per-user API keys and AI model preference (JSON blob)
+  // Shape: { gemini?, tmdb?, youtube?, googleBooks?, podcastIndexKey?, podcastIndexSecret?, aiModel? }
+  apiKeys: text("api_keys"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });

@@ -199,6 +199,31 @@ export const userApi = {
   },
 };
 
+// ── User Settings API ─────────────────────────────────────────────────────────
+
+export interface UserSettings {
+  gemini: "set" | null;
+  tmdb: "set" | null;
+  youtube: "set" | null;
+  googleBooks: "set" | null;
+  podcastIndexKey: "set" | null;
+  podcastIndexSecret: "set" | null;
+  aiModel: string | null;
+}
+
+export const userSettingsApi = {
+  getSettings(): Promise<UserSettings> {
+    return request<UserSettings>("/api/user/settings");
+  },
+
+  updateKey(service: string, key: string): Promise<{ ok: boolean }> {
+    return request<{ ok: boolean }>("/api/user/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ service, key }),
+    });
+  },
+};
+
 // ── Items API ─────────────────────────────────────────────────────────────────
 
 export const itemsApi = {

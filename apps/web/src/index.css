@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark *));
+
 /* ── SirajHub Design Tokens ──────────────────────────────────────────────── */
 @theme {
   /* Dark palette — OKLCH for perceptually uniform colors */
@@ -43,6 +45,34 @@
   /* Typography */
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
+}
+
+/* ── shadcn/ui HSL Bridge Tokens ─────────────────────────────────────────── */
+/* Maps the OKLCH palette above to shadcn's expected HSL variable names.     */
+/* shadcn components consume these; custom components keep using var(--color-*) */
+@layer base {
+  :root {
+    --background: 222 14% 10%;
+    --foreground: 0 0% 92%;
+    --card: 222 12% 14%;
+    --card-foreground: 0 0% 92%;
+    --popover: 222 12% 14%;
+    --popover-foreground: 0 0% 92%;
+    --primary: 258 65% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 12% 18%;
+    --secondary-foreground: 0 0% 92%;
+    --muted: 222 12% 18%;
+    --muted-foreground: 222 10% 60%;
+    --accent: 222 12% 18%;
+    --accent-foreground: 0 0% 92%;
+    --destructive: 0 62% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 10% 22%;
+    --input: 222 10% 22%;
+    --ring: 258 65% 56%;
+    --radius: 0.5rem;
+  }
 }
 
 /* ── Base Styles ─────────────────────────────────────────────────────────── */
@@ -93,3 +123,37 @@ body {
 @media (max-width: 1100px) { .grid-view { column-count: 3; } }
 @media (max-width: 720px)  { .grid-view { column-count: 2; } }
 @media (max-width: 480px)  { .grid-view { column-count: 1; } }
+
+/* shadcn sidebar token bridge — always dark, matches our palette */
+:root {
+  --sidebar:                  hsl(222 14% 10%);
+  --sidebar-foreground:       hsl(0 0% 92%);
+  --sidebar-primary:          hsl(258 65% 56%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent:           hsl(222 12% 18%);
+  --sidebar-accent-foreground: hsl(0 0% 92%);
+  --sidebar-border:           hsl(222 10% 22%);
+  --sidebar-ring:             hsl(258 65% 56%);
+}
+
+@theme inline {
+  --color-sidebar:                    var(--sidebar);
+  --color-sidebar-foreground:         var(--sidebar-foreground);
+  --color-sidebar-primary:            var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent:             var(--sidebar-accent);
+  --color-sidebar-accent-foreground:  var(--sidebar-accent-foreground);
+  --color-sidebar-border:             var(--sidebar-border);
+  --color-sidebar-ring:               var(--sidebar-ring);
+}
+
+.dark {
+  --sidebar:    hsl(240 5.9% 10%);
+  --sidebar-foreground:    hsl(240 4.8% 95.9%);
+  --sidebar-primary:    hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground:    hsl(0 0% 100%);
+  --sidebar-accent:    hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground:    hsl(240 4.8% 95.9%);
+  --sidebar-border:    hsl(240 3.7% 15.9%);
+  --sidebar-ring:    hsl(217.2 91.2% 59.8%);
+}

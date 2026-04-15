@@ -9,13 +9,46 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VideosRouteImport } from './routes/videos'
+import { Route as TweetsRouteImport } from './routes/tweets'
+import { Route as TvRouteImport } from './routes/tv'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PodcastsRouteImport } from './routes/podcasts'
+import { Route as MoviesRouteImport } from './routes/movies'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as BooksRouteImport } from './routes/books'
+import { Route as ArticlesRouteImport } from './routes/articles'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ItemIdRouteImport } from './routes/item.$id'
 
+const VideosRoute = VideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TweetsRoute = TweetsRouteImport.update({
+  id: '/tweets',
+  path: '/tweets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TvRoute = TvRouteImport.update({
+  id: '/tv',
+  path: '/tv',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodcastsRoute = PodcastsRouteImport.update({
+  id: '/podcasts',
+  path: '/podcasts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MoviesRoute = MoviesRouteImport.update({
+  id: '/movies',
+  path: '/movies',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -23,49 +56,165 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BooksRoute = BooksRouteImport.update({
+  id: '/books',
+  path: '/books',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArticlesRoute = ArticlesRouteImport.update({
+  id: '/articles',
+  path: '/articles',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ItemIdRoute = ItemIdRouteImport.update({
+  id: '/item/$id',
+  path: '/item/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/articles': typeof ArticlesRoute
+  '/books': typeof BooksRoute
   '/login': typeof LoginRoute
+  '/movies': typeof MoviesRoute
+  '/podcasts': typeof PodcastsRoute
   '/settings': typeof SettingsRoute
+  '/tv': typeof TvRoute
+  '/tweets': typeof TweetsRoute
+  '/videos': typeof VideosRoute
+  '/item/$id': typeof ItemIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/articles': typeof ArticlesRoute
+  '/books': typeof BooksRoute
   '/login': typeof LoginRoute
+  '/movies': typeof MoviesRoute
+  '/podcasts': typeof PodcastsRoute
   '/settings': typeof SettingsRoute
+  '/tv': typeof TvRoute
+  '/tweets': typeof TweetsRoute
+  '/videos': typeof VideosRoute
+  '/item/$id': typeof ItemIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/articles': typeof ArticlesRoute
+  '/books': typeof BooksRoute
   '/login': typeof LoginRoute
+  '/movies': typeof MoviesRoute
+  '/podcasts': typeof PodcastsRoute
   '/settings': typeof SettingsRoute
+  '/tv': typeof TvRoute
+  '/tweets': typeof TweetsRoute
+  '/videos': typeof VideosRoute
+  '/item/$id': typeof ItemIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/settings'
+  fullPaths:
+    | '/'
+    | '/articles'
+    | '/books'
+    | '/login'
+    | '/movies'
+    | '/podcasts'
+    | '/settings'
+    | '/tv'
+    | '/tweets'
+    | '/videos'
+    | '/item/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/settings'
-  id: '__root__' | '/' | '/login' | '/settings'
+  to:
+    | '/'
+    | '/articles'
+    | '/books'
+    | '/login'
+    | '/movies'
+    | '/podcasts'
+    | '/settings'
+    | '/tv'
+    | '/tweets'
+    | '/videos'
+    | '/item/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/articles'
+    | '/books'
+    | '/login'
+    | '/movies'
+    | '/podcasts'
+    | '/settings'
+    | '/tv'
+    | '/tweets'
+    | '/videos'
+    | '/item/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ArticlesRoute: typeof ArticlesRoute
+  BooksRoute: typeof BooksRoute
   LoginRoute: typeof LoginRoute
+  MoviesRoute: typeof MoviesRoute
+  PodcastsRoute: typeof PodcastsRoute
   SettingsRoute: typeof SettingsRoute
+  TvRoute: typeof TvRoute
+  TweetsRoute: typeof TweetsRoute
+  VideosRoute: typeof VideosRoute
+  ItemIdRoute: typeof ItemIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/videos': {
+      id: '/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof VideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tweets': {
+      id: '/tweets'
+      path: '/tweets'
+      fullPath: '/tweets'
+      preLoaderRoute: typeof TweetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tv': {
+      id: '/tv'
+      path: '/tv'
+      fullPath: '/tv'
+      preLoaderRoute: typeof TvRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podcasts': {
+      id: '/podcasts'
+      path: '/podcasts'
+      fullPath: '/podcasts'
+      preLoaderRoute: typeof PodcastsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/movies': {
+      id: '/movies'
+      path: '/movies'
+      fullPath: '/movies'
+      preLoaderRoute: typeof MoviesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -75,6 +224,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/books': {
+      id: '/books'
+      path: '/books'
+      fullPath: '/books'
+      preLoaderRoute: typeof BooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/articles': {
+      id: '/articles'
+      path: '/articles'
+      fullPath: '/articles'
+      preLoaderRoute: typeof ArticlesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -82,13 +245,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/item/$id': {
+      id: '/item/$id'
+      path: '/item/$id'
+      fullPath: '/item/$id'
+      preLoaderRoute: typeof ItemIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ArticlesRoute: ArticlesRoute,
+  BooksRoute: BooksRoute,
   LoginRoute: LoginRoute,
+  MoviesRoute: MoviesRoute,
+  PodcastsRoute: PodcastsRoute,
   SettingsRoute: SettingsRoute,
+  TvRoute: TvRoute,
+  TweetsRoute: TweetsRoute,
+  VideosRoute: VideosRoute,
+  ItemIdRoute: ItemIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

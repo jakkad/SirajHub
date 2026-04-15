@@ -1,8 +1,7 @@
 // Gemini API service for SirajHub AI features.
 // Model: gemini-2.5-flash (free tier: 20 req/day, 250K TPM)
 
-const GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// Model is now resolved per-user in ai.ts route handler (falls back to "gemini-2.5-flash")
 
 export interface CategorizeResult {
   content_type: string;
@@ -26,8 +25,9 @@ export interface RankedItem {
 
 // ── Core Gemini fetch ─────────────────────────────────────────────────────────
 
-async function callGemini(apiKey: string, prompt: string, schema: object): Promise<unknown> {
-  const res = await fetch(`${GEMINI_BASE}?key=${apiKey}`, {
+async function callGemini(apiKey: string, model: string, prompt: string, schema: object): Promise<unknown> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(`${url}?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -61,6 +61,7 @@ async function callGemini(apiKey: string, prompt: string, schema: object): Promi
 
 export async function categorizeItem(
   apiKey: string,
+  model: string,
   item: {
     title: string;
     description?: string | null;
@@ -84,7 +85,7 @@ Current type assigned by user: ${item.contentType}
 Valid content types: book, movie, tv, podcast, youtube, article, tweet
 Return the best matching type, your confidence (0-1), 1-4 short lowercase tags, and suggested status.`;
 
-  return callGemini(apiKey, prompt, {
+  return callGemini(apiKey, model, prompt, {
     type: "object",
     properties: {
       content_type: { type: "string" },
@@ -111,6 +112,7 @@ const TYPE_GUIDE: Record<string, string> = {
 
 export async function analyzeItem(
   apiKey: string,
+  model: string,
   item: {
     title: string;
     contentType: string;
@@ -134,7 +136,7 @@ ${guide}
 Be concise. Key points should be 2-4 bullets. Recommendation should be one sentence.
 Mood is optional — include only for movies, TV, or books (e.g. "dark thriller", "feel-good comedy").`;
 
-  return callGemini(apiKey, prompt, {
+  return callGemini(apiKey, model, prompt, {
     type: "object",
     properties: {
       summary: { type: "string" },
@@ -151,6 +153,7 @@ Mood is optional — include only for movies, TV, or books (e.g. "dark thriller"
 
 export async function rankNextList(
   apiKey: string,
+  model: string,
   suggestions: Array<{
     id: string;
     title: string;
@@ -178,7 +181,7 @@ ${itemLines}
 
 Return all ${suggestions.length} items ranked. Each item needs its exact id, rank number (1 = best), and a brief 1-sentence reason.`;
 
-  return callGemini(apiKey, prompt, {
+  return callGemini(apiKey, model, prompt, {
     type: "array",
     items: {
       type: "object",
