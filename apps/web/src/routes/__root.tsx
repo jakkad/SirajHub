@@ -8,6 +8,7 @@ import { ItemDetailPanel } from "@/components/ItemDetailPanel";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppTopbar } from "@/components/AppTopbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { Item } from "@/lib/api";
 
 export const Route = createRootRoute({
@@ -45,7 +46,7 @@ function RootLayout() {
 
   if (!user || isLoginPage) {
     return (
-      <div style={{ backgroundColor: "var(--color-background)", minHeight: "100vh" }}>
+      <div className="paper-page" style={{ minHeight: "100vh" }}>
         <Outlet />
       </div>
     );
@@ -53,39 +54,30 @@ function RootLayout() {
 
   return (
     <TooltipProvider>
-      <div
-        className="flex h-screen overflow-hidden"
-        style={{ backgroundColor: "var(--color-background)", color: "var(--color-foreground)" }}
-      >
-        {/* ── Desktop Sidebar ─────────────────────────────────────────────── */}
-        <aside
-          className="hidden md:flex flex-col w-56 shrink-0 border-r overflow-y-auto"
-          style={{
-            backgroundColor: "var(--color-background)",
-            borderColor: "var(--color-border)",
-          }}
-        >
+      <SidebarProvider>
+        <div className="paper-page flex min-h-screen w-full text-foreground">
           <AppSidebar />
 
-          {/* Next-to-consume button at bottom of sidebar */}
-          <div className="px-2 pb-3">
-            <NextListPanel />
-          </div>
-        </aside>
+          <SidebarInset className="min-w-0">
+            <div className="flex min-h-screen flex-1 flex-col pl-0 md:pl-5">
+              <AppTopbar
+                user={user}
+                onSearchOpen={() => setSearchOpen(true)}
+                onAddItem={() => setAddItemOpen(true)}
+              />
 
-        {/* ── Main column ─────────────────────────────────────────────────── */}
-        <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-          <AppTopbar
-            user={user}
-            onSearchOpen={() => setSearchOpen(true)}
-            onAddItem={() => setAddItemOpen(true)}
-          />
-
-          <main className="flex-1 overflow-y-auto">
-            <Outlet />
-          </main>
+              <main className="flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6">
+                <div className="mx-auto max-w-[1300px]">
+                  <div className="mb-4 flex justify-end">
+                    <NextListPanel />
+                  </div>
+                  <Outlet />
+                </div>
+              </main>
+            </div>
+          </SidebarInset>
         </div>
-      </div>
+      </SidebarProvider>
 
       {/* ── Global overlays ────────────────────────────────────────────────── */}
       <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />

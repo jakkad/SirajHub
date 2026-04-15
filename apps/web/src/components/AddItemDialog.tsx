@@ -1,8 +1,25 @@
 import { useState } from "react";
+
+import { useCategorizeItem } from "../hooks/useAI";
+import { useCreateItem, useIngest } from "../hooks/useItems";
 import { CONTENT_TYPES, STATUSES } from "../lib/constants";
 import type { ContentTypeId, StatusId } from "../lib/constants";
-import { useCreateItem, useIngest } from "../hooks/useItems";
-import { useCategorizeItem } from "../hooks/useAI";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Props {
   open: boolean;
@@ -34,17 +51,24 @@ export function AddItemDialog({ open, onClose }: Props) {
   const { mutate: fetchMeta, isPending: fetching, error: fetchError } = useIngest();
   const { mutate: categorize } = useCategorizeItem();
 
-  function setField(field: string, value: string) {
-    if (field === "contentType") setAiTypeHint(null); // user manually chose a type — clear hint
-    setForm((f) => ({ ...f, [field]: value }));
+  function setField(field: keyof typeof DEFAULT_FORM, value: string) {
+    if (field === "contentType") setAiTypeHint(null);
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function reset() {
+    setUrlInput("");
+    setQueryInput("");
+    setSearchType("book");
+    setMode("url");
+    setForm(DEFAULT_FORM);
+    setAiTypeHint(null);
   }
 
   function handleFetch() {
     const isUrl = mode === "url";
     fetchMeta(
-      isUrl
-        ? { url: urlInput.trim() }
-        : { query: queryInput.trim(), content_type: searchType },
+      isUrl ? { url: urlInput.trim() } : { query: queryInput.trim(), content_type: searchType },
       {
         onSuccess(meta) {
           const filled: typeof DEFAULT_FORM = {
@@ -61,7 +85,6 @@ export function AddItemDialog({ open, onClose }: Props) {
           };
           setForm(filled);
           setAiTypeHint(null);
-          // Fire AI categorize in background — non-blocking
           categorize(
             {
               title: filled.title,
@@ -104,372 +127,224 @@ export function AddItemDialog({ open, onClose }: Props) {
       },
       {
         onSuccess: () => {
-          handleClose();
+          reset();
+          onClose();
         },
       }
     );
   }
 
-  function handleClose() {
-    setUrlInput("");
-    setQueryInput("");
-    setMode("url");
-    setForm(DEFAULT_FORM);
-    setAiTypeHint(null);
-    onClose();
-  }
-
   const error = fetchError ?? saveError;
-  const formReady = form.title !== "";
-
-  if (!open) return null;
+  const fetchDisabled = mode === "url" ? !urlInput.trim() : !queryInput.trim();
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={handleClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "oklch(0% 0 0 / 0.6)",
-          zIndex: 100,
-        }}
-      />
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          reset();
+          onClose();
+        }
+      }}
+    >
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Add Item</DialogTitle>
+          <DialogDescription>Pull metadata from a link, search by title, or fill everything in manually.</DialogDescription>
+        </DialogHeader>
 
-      {/* Dialog */}
-      <div
-        style={{
-          position: "fixed",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          zIndex: 101,
-          background: "var(--color-surface)",
-          border: "1px solid var(--color-border)",
-          borderRadius: "var(--radius-lg)",
-          padding: "28px 32px",
-          width: "min(560px, calc(100vw - 32px))",
-          maxHeight: "calc(100vh - 64px)",
-          overflowY: "auto",
-          boxShadow: "0 16px 48px oklch(0% 0 0 / 0.5)",
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20,
-          }}
-        >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add Item</h2>
-          <button
-            onClick={handleClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--color-muted)",
-              fontSize: 20,
-              lineHeight: 1,
-              padding: "2px 6px",
-            }}
-          >
-            ×
-          </button>
-        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <Card>
+            <CardContent className="flex flex-col gap-5 p-5">
+              <Tabs value={mode} onValueChange={(value) => setMode(value as "url" | "search" | "manual")}>
+                <TabsList className="flex w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
+                  <TabsTrigger value="url" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Paste URL</TabsTrigger>
+                  <TabsTrigger value="search" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Search by Name</TabsTrigger>
+                  <TabsTrigger value="manual" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Manual</TabsTrigger>
+                </TabsList>
+              </Tabs>
 
-        {/* ── Fetch / Search section ─────────────────────────────────────────── */}
-        {mode !== "manual" && (
-          <div
-            style={{
-              background: "var(--color-background)",
-              border: "1px solid var(--color-border)",
-              borderRadius: 10,
-              padding: "16px",
-              marginBottom: 20,
-            }}
-          >
-            {/* Mode tabs */}
-            <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
-              {(["url", "search"] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  style={{
-                    padding: "4px 12px",
-                    borderRadius: 6,
-                    border: "none",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    background: mode === m ? "var(--color-accent)" : "transparent",
-                    color: mode === m ? "white" : "var(--color-muted)",
-                  }}
-                >
-                  {m === "url" ? "Paste URL" : "Search by name"}
-                </button>
-              ))}
-            </div>
+              {mode === "url" ? (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Input
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="https://youtube.com/watch?v=... or any URL"
+                  />
+                  <Button type="button" onClick={handleFetch} disabled={fetchDisabled || fetching}>
+                    {fetching ? "Fetching…" : "Fetch"}
+                  </Button>
+                </div>
+              ) : null}
 
-            {mode === "url" && (
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type="url"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=…  or any URL"
-                  style={{ ...inputStyle, flex: 1 }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); if (urlInput.trim()) handleFetch(); }
-                  }}
-                />
-                <button
-                  onClick={handleFetch}
-                  disabled={!urlInput.trim() || fetching}
-                  style={primaryBtnStyle(!urlInput.trim() || fetching)}
-                >
-                  {fetching ? "Fetching…" : "Fetch"}
-                </button>
-              </div>
-            )}
+              {mode === "search" ? (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Select value={searchType} onValueChange={(value) => setSearchType(value as ContentTypeId)}>
+                    <SelectTrigger className="sm:w-56">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {CONTENT_TYPES.filter((t) => !["article", "tweet", "youtube"].includes(t.id)).map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            {type.icon} {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={queryInput}
+                    onChange={(e) => setQueryInput(e.target.value)}
+                    placeholder="Search by title"
+                  />
+                  <Button type="button" onClick={handleFetch} disabled={fetchDisabled || fetching}>
+                    {fetching ? "Searching…" : "Search"}
+                  </Button>
+                </div>
+              ) : null}
 
-            {mode === "search" && (
-              <div style={{ display: "flex", gap: 8 }}>
-                <select
-                  value={searchType}
-                  onChange={(e) => setSearchType(e.target.value as ContentTypeId)}
-                  style={{ ...inputStyle, flexShrink: 0, width: "auto" }}
-                >
-                  {CONTENT_TYPES.filter(
-                    (t) => t.id !== "article" && t.id !== "tweet" && t.id !== "youtube"
-                  ).map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.icon} {t.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={queryInput}
-                  onChange={(e) => setQueryInput(e.target.value)}
-                  placeholder="Title to search…"
-                  style={{ ...inputStyle, flex: 1 }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") { e.preventDefault(); if (queryInput.trim()) handleFetch(); }
-                  }}
-                />
-                <button
-                  onClick={handleFetch}
-                  disabled={!queryInput.trim() || fetching}
-                  style={primaryBtnStyle(!queryInput.trim() || fetching)}
-                >
-                  {fetching ? "…" : "Search"}
-                </button>
-              </div>
-            )}
+              {mode === "manual" ? (
+                <p className="text-sm text-muted-foreground">Manual mode skips ingest and lets you fill in everything yourself.</p>
+              ) : null}
 
-            {fetchError && (
-              <p style={{ fontSize: 12, color: "oklch(65% 0.2 25)", margin: "8px 0 0" }}>
-                {(fetchError as Error).message}
-              </p>
-            )}
+              {aiTypeHint ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge variant="secondary">AI hint</Badge>
+                  <p className="text-sm text-muted-foreground">Suggested type: {aiTypeHint.label}</p>
+                  <Button type="button" variant="outline" onClick={() => setField("contentType", aiTypeHint.type)}>
+                    Use suggestion
+                  </Button>
+                </div>
+              ) : null}
 
-            <button
-              onClick={() => setMode("manual")}
-              style={{
-                marginTop: 10,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 12,
-                color: "var(--color-muted)",
-                padding: 0,
-                textDecoration: "underline",
-              }}
-            >
-              Skip — fill in manually
-            </button>
-          </div>
-        )}
+              {error ? <p className="text-sm text-destructive">{(error as Error).message}</p> : null}
+            </CardContent>
+          </Card>
 
-        {/* ── Form ──────────────────────────────────────────────────────────── */}
-        {(formReady || mode === "manual") && (
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: "flex", flexDirection: "column", gap: 14 }}
-          >
-            {/* Pre-populated cover preview */}
-            {form.coverUrl && (
-              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                <img
-                  src={form.coverUrl}
-                  alt="Cover"
-                  style={{
-                    width: 72,
-                    height: 100,
-                    objectFit: "cover",
-                    borderRadius: 6,
-                    flexShrink: 0,
-                    border: "1px solid var(--color-border)",
-                  }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Field label="Title *">
-                    <input required value={form.title} onChange={(e) => setField("title", e.target.value)} style={inputStyle} />
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <Card>
+              <CardContent className="grid gap-4 p-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Title">
+                    <Input value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Title" required />
+                  </Field>
+
+                  <Field label="Creator">
+                    <Input value={form.creator} onChange={(e) => setField("creator", e.target.value)} placeholder="Author, director, channel..." />
                   </Field>
                 </div>
-              </div>
-            )}
 
-            {!form.coverUrl && (
-              <Field label="Title *">
-                <input required value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="e.g. Dune" style={inputStyle} />
-              </Field>
-            )}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Content Type">
+                    <Select value={form.contentType} onValueChange={(value) => setField("contentType", value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {CONTENT_TYPES.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.icon} {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-            {/* Type + Status */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Field label="Type *">
-                <select value={form.contentType} onChange={(e) => setField("contentType", e.target.value)} style={inputStyle}>
-                  {CONTENT_TYPES.map((t) => (
-                    <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
-                  ))}
-                </select>
-                {aiTypeHint && (
-                  <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 11, color: "var(--color-muted)" }}>AI suggests:</span>
-                    <button
-                      type="button"
-                      onClick={() => { setField("contentType", aiTypeHint.type); }}
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        padding: "2px 8px",
-                        borderRadius: 999,
-                        border: "1px solid var(--color-accent)",
-                        background: "transparent",
-                        color: "var(--color-accent)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {aiTypeHint.label} →
-                    </button>
-                  </div>
-                )}
-              </Field>
-              <Field label="Status">
-                <select value={form.status} onChange={(e) => setField("status", e.target.value)} style={inputStyle}>
-                  {STATUSES.map((s) => (
-                    <option key={s.id} value={s.id}>{s.label}</option>
-                  ))}
-                </select>
-              </Field>
-            </div>
+                  <Field label="Status">
+                    <Select value={form.status} onValueChange={(value) => setField("status", value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {STATUSES.map((status) => (
+                            <SelectItem key={status.id} value={status.id}>
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
 
-            {/* Creator */}
-            <Field label="Creator">
-              <input value={form.creator} onChange={(e) => setField("creator", e.target.value)} placeholder="Author, director, channel…" style={inputStyle} />
-            </Field>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Release Date">
+                    <Input type="date" value={form.releaseDate} onChange={(e) => setField("releaseDate", e.target.value)} />
+                  </Field>
 
-            {/* Description */}
-            <Field label="Description">
-              <textarea value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Brief description…" rows={3} style={{ ...inputStyle, resize: "vertical" }} />
-            </Field>
+                  <Field label="Rating">
+                    <Input type="number" min="1" max="5" value={form.rating} onChange={(e) => setField("rating", e.target.value)} placeholder="1-5" />
+                  </Field>
+                </div>
 
-            {/* Cover URL + Release Date */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Field label="Cover URL">
-                <input type="url" value={form.coverUrl} onChange={(e) => setField("coverUrl", e.target.value)} placeholder="https://…" style={inputStyle} />
-              </Field>
-              <Field label="Release Date">
-                <input type="date" value={form.releaseDate} onChange={(e) => setField("releaseDate", e.target.value)} style={inputStyle} />
-              </Field>
-            </div>
+                <Field label="Cover URL">
+                  <Input value={form.coverUrl} onChange={(e) => setField("coverUrl", e.target.value)} placeholder="https://..." />
+                </Field>
 
-            {/* Rating + Source URL */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Field label="Rating (1–5)">
-                <select value={form.rating} onChange={(e) => setField("rating", e.target.value)} style={inputStyle}>
-                  <option value="">No rating</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>{"★".repeat(n)}</option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Source URL">
-                <input type="url" value={form.sourceUrl} onChange={(e) => setField("sourceUrl", e.target.value)} placeholder="https://…" style={inputStyle} />
-              </Field>
-            </div>
+                <Field label="Source URL">
+                  <Input value={form.sourceUrl} onChange={(e) => setField("sourceUrl", e.target.value)} placeholder="Original source" />
+                </Field>
 
-            {/* Notes */}
-            <Field label="Notes">
-              <textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} placeholder="Private notes…" rows={2} style={{ ...inputStyle, resize: "vertical" }} />
-            </Field>
+                <Field label="Description">
+                  <Textarea value={form.description} onChange={(e) => setField("description", e.target.value)} placeholder="Short description" />
+                </Field>
 
-            {saveError && (
-              <p style={{ fontSize: 13, color: "oklch(65% 0.2 25)", margin: 0 }}>
-                {(saveError as Error).message}
-              </p>
-            )}
+                <Field label="Notes">
+                  <Textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} placeholder="Private notes" />
+                </Field>
+              </CardContent>
+            </Card>
 
-            {/* Actions */}
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", paddingTop: 4 }}>
-              <button type="button" onClick={handleClose} style={secondaryBtnStyle}>
-                Cancel
-              </button>
-              <button type="submit" disabled={saving} style={primaryBtnStyle(saving)}>
-                {saving ? "Adding…" : "Add Item"}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </>
+            <Card>
+              <CardContent className="flex h-full flex-col gap-4 p-5">
+                <p className="hero-kicker text-xs">Preview</p>
+                <div className="flex h-56 items-center justify-center overflow-hidden rounded-[24px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+                  {form.coverUrl ? (
+                    <img src={form.coverUrl} alt={form.title || "cover"} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="font-display text-5xl">
+                      {CONTENT_TYPES.find((t) => t.id === form.contentType)?.icon ?? "📄"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">{CONTENT_TYPES.find((t) => t.id === form.contentType)?.label ?? form.contentType}</Badge>
+                  <Badge variant="secondary">{STATUSES.find((s) => s.id === form.status)?.label ?? form.status}</Badge>
+                </div>
+                <div>
+                  <h3 className="font-display text-3xl leading-none text-foreground">{form.title || "Untitled item"}</h3>
+                  {form.creator ? <p className="mt-2 text-sm text-muted-foreground">{form.creator}</p> : null}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {form.description || "Metadata will appear here as you fetch it or fill in the form."}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => { reset(); onClose(); }}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || !form.title.trim()}>
+              {saving ? "Saving…" : "Save item"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-muted)" }}>{label}</span>
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
       {children}
-    </label>
+    </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--color-background)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 8,
-  padding: "8px 12px",
-  fontSize: 13,
-  color: "var(--color-foreground)",
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-};
-
-const secondaryBtnStyle: React.CSSProperties = {
-  padding: "8px 18px",
-  borderRadius: 8,
-  border: "1px solid var(--color-border)",
-  background: "transparent",
-  color: "var(--color-foreground)",
-  fontSize: 13,
-  fontWeight: 500,
-  cursor: "pointer",
-};
-
-const primaryBtnStyle = (disabled: boolean): React.CSSProperties => ({
-  padding: "8px 18px",
-  borderRadius: 8,
-  border: "none",
-  background: disabled ? "var(--color-muted)" : "var(--color-accent)",
-  color: "white",
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: disabled ? "not-allowed" : "pointer",
-});

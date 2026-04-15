@@ -4,6 +4,8 @@ import { TypeStats } from "../components/dashboard/TypeStats";
 import { RecentlyAdded } from "../components/dashboard/RecentlyAdded";
 import { InProgressItems } from "../components/dashboard/InProgressItems";
 import { NextToConsume } from "../components/dashboard/NextToConsume";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
@@ -13,51 +15,54 @@ function DashboardPage() {
   const { data: allItems = [], isLoading } = useItems();
 
   return (
-    <div className="mx-auto max-w-screen-lg px-4 py-8" style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-      {/* ── Type stats ─────────────────────────────────────────────────────── */}
+    <div className="flex flex-col gap-8">
+      <section className="rounded-[40px] border-2 border-[hsl(var(--border-strong))] bg-[hsl(var(--background)/0.8)] px-6 py-10 shadow-[8px_8px_0_hsl(var(--shadow-ink))]">
+        <p className="hero-kicker mb-4 text-center text-xs">Running in public</p>
+        <h1 className="hero-title mx-auto max-w-4xl text-center text-5xl leading-none text-foreground sm:text-6xl lg:text-7xl">
+          Your media stack.
+          <br />
+          <span className="hero-accent">One library.</span>
+        </h1>
+        <p className="mx-auto mt-5 max-w-2xl text-center font-display text-2xl text-muted-foreground">
+          Track books, films, podcasts, videos, articles, and tweets in one playful command center.
+        </p>
+      </section>
+
       <section>
         <TypeStats items={allItems} />
       </section>
 
-      {/* ── In Progress ────────────────────────────────────────────────────── */}
-      <section>
-        <SectionHeader title="In Progress" />
-        {isLoading ? <Skeleton /> : <InProgressItems items={allItems} />}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>In Progress</CardTitle>
+          <CardDescription>The things you are actively reading, watching, or listening to right now.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? <Skeleton className="h-24 w-full" /> : <InProgressItems items={allItems} />}
+        </CardContent>
+      </Card>
 
-      {/* ── Bottom 2-col grid ──────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <section>
-          <SectionHeader title="Recently Added" />
-          {isLoading ? <Skeleton /> : <RecentlyAdded items={allItems} />}
-        </section>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recently Added</CardTitle>
+            <CardDescription>Your latest saves, ready to jump back into.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <Skeleton className="h-36 w-full" /> : <RecentlyAdded items={allItems} />}
+          </CardContent>
+        </Card>
 
-        <section>
-          <SectionHeader title="Next to Consume" description="AI-ranked suggestions" />
-          <NextToConsume />
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>Next To Consume</CardTitle>
+            <CardDescription>AI-ranked suggestions pulled from your queue.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <NextToConsume />
+          </CardContent>
+        </Card>
       </div>
     </div>
-  );
-}
-
-function SectionHeader({ title, description }: { title: string; description?: string }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--color-foreground)" }}>
-        {title}
-      </h2>
-      {description && (
-        <span style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 2, display: "block" }}>
-          {description}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function Skeleton() {
-  return (
-    <div style={{ height: 60, borderRadius: 8, background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
   );
 }

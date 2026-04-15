@@ -98,17 +98,23 @@ const VALID_SERVICES = [
   "podcastIndexKey", "podcastIndexSecret", "aiModel",
 ] as const;
 
-// GET /api/user/settings — returns which keys are set (never returns raw values)
-router.get("/settings", async (c) => {
-  const userId = c.get("userId");
-  const db = createDb(c.env.DB);
-
+async function readApiKeys(
+  db: ReturnType<typeof import("../db/client").createDb>,
+  userId: string
+): Promise<ApiKeysBlob> {
   const [row] = await db
     .select({ apiKeys: user.apiKeys })
     .from(user)
     .where(eq(user.id, userId));
 
-  const keys: ApiKeysBlob = row?.apiKeys ? JSON.parse(row.apiKeys) : {};
+  return row?.apiKeys ? JSON.parse(row.apiKeys) : {};
+}
+
+// GET /api/user/settings — returns which keys are set (never returns raw values)
+router.get("/settings", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+  const keys = await readApiKeys(db, userId);
 
   return c.json({
     gemini:           keys.gemini            ? "set" : null,
@@ -131,13 +137,7 @@ router.patch("/settings", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-
-  const [row] = await db
-    .select({ apiKeys: user.apiKeys })
-    .from(user)
-    .where(eq(user.id, userId));
-
-  const current: ApiKeysBlob = row?.apiKeys ? JSON.parse(row.apiKeys) : {};
+  const current = await readApiKeys(db, userId);
 
   if (body.key === "") {
     delete current[body.service as keyof ApiKeysBlob];
@@ -151,6 +151,49 @@ router.patch("/settings", async (c) => {
     .where(eq(user.id, userId));
 
   return c.json({ ok: true });
+});
+
+// POST /api/user/settings/test — verify an API key without storing it
+router.post("/settings/test", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{ service: string; key?: string }>();
+
+  if (body.service !== "gemini") {
+    return c.json({ error: "Only Gemini key testing is supported right now" }, 400);
+  }
+
+  const db = createDb(c.env.DB);
+  const keys = await readApiKeys(db, userId);
+  const keyToTest = body.key?.trim() || keys.gemini || c.env.GEMINI_API_KEY;
+
+  if (!keyToTest) {
+    return c.json({ ok: false, message: "No Gemini API key found to test" }, 400);
+  }
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${keyToTest}`);
+    if (!res.ok) {
+      const text = await res.text();
+      return c.json({
+        ok: false,
+        message: `Gemini ${res.status}: ${text.slice(0, 200)}`,
+      }, 400);
+    }
+
+    return c.json({
+      ok: true,
+      message: body.key?.trim()
+        ? "Gemini key is valid"
+        : keys.gemini
+          ? "Saved Gemini key is valid"
+          : "Fallback Gemini key from environment is valid",
+    });
+  } catch (err) {
+    return c.json({
+      ok: false,
+      message: err instanceof Error ? err.message : "Gemini key test failed",
+    }, 502);
+  }
 });
 
 export default router;

@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
 import { CONTENT_TYPES } from "../../lib/constants";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface RecentlyAddedProps {
   items: Item[];
@@ -14,84 +16,33 @@ export function RecentlyAdded({ items }: RecentlyAddedProps) {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 10,
-        overflowX: "auto",
-        paddingBottom: 4,
-      }}
-    >
+    <div className="flex gap-4 overflow-x-auto pb-2">
       {recent.map((item) => {
         const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
         return (
-          <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none", flexShrink: 0 }}>
-            <div
-              style={{
-                width: 110,
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                cursor: "pointer",
-              }}
-            >
-              {/* Cover */}
-              <div
-                style={{
-                  width: 110,
-                  height: 74,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                  background: ct ? `color-mix(in oklch, ${ct.color} 20%, var(--color-surface))` : "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                {item.coverUrl ? (
-                  <img
-                    src={item.coverUrl}
-                    alt={item.title}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                ) : (
-                  <span style={{ fontSize: 24 }}>{ct?.icon ?? "📄"}</span>
-                )}
-              </div>
-
-              {/* Title + type badge */}
-              <div>
+          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block min-w-[176px] shrink-0 no-underline">
+            <Card className="h-full transition-transform hover:-translate-y-1">
+              <CardContent className="flex flex-col gap-3 p-3">
                 <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: "var(--color-foreground)",
-                    lineHeight: 1.3,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
+                  className="flex h-28 items-center justify-center overflow-hidden rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-secondary"
+                  style={ct ? { backgroundColor: `color-mix(in oklch, ${ct.color} 18%, hsl(var(--card)))` } : undefined}
                 >
-                  {item.title}
+                  {item.coverUrl ? (
+                    <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="font-display text-4xl">{ct?.icon ?? "📄"}</span>
+                  )}
                 </div>
-                {ct && (
-                  <span
-                    style={{
-                      fontSize: 10,
-                      color: ct.color,
-                      fontWeight: 600,
-                      marginTop: 2,
-                      display: "block",
-                    }}
-                  >
-                    {ct.label}
-                  </span>
-                )}
-              </div>
-            </div>
+                <div className="flex flex-col gap-2">
+                  <p className="line-clamp-2 text-sm font-semibold text-foreground">{item.title}</p>
+                  {ct ? (
+                    <Badge variant="outline" className="w-fit" style={{ color: ct.color }}>
+                      {ct.label}
+                    </Badge>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
           </Link>
         );
       })}
@@ -100,7 +51,5 @@ export function RecentlyAdded({ items }: RecentlyAddedProps) {
 }
 
 function EmptyState({ message }: { message: string }) {
-  return (
-    <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "12px 0" }}>{message}</div>
-  );
+  return <div className="py-3 text-sm text-muted-foreground">{message}</div>;
 }

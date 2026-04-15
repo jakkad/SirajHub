@@ -1,9 +1,19 @@
+import { MoreHorizontal, Sparkles, Trash2, Archive } from "lucide-react";
 import { useState } from "react";
+
 import type { Item, AiAnalysis } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
-import { useDeleteItem, useUpdateItem } from "../hooks/useItems";
 import { useAnalyzeItem } from "../hooks/useAI";
+import { useDeleteItem, useUpdateItem } from "../hooks/useItems";
 import type { Tag } from "../hooks/useTags";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Props {
   item: Item;
@@ -13,7 +23,6 @@ interface Props {
 }
 
 export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
@@ -24,7 +33,6 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
   const contentType = CONTENT_TYPES.find((t) => t.id === item.contentType);
 
   function handleAnalyze() {
-    setMenuOpen(false);
     setAnalysisOpen(true);
     if (!analysis) {
       analyzeItem(item.id, {
@@ -36,311 +44,99 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
   }
 
   return (
-    <div
-      style={{
-        background: "var(--color-surface)",
-        border: isDragging
-          ? "1px solid var(--color-accent)"
-          : "1px solid var(--color-border)",
-        borderRadius: "var(--radius-md)",
-        padding: "12px",
-        cursor: "grab",
-        boxShadow: isDragging ? "0 8px 24px oklch(0% 0 0 / 0.4)" : "none",
-        userSelect: "none",
-        position: "relative",
-      }}
-    >
-      {/* Cover */}
-      {item.coverUrl ? (
-        <img
-          src={item.coverUrl}
-          alt={item.title}
-          style={{
-            width: "100%",
-            height: 110,
-            objectFit: "cover",
-            borderRadius: 6,
-            marginBottom: 10,
-          }}
-        />
-      ) : (
-        <div
-          style={{
-            width: "100%",
-            height: 70,
-            borderRadius: 6,
-            marginBottom: 10,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 28,
-            background: "var(--color-surface-hover)",
-          }}
-        >
-          {contentType?.icon ?? "📄"}
-        </div>
-      )}
-
-      {/* Title */}
-      <div
-        onClick={onTitleClick ? (e) => { e.stopPropagation(); onTitleClick(); } : undefined}
-        onPointerDown={onTitleClick ? (e) => e.stopPropagation() : undefined}
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          lineHeight: 1.35,
-          marginBottom: 3,
-          paddingRight: 20,
-          cursor: onTitleClick ? "pointer" : "inherit",
-        }}
-        title={onTitleClick ? "Click to open details" : undefined}
-      >
-        {item.title}
-      </div>
-
-      {/* Creator */}
-      {item.creator && (
-        <div
-          style={{ fontSize: 11, color: "var(--color-muted)", marginBottom: 8 }}
-        >
-          {item.creator}
-        </div>
-      )}
-
-      {/* Content type badge + rating */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        {contentType && (
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 600,
-              padding: "2px 7px",
-              borderRadius: 999,
-              background: `color-mix(in oklch, ${contentType.color} 18%, transparent)`,
-              color: contentType.color,
-            }}
-          >
-            {contentType.label}
-          </span>
-        )}
-        {item.rating != null && (
-          <span style={{ fontSize: 11, color: "var(--color-muted)" }}>
-            {"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}
-          </span>
-        )}
-      </div>
-
-      {/* Tag pills (shown if parent passes allTags) */}
-      {allTags.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-          {allTags.slice(0, 3).map((tag) => (
-            <span
-              key={tag.id}
-              style={{
-                fontSize: 9,
-                fontWeight: 600,
-                padding: "1px 6px",
-                borderRadius: 999,
-                background: `${tag.color}28`,
-                color: tag.color,
-              }}
-            >
-              {tag.name}
-            </span>
-          ))}
-          {allTags.length > 3 && (
-            <span style={{ fontSize: 9, color: "var(--color-muted)" }}>+{allTags.length - 3}</span>
-          )}
-        </div>
-      )}
-
-      {/* AI Analysis panel */}
-      {analysisOpen && (
-        <div
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{
-            marginTop: 10,
-            paddingTop: 10,
-            borderTop: "1px solid var(--color-border)",
-          }}
-        >
-          {analyzing && (
-            <p style={{ fontSize: 11, color: "var(--color-muted)", margin: 0 }}>
-              Analyzing…
-            </p>
-          )}
-          {analyzeError && (
-            <p style={{ fontSize: 11, color: "oklch(65% 0.2 25)", margin: 0 }}>
-              {(analyzeError as Error).message}
-            </p>
-          )}
-          {analysis && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {analysis.mood && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    padding: "2px 8px",
-                    borderRadius: 999,
-                    background: "color-mix(in oklch, var(--color-accent) 15%, transparent)",
-                    color: "var(--color-accent)",
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  {analysis.mood}
-                </span>
-              )}
-              <p style={{ fontSize: 12, lineHeight: 1.5, margin: 0, color: "var(--color-foreground)" }}>
-                {analysis.summary}
-              </p>
-              {analysis.key_points.length > 0 && (
-                <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 3 }}>
-                  {analysis.key_points.map((pt, i) => (
-                    <li key={i} style={{ fontSize: 11, color: "var(--color-muted)", lineHeight: 1.4 }}>
-                      {pt}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p
-                style={{
-                  fontSize: 11,
-                  fontStyle: "italic",
-                  color: "var(--color-muted)",
-                  margin: 0,
-                  lineHeight: 1.4,
-                }}
+    <Card className={isDragging ? "rotate-1" : "transition-transform hover:-translate-y-1"}>
+      <CardContent className="relative flex flex-col gap-3 p-3">
+        <div className="absolute top-3 right-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                className="rounded-full border-2 border-[hsl(var(--border-strong))] bg-background p-2 shadow-[2px_2px_0_hsl(var(--shadow-ink))]"
               >
-                {analysis.recommendation}
-              </p>
-            </div>
-          )}
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); setAnalysisOpen(false); }}
-            style={{
-              marginTop: 8,
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 11,
-              color: "var(--color-muted)",
-              padding: 0,
-              textDecoration: "underline",
-            }}
-          >
-            Close
-          </button>
+                <MoreHorizontal className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleAnalyze}>
+                <Sparkles />
+                {analysisOpen ? "Show Analysis" : "Analyze"}
+              </DropdownMenuItem>
+              {item.status !== "archived" ? (
+                <DropdownMenuItem onClick={() => updateItem({ id: item.id, status: "archived" })}>
+                  <Archive />
+                  Archive
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem onClick={() => window.confirm(`Delete "${item.title}"?`) && deleteItem(item.id)} className="text-destructive focus:text-destructive">
+                <Trash2 />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      )}
 
-      {/* 3-dot menu */}
-      <div style={{ position: "absolute", top: 6, right: 6 }}>
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            setMenuOpen((o) => !o);
-          }}
-          style={{
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            padding: "2px 5px",
-            borderRadius: 4,
-            color: "var(--color-muted)",
-            fontSize: 15,
-            lineHeight: 1,
-          }}
+        <div
+          onClick={onTitleClick ? (e) => { e.stopPropagation(); onTitleClick(); } : undefined}
+          onPointerDown={onTitleClick ? (e) => e.stopPropagation() : undefined}
+          className="cursor-pointer"
         >
-          ···
-        </button>
+          <div className="flex h-28 items-center justify-center overflow-hidden rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-secondary">
+            {item.coverUrl ? (
+              <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
+            ) : (
+              <span className="font-display text-4xl">{contentType?.icon ?? "📄"}</span>
+            )}
+          </div>
+        </div>
 
-        {menuOpen && (
-          <>
-            <div
-              style={{ position: "fixed", inset: 0, zIndex: 10 }}
-              onClick={() => setMenuOpen(false)}
-            />
-            <div
-              style={{
-                position: "absolute",
-                right: 0,
-                top: "calc(100% + 4px)",
-                zIndex: 20,
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: 8,
-                boxShadow: "0 4px 16px oklch(0% 0 0 / 0.3)",
-                overflow: "hidden",
-                minWidth: 140,
-              }}
-            >
-              <MenuButton
-                label={analysisOpen ? "Hide Analysis" : "Analyze"}
-                onClick={handleAnalyze}
-              />
-              {item.status !== "archived" && (
-                <MenuButton
-                  label="Archive"
-                  onClick={() => {
-                    updateItem({ id: item.id, status: "archived" });
-                    setMenuOpen(false);
-                  }}
-                />
-              )}
-              <MenuButton
-                label="Delete"
-                danger
-                onClick={() => {
-                  if (window.confirm(`Delete "${item.title}"?`)) {
-                    deleteItem(item.id);
-                  }
-                  setMenuOpen(false);
-                }}
-              />
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+        <div className="flex flex-col gap-1">
+          <div
+            onClick={onTitleClick ? (e) => { e.stopPropagation(); onTitleClick(); } : undefined}
+            onPointerDown={onTitleClick ? (e) => e.stopPropagation() : undefined}
+            className="line-clamp-2 cursor-pointer text-sm font-semibold text-foreground"
+          >
+            {item.title}
+          </div>
+          {item.creator ? <div className="text-xs text-muted-foreground">{item.creator}</div> : null}
+        </div>
 
-function MenuButton({
-  label,
-  onClick,
-  danger,
-}: {
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <button
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={onClick}
-      style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        padding: "8px 14px",
-        background: "transparent",
-        border: "none",
-        cursor: "pointer",
-        fontSize: 13,
-        color: danger ? "oklch(65% 0.2 25)" : "var(--color-foreground)",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background =
-          "var(--color-surface-hover)";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-      }}
-    >
-      {label}
-    </button>
+        <div className="flex flex-wrap gap-2">
+          {contentType ? <Badge variant="outline">{contentType.label}</Badge> : null}
+          {item.rating != null ? <Badge variant="secondary">{`${item.rating}/5`}</Badge> : null}
+        </div>
+
+        {allTags.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {allTags.slice(0, 3).map((tag) => (
+              <Badge key={tag.id} variant="outline" style={{ color: tag.color }}>
+                {tag.name}
+              </Badge>
+            ))}
+            {allTags.length > 3 ? <Badge variant="outline">+{allTags.length - 3}</Badge> : null}
+          </div>
+        ) : null}
+
+        {analysisOpen ? (
+          <div className="rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-background p-3 shadow-[3px_3px_0_hsl(var(--shadow-ink))]">
+            {analyzing ? <p className="text-xs text-muted-foreground">Analyzing…</p> : null}
+            {analyzeError ? <p className="text-xs text-destructive">{(analyzeError as Error).message}</p> : null}
+            {analysis ? (
+              <div className="flex flex-col gap-2">
+                {analysis.mood ? <Badge variant="secondary" className="w-fit">{analysis.mood}</Badge> : null}
+                <p className="text-xs leading-5 text-foreground">{analysis.summary}</p>
+                {analysis.key_points.length > 0 ? (
+                  <ul className="list-disc pl-4 text-xs text-muted-foreground">
+                    {analysis.key_points.map((point, index) => (
+                      <li key={index}>{point}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <p className="text-xs italic text-muted-foreground">{analysis.recommendation}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

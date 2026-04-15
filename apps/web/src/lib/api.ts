@@ -222,6 +222,13 @@ export const userSettingsApi = {
       body: JSON.stringify({ service, key }),
     });
   },
+
+  testKey(service: string, key?: string): Promise<{ ok: boolean; message: string }> {
+    return request<{ ok: boolean; message: string }>("/api/user/settings/test", {
+      method: "POST",
+      body: JSON.stringify({ service, key }),
+    });
+  },
 };
 
 // ── Items API ─────────────────────────────────────────────────────────────────

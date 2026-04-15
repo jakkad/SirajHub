@@ -41,3 +41,10 @@ export function useUpdateApiKey() {
     },
   });
 }
+
+export function useTestApiKey() {
+  return useMutation({
+    mutationFn: ({ service, key }: { service: string; key?: string }) =>
+      userSettingsApi.testKey(service, key),
+  });
+}

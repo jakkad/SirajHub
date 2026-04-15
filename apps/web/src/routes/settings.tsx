@@ -1,69 +1,87 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { useUserProfile, useUpdateProfile, useClearAiCache, useUserSettings, useUpdateApiKey } from "../hooks/useUser";
+import { useEffect, useState } from "react";
+
 import { useTags, useDeleteTag } from "../hooks/useTags";
+import {
+  useClearAiCache,
+  useTestApiKey,
+  useUpdateApiKey,
+  useUpdateProfile,
+  useUserProfile,
+  useUserSettings,
+} from "../hooks/useUser";
 import { userApi } from "../lib/api";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
 const AI_MODELS = [
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Default — fast, capable, generous free tier" },
-  { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite", description: "Fastest, lowest cost — requires paid quota" },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Most capable — best for complex analysis" },
+  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Recommended balance of speed and quality." },
+  { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite", description: "Fastest and lightest option." },
+  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Most capable model for deeper reasoning." },
 ];
 
 const API_KEY_SERVICES = [
-  { id: "gemini", label: "Gemini API Key", description: "For AI categorization, analysis, and ranking. Uses app default if not set." },
-  { id: "tmdb", label: "TMDB API Key", description: "For fetching movie & TV show metadata." },
-  { id: "youtube", label: "YouTube API Key", description: "For fetching YouTube video metadata." },
-  { id: "googleBooks", label: "Google Books API Key", description: "For fetching book metadata." },
-  { id: "podcastIndexKey", label: "Podcast Index Key", description: "For fetching podcast metadata." },
-  { id: "podcastIndexSecret", label: "Podcast Index Secret", description: "Required alongside Podcast Index Key." },
+  { id: "gemini", label: "Gemini API Key", description: "Used for categorization, analysis, and ranking." },
+  { id: "tmdb", label: "TMDB API Key", description: "Used for movie and TV metadata." },
+  { id: "youtube", label: "YouTube API Key", description: "Used for YouTube metadata." },
+  { id: "googleBooks", label: "Google Books API Key", description: "Used for fallback book metadata." },
+  { id: "podcastIndexKey", label: "Podcast Index Key", description: "Used for podcast search and metadata." },
+  { id: "podcastIndexSecret", label: "Podcast Index Secret", description: "Pairs with the Podcast Index Key." },
 ] as const;
 
 function SettingsPage() {
   const { data: profile, isLoading } = useUserProfile();
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20" style={{ color: "var(--color-muted)" }}>
-        Loading…
-      </div>
-    );
+    return <div className="py-20 text-center text-muted-foreground">Loading settings…</div>;
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10">
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: "0 0 28px" }}>Settings</h1>
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-6">
+          <p className="hero-kicker text-xs">Control room</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-5xl leading-none">Settings</h1>
+            <Badge variant="secondary">personal</Badge>
+          </div>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Tune your profile, plug in your own API keys, pick an AI model, manage tags, and maintain your data.
+          </p>
+        </CardContent>
+      </Card>
 
-      <Tabs defaultValue="profile">
-        <TabsList className="mb-6 w-full">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="apikeys">API Keys</TabsTrigger>
-          <TabsTrigger value="aimodel">AI Model</TabsTrigger>
-          <TabsTrigger value="tags">Tags</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
+      <Tabs defaultValue="profile" className="flex flex-col gap-6">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
+          <TabsTrigger value="profile" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Profile</TabsTrigger>
+          <TabsTrigger value="apikeys" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">API Keys</TabsTrigger>
+          <TabsTrigger value="aimodel" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">AI Model</TabsTrigger>
+          <TabsTrigger value="tags" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Tags</TabsTrigger>
+          <TabsTrigger value="data" className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))]">Data</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
           <ProfileTab profile={profile} />
         </TabsContent>
-
         <TabsContent value="apikeys">
           <ApiKeysTab />
         </TabsContent>
-
         <TabsContent value="aimodel">
           <AiModelTab />
         </TabsContent>
-
         <TabsContent value="tags">
           <TagsTab />
         </TabsContent>
-
         <TabsContent value="data">
           <DataTab />
         </TabsContent>
@@ -72,14 +90,11 @@ function SettingsPage() {
   );
 }
 
-// ── Profile Tab ───────────────────────────────────────────────────────────────
-
 function ProfileTab({ profile }: { profile?: { name: string; email: string; preferences: string | null } }) {
   const { mutate: updateProfile, isPending: saving } = useUpdateProfile();
   const [name, setName] = useState(profile?.name ?? "");
   const [preferences, setPreferences] = useState(profile?.preferences ?? "");
-  const [nameSaved, setNameSaved] = useState(false);
-  const [prefSaved, setPrefSaved] = useState(false);
+  const [saved, setSaved] = useState<"name" | "preferences" | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -88,397 +103,294 @@ function ProfileTab({ profile }: { profile?: { name: string; email: string; pref
     }
   }, [profile]);
 
-  function handleSaveName() {
-    updateProfile({ name }, { onSuccess: () => { setNameSaved(true); setTimeout(() => setNameSaved(false), 2000); } });
-  }
-
-  function handleSavePreferences() {
-    updateProfile({ preferences }, { onSuccess: () => { setPrefSaved(true); setTimeout(() => setPrefSaved(false), 2000); } });
+  function flash(which: "name" | "preferences") {
+    setSaved(which);
+    setTimeout(() => setSaved(null), 1800);
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <Section title="Display name">
-        <div style={{ display: "flex", gap: 8 }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} />
-          <SaveButton onClick={handleSaveName} saving={saving} saved={nameSaved} />
-        </div>
-      </Section>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Identity</CardTitle>
+          <CardDescription>Keep your profile details in sync across the app.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="display-name">Display name</Label>
+            <Input id="display-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" value={profile?.email ?? ""} readOnly className="opacity-70" />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => updateProfile({ name }, { onSuccess: () => flash("name") })}
+              disabled={saving}
+            >
+              Save name
+            </Button>
+            {saved === "name" ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+          </div>
+        </CardContent>
+      </Card>
 
-      <Section title="Email">
-        <input value={profile?.email ?? ""} readOnly style={{ ...inputStyle, opacity: 0.5, cursor: "default" }} />
-      </Section>
-
-      <Section title="AI Taste Preferences" description="Describe what you enjoy and dislike. Gemini uses this when ranking your Next to Consume list.">
-        <textarea
-          value={preferences}
-          onChange={(e) => setPreferences(e.target.value)}
-          rows={4}
-          placeholder='e.g. "I love hard sci-fi and literary fiction. I dislike horror and reality TV."'
-          style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }}
-        />
-        <div style={{ marginTop: 8 }}>
-          <SaveButton onClick={handleSavePreferences} saving={saving} saved={prefSaved} />
-        </div>
-      </Section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Taste Profile</CardTitle>
+          <CardDescription>Tell the AI what you lean toward so recommendations feel more personal.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="taste">Preferences</Label>
+            <Textarea
+              id="taste"
+              value={preferences}
+              onChange={(e) => setPreferences(e.target.value)}
+              placeholder='I love cerebral sci-fi, essays, and stylish thrillers. I skip reality TV and gore-heavy horror.'
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => updateProfile({ preferences }, { onSuccess: () => flash("preferences") })}
+              disabled={saving}
+            >
+              Save preferences
+            </Button>
+            {saved === "preferences" ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
 
-// ── API Keys Tab ──────────────────────────────────────────────────────────────
-
 function ApiKeysTab() {
   const { data: settings } = useUserSettings();
-  const { mutate: updateKey } = useUpdateApiKey();
+  const { mutate: updateKey, isPending } = useUpdateApiKey();
+  const { mutate: testKey, isPending: testing } = useTestApiKey();
   const [inputs, setInputs] = useState<Record<string, string>>({});
-  const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [saved, setSaved] = useState<string | null>(null);
+  const [tested, setTested] = useState<Record<string, string>>({});
 
   function handleSave(serviceId: string) {
-    const val = inputs[serviceId] ?? "";
     updateKey(
-      { service: serviceId, key: val },
+      { service: serviceId, key: inputs[serviceId] ?? "" },
       {
         onSuccess: () => {
-          setSaved((s) => ({ ...s, [serviceId]: true }));
-          setTimeout(() => setSaved((s) => ({ ...s, [serviceId]: false })), 2000);
+          setSaved(serviceId);
           setInputs((prev) => ({ ...prev, [serviceId]: "" }));
+          setTimeout(() => setSaved(null), 1800);
         },
       }
     );
   }
 
-  function handleClear(serviceId: string) {
-    updateKey({ service: serviceId, key: "" });
+  function handleTest(serviceId: string) {
+    const input = inputs[serviceId]?.trim();
+    testKey(
+      { service: serviceId, key: input || undefined },
+      {
+        onSuccess: (result) => {
+          setTested((prev) => ({ ...prev, [serviceId]: result.message }));
+        },
+        onError: (err) => {
+          setTested((prev) => ({ ...prev, [serviceId]: err.message }));
+        },
+      }
+    );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0, lineHeight: 1.6 }}>
-        API keys are stored securely per-user and never returned to the client. Saved keys are shown as ●●●●●●●●.
-        Leave blank and save to use the app default (where available).
-      </p>
-
+    <div className="grid gap-5">
       {API_KEY_SERVICES.map((svc) => {
         const isSet = settings?.[svc.id as keyof typeof settings] === "set";
-        const inputVal = inputs[svc.id] ?? "";
         return (
-          <Section key={svc.id} title={svc.label} description={svc.description}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="password"
-                value={inputVal}
-                onChange={(e) => setInputs((prev) => ({ ...prev, [svc.id]: e.target.value }))}
-                placeholder={isSet ? "●●●●●●●●●●●● (saved)" : "Paste key here…"}
-                style={{ ...inputStyle, flex: 1 }}
-              />
-              <SaveButton
-                onClick={() => handleSave(svc.id)}
-                saving={false}
-                saved={saved[svc.id] ?? false}
-              />
-              {isSet && (
-                <button
-                  onClick={() => handleClear(svc.id)}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid var(--color-border)",
-                    background: "transparent",
-                    color: "oklch(65% 0.2 25)",
-                    fontSize: 12,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            {isSet && (
-              <div style={{ fontSize: 11, color: "oklch(60% 0.15 150)", marginTop: 4 }}>
-                Key saved
+          <Card key={svc.id}>
+            <CardHeader>
+              <div className="flex flex-wrap items-center gap-3">
+                <CardTitle>{svc.label}</CardTitle>
+                {isSet ? <Badge variant="secondary">saved</Badge> : <Badge variant="outline">using default</Badge>}
               </div>
-            )}
-          </Section>
+              <CardDescription>{svc.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <Input
+                type="password"
+                value={inputs[svc.id] ?? ""}
+                onChange={(e) => setInputs((prev) => ({ ...prev, [svc.id]: e.target.value }))}
+                placeholder={isSet ? "•••••••••••• already stored" : "Paste new key"}
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={() => handleSave(svc.id)} disabled={isPending}>
+                  Save key
+                </Button>
+                {svc.id === "gemini" ? (
+                  <Button variant="outline" onClick={() => handleTest(svc.id)} disabled={testing}>
+                    {testing ? "Testing…" : "Test key"}
+                  </Button>
+                ) : null}
+                {isSet ? (
+                  <Button variant="outline" onClick={() => updateKey({ service: svc.id, key: "" })} disabled={isPending}>
+                    Clear
+                  </Button>
+                ) : null}
+                {saved === svc.id ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+              </div>
+              {tested[svc.id] ? <div className="text-xs text-muted-foreground">{tested[svc.id]}</div> : null}
+            </CardContent>
+          </Card>
         );
       })}
     </div>
   );
 }
 
-// ── AI Model Tab ──────────────────────────────────────────────────────────────
-
 function AiModelTab() {
   const { data: settings } = useUserSettings();
   const { mutate: updateKey, isPending } = useUpdateApiKey();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState("gemini-2.5-flash");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (settings) setSelected(settings.aiModel ?? "gemini-2.5-flash");
+    setSelected(settings?.aiModel ?? "gemini-2.5-flash");
   }, [settings]);
 
   function handleSave() {
     updateKey(
-      { service: "aiModel", key: selected ?? "gemini-2.5-flash" },
+      { service: "aiModel", key: selected },
       {
         onSuccess: () => {
           setSaved(true);
-          setTimeout(() => setSaved(false), 2000);
+          setTimeout(() => setSaved(false), 1800);
         },
       }
     );
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <p style={{ fontSize: 13, color: "var(--color-muted)", margin: 0, lineHeight: 1.6 }}>
-        Choose which Gemini model to use for AI features. Requires an API key with appropriate quota.
-      </p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {AI_MODELS.map((m) => (
-          <label
-            key={m.id}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 12,
-              padding: "14px 16px",
-              borderRadius: 10,
-              border: `1px solid ${(selected ?? "gemini-2.5-flash") === m.id ? "var(--color-accent)" : "var(--color-border)"}`,
-              background: (selected ?? "gemini-2.5-flash") === m.id ? "oklch(20% 0.04 265 / 0.4)" : "var(--color-surface)",
-              cursor: "pointer",
-              transition: "border-color 0.15s, background 0.15s",
-            }}
-          >
-            <input
-              type="radio"
-              name="aiModel"
-              value={m.id}
-              checked={(selected ?? "gemini-2.5-flash") === m.id}
-              onChange={() => setSelected(m.id)}
-              style={{ marginTop: 2 }}
-            />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{m.label}</div>
-              <div style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 2 }}>{m.description}</div>
-            </div>
-          </label>
-        ))}
-      </div>
-
-      <div>
-        <SaveButton onClick={handleSave} saving={isPending} saved={saved} />
-      </div>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Model Selection</CardTitle>
+        <CardDescription>Choose the Gemini model used for categorization, ranking, and analysis.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">
+          {AI_MODELS.map((model) => (
+            <Label
+              key={model.id}
+              htmlFor={model.id}
+              className="flex cursor-pointer items-start gap-4 rounded-[24px] border-2 border-[hsl(var(--border-strong))] bg-background p-4 shadow-[4px_4px_0_hsl(var(--shadow-ink))]"
+            >
+              <RadioGroupItem id={model.id} value={model.id} className="mt-1 size-5 border-2 border-[hsl(var(--border-strong))]" />
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-foreground">{model.label}</span>
+                <span className="text-sm text-muted-foreground">{model.description}</span>
+              </div>
+            </Label>
+          ))}
+        </RadioGroup>
+        <div className="flex items-center gap-3">
+          <Button onClick={handleSave} disabled={isPending}>
+            Save model
+          </Button>
+          {saved ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
-
-// ── Tags Tab ──────────────────────────────────────────────────────────────────
 
 function TagsTab() {
-  const { data: allTags = [] } = useTags();
-  const { mutate: deleteTag } = useDeleteTag();
+  const { data: tags = [], isLoading } = useTags();
+  const { mutate: deleteTag, isPending } = useDeleteTag();
 
   return (
-    <div>
-      {allTags.length === 0 ? (
-        <p style={{ fontSize: 13, color: "var(--color-muted)" }}>
-          No tags yet. Create tags from the item detail panel.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {allTags.map((tag) => (
-            <div
-              key={tag.id}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: `${tag.color}28`,
-                color: tag.color,
-              }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 600 }}>{tag.name}</span>
-              <button
-                onClick={() => {
-                  if (window.confirm(`Delete tag "${tag.name}"?`)) deleteTag(tag.id);
-                }}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: tag.color, fontSize: 16, lineHeight: 1, padding: 0, opacity: 0.7 }}
-              >
-                ×
-              </button>
+    <Card>
+      <CardHeader>
+        <CardTitle>Tag Library</CardTitle>
+        <CardDescription>Review the tags you have created and remove the ones you no longer need.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {isLoading ? <div className="text-sm text-muted-foreground">Loading tags…</div> : null}
+        {!isLoading && tags.length === 0 ? <div className="text-sm text-muted-foreground">No tags yet.</div> : null}
+        {tags.map((tag) => (
+          <div
+            key={tag.id}
+            className="flex items-center justify-between gap-4 rounded-[20px] border-2 border-[hsl(var(--border-strong))] bg-background px-4 py-3 shadow-[3px_3px_0_hsl(var(--shadow-ink))]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="size-4 rounded-full border border-[hsl(var(--border-strong))]" style={{ backgroundColor: tag.color }} />
+              <span className="font-semibold">{tag.name}</span>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+            <Button variant="outline" onClick={() => deleteTag(tag.id)} disabled={isPending}>
+              Delete
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
-// ── Data Tab ──────────────────────────────────────────────────────────────────
-
 function DataTab() {
-  const { mutate: clearCache, isPending: clearing, data: clearResult } = useClearAiCache();
+  const { mutate: clearAiCache, isPending: clearing } = useClearAiCache();
   const [exporting, setExporting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   async function handleExport() {
     setExporting(true);
+    setMessage(null);
     try {
-      const res = await userApi.exportItems();
-      const blob = await res.blob();
+      const response = await userApi.exportItems();
+      if (!response.ok) throw new Error("Export failed");
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `sirajhub-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = "sirajhub-export.json";
       a.click();
       URL.revokeObjectURL(url);
+      setMessage("Export downloaded.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Export failed");
     } finally {
       setExporting(false);
     }
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <DataRow label="Export all items" description="Download your entire library as a JSON file.">
-        <ActionButton onClick={handleExport} loading={exporting} variant="secondary">
-          {exporting ? "Exporting…" : "Export JSON"}
-        </ActionButton>
-      </DataRow>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Export Library</CardTitle>
+          <CardDescription>Download your tracked items as a JSON file.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Button onClick={handleExport} disabled={exporting}>
+            {exporting ? "Preparing export…" : "Download export"}
+          </Button>
+        </CardContent>
+      </Card>
 
-      <DataRow
-        label="Clear AI cache"
-        description={
-          clearResult
-            ? `Cleared ${clearResult.cleared} cached analyses.`
-            : "Forces Gemini to re-analyse items on next request."
-        }
-      >
-        <ActionButton
-          onClick={() => {
-            if (window.confirm("Clear all cached AI analyses?")) clearCache();
-          }}
-          loading={clearing}
-          variant="danger"
-        >
-          {clearing ? "Clearing…" : "Clear cache"}
-        </ActionButton>
-      </DataRow>
+      <Card>
+        <CardHeader>
+          <CardTitle>Clear AI Cache</CardTitle>
+          <CardDescription>Force fresh summaries and rankings the next time you ask the AI for them.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Button variant="outline" onClick={() => clearAiCache(undefined, { onSuccess: (res) => setMessage(`Cleared ${res.cleared} cached items.`) })} disabled={clearing}>
+            {clearing ? "Clearing…" : "Clear cache"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {message ? (
+        <Card className="lg:col-span-2">
+          <CardContent className="p-4 text-sm text-muted-foreground">{message}</CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
-
-// ── Shared sub-components ─────────────────────────────────────────────────────
-
-function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-lg)",
-        padding: "14px 18px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-      }}
-    >
-      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        {title}
-      </div>
-      {description && (
-        <div style={{ fontSize: 12, color: "var(--color-muted)", lineHeight: 1.5 }}>{description}</div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function DataRow({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        background: "var(--color-surface)",
-        border: "1px solid var(--color-border)",
-        borderRadius: "var(--radius-lg)",
-        padding: "14px 18px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 16,
-      }}
-    >
-      <div>
-        <div style={{ fontSize: 13, fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 2 }}>{description}</div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function SaveButton({ onClick, saving, saved }: { onClick: () => void; saving: boolean; saved: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={saving}
-      style={{
-        padding: "8px 16px",
-        borderRadius: 8,
-        border: "none",
-        background: saved ? "oklch(55% 0.15 150)" : "var(--color-accent)",
-        color: "white",
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: saving ? "not-allowed" : "pointer",
-        whiteSpace: "nowrap",
-        transition: "background 0.15s",
-      }}
-    >
-      {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
-    </button>
-  );
-}
-
-function ActionButton({ onClick, loading, variant, children }: {
-  onClick: () => void;
-  loading: boolean;
-  variant: "secondary" | "danger";
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      style={{
-        padding: "7px 14px",
-        borderRadius: 8,
-        border: "1px solid var(--color-border)",
-        background: variant === "danger" ? "oklch(20% 0.05 25)" : "var(--color-surface)",
-        color: variant === "danger" ? "oklch(65% 0.2 25)" : "var(--color-foreground)",
-        fontSize: 13,
-        fontWeight: 500,
-        cursor: loading ? "not-allowed" : "pointer",
-        whiteSpace: "nowrap",
-        opacity: loading ? 0.7 : 1,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  background: "var(--color-background)",
-  border: "1px solid var(--color-border)",
-  borderRadius: 8,
-  padding: "8px 12px",
-  fontSize: 13,
-  color: "var(--color-foreground)",
-  outline: "none",
-  width: "100%",
-  boxSizing: "border-box",
-};

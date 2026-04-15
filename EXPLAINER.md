@@ -1748,3 +1748,498 @@ The `ItemDetailPanel` timestamps row now shows all four dates when present:
 | Apply suggested tag | Match existing tag by name or create new one | Prevents duplicate tags in the user's library |
 | Auto-timestamps | Worker reads existing row, sets timestamp on first transition | Client never needs to know about the timestamp logic |
 | Timestamp display | `item.startedAt` / `item.finishedAt` in detail panel | Historical record alongside the existing created/updated dates |
+
+---
+
+# V2 — Full Frontend Redesign
+
+## What V2 Was About
+
+V1 made SirajHub functional. You could track items, fetch metadata, use AI features, and move things through a workflow. But the UI still felt like one general-purpose app screen. V2 was about turning that working product into a more intentional product experience.
+
+The main idea of V2 was:
+- give the app a stronger design system
+- make navigation feel like a real product shell
+- create dedicated pages for each media type
+- add a full item detail page instead of relying only on overlays
+- move advanced settings into a better structure
+- support per-user API keys and AI model selection
+
+In short: V1 proved the app works. V2 made it feel designed.
+
+---
+
+## The Big Picture: How V2 Changes The App
+
+```
+V1
+One main shell
+    ├── top header
+    ├── board / grid views
+    └── slide-over detail panel
+
+V2
+Stronger app shell
+    ├── sidebar navigation
+    ├── slim topbar for actions
+    ├── dashboard homepage
+    ├── full settings area
+    ├── full-page item detail route
+    └── 7 dedicated media-type pages
+```
+
+V2 does not replace the backend idea of the app. It mostly reorganises how the frontend expresses that data, while adding a small but important backend improvement for user-owned API keys.
+
+---
+
+## V2 Phase 1 — shadcn/ui Setup
+
+### What this phase was about
+
+Before redesigning the interface, the project needed a stronger UI foundation. V1 already had working styling, but V2 wanted reusable components like dialogs, tabs, sheets, dropdowns, cards, and form controls that all behave consistently.
+
+That is why the first V2 phase introduces shadcn/ui.
+
+### What changed
+
+This phase added the underlying setup needed to use shadcn components inside the existing app without throwing away the current styling:
+
+- path aliases like `@/...` so component imports stay clean
+- the `cn()` utility for merging Tailwind class names safely
+- `components.json`, which tells shadcn how this project is configured
+- a bridge between the app's existing OKLCH color system and shadcn's expected CSS variables
+- the initial batch of generated UI components
+
+### Why this matters
+
+This phase is not about visible features. It is about making later phases easier and safer.
+
+Without it, every new piece of UI in V2 would need custom one-off styling. With it, the app can build on a shared component base:
+
+- sidebars
+- sheets
+- tabs
+- dropdown menus
+- cards
+- inputs
+- labels
+
+That gives the redesign consistency.
+
+### V2 Phase 1 Summary
+
+| What | How | Why |
+|---|---|---|
+| UI foundation | shadcn/ui setup | Gives V2 a reusable component system |
+| Import cleanup | `@/*` alias | Makes component imports cleaner and easier to manage |
+| Class helper | `cn()` utility | Safely combines Tailwind classes |
+| Theme bridge | OKLCH → shadcn tokens | Preserves the existing palette while enabling shadcn |
+| Generated primitives | buttons, tabs, sheets, dialogs, inputs, etc. | Speeds up all later UI work |
+
+---
+
+## V2 Phase 2 — Navigation: Sidebar + Topbar
+
+### What this phase was about
+
+V1 navigation was still centered around a simple top header. That is fine for a smaller app, but once the app has many sections, the header becomes crowded. V2 Phase 2 turns the app into a true application shell.
+
+Instead of one busy header, navigation gets split into two roles:
+
+- Sidebar: where you go
+- Topbar: what you do
+
+### What changed
+
+The root layout was rewritten into a two-column structure:
+
+```tsx
+<AppSidebar />
+<div className="flex-1">
+  <AppTopbar />
+  <Outlet />
+</div>
+```
+
+The sidebar became the permanent home for major routes:
+
+- Dashboard
+- Books
+- Movies
+- TV
+- Podcasts
+- Videos
+- Articles
+- Tweets
+- Settings
+
+The topbar became the place for global actions:
+
+- mobile hamburger
+- search
+- `+ Add`
+- user menu
+
+### Mobile behavior
+
+On mobile, the sidebar is not always visible. Instead, it appears inside a shadcn `Sheet` drawer opened from the hamburger button. This keeps the navigation structure the same across devices while changing only the presentation.
+
+### Why this matters
+
+This is more than a visual cleanup. It creates a framework for the rest of V2.
+
+Later phases depend on this shell:
+- dashboard widgets need a stable homepage layout
+- settings need a real place in navigation
+- media-specific pages need consistent route-to-route movement
+- the detail page needs to live inside a proper app frame
+
+### V2 Phase 2 Summary
+
+| What | How | Why |
+|---|---|---|
+| App shell | Sidebar + topbar layout | Separates navigation from actions |
+| Primary nav | `AppSidebar` | Gives each major section a permanent home |
+| Global actions | `AppTopbar` | Keeps search/add/account actions easy to reach |
+| Mobile nav | Sidebar inside `Sheet` | Preserves navigation on small screens |
+| Root overlays | Kept in `__root.tsx` | Search, add-item, and detail tools still work everywhere |
+
+---
+
+## V2 Phase 3 — Backend: Per-User API Keys & Model Selection
+
+### What this phase was about
+
+V1 mostly assumed one set of API secrets stored at the environment level. That works during early development, but it is limiting once different users may want to bring their own keys or choose different AI models.
+
+V2 Phase 3 adds that flexibility.
+
+### What changed in the backend
+
+The `user` table gained an `apiKeys` JSON field. Instead of creating many new columns, the app stores related user-owned secrets and preferences in one structured blob.
+
+That JSON can hold values like:
+- `gemini`
+- `tmdb`
+- `youtube`
+- `googleBooks`
+- `podcastIndexKey`
+- `podcastIndexSecret`
+- `aiModel`
+
+A migration was added so the database structure matches the schema.
+
+### New API behavior
+
+The user routes gained settings endpoints that:
+
+- report whether a key exists
+- update a specific key or model selection
+- never return the actual raw secret values back to the browser
+
+That last part matters. The frontend only needs to know whether a key is set, not what it is.
+
+### AI and ingest resolution
+
+The worker routes were updated so they first check the current user's stored key, and only fall back to the environment secret if the user has not saved one.
+
+The AI service was also updated so model choice is no longer hardcoded to one default. Each request can resolve the user's preferred model before calling Gemini.
+
+### Why this matters
+
+This phase makes the app more personal and more scalable:
+
+- users can use their own quotas
+- different users can prefer different AI models
+- production secrets are no longer the only option
+
+### V2 Phase 3 Summary
+
+| What | How | Why |
+|---|---|---|
+| User-owned secrets | `user.apiKeys` JSON field | Lets each user store their own API config |
+| DB update | migration for `api_keys` | Keeps schema and database aligned |
+| Settings endpoints | `GET/PATCH /api/user/settings` | Lets the frontend manage keys safely |
+| Key resolution | user key first, env fallback second | Makes the app flexible without breaking defaults |
+| Model choice | `aiModel` stored per user | Lets AI features use different Gemini models |
+
+---
+
+## V2 Phase 4 — Expanded Settings Page
+
+### What this phase was about
+
+The original settings area already had useful features, but it had grown into a mixed collection of unrelated controls. V2 Phase 4 reorganises settings into a proper multi-tab page.
+
+### The new structure
+
+Settings is split into five tabs:
+
+- Profile
+- API Keys
+- AI Model
+- Tags
+- Data
+
+This is a usability improvement more than a technical one. Instead of one long page, the user can think in categories.
+
+### What each tab does
+
+**Profile**
+- display name
+- read-only email
+- AI taste preferences
+
+**API Keys**
+- one row per external service
+- masked saved state
+- update flow without exposing raw secrets
+
+**AI Model**
+- lets the user choose which Gemini model to use
+- stores that choice using the same settings backend
+
+**Tags**
+- moves tag management into its own clearer area
+
+**Data**
+- keeps export and AI cache maintenance actions together
+
+### Why this matters
+
+This phase turns settings from a utility page into a control center. That becomes more important as the app supports more personal preferences and more integrations.
+
+### V2 Phase 4 Summary
+
+| What | How | Why |
+|---|---|---|
+| Settings layout | shadcn `Tabs` | Organises settings into clear sections |
+| API key management | masked key rows + save actions | Lets users manage secrets safely |
+| Model selection | `RadioGroup` for AI models | Makes AI behavior user-configurable |
+| Existing features moved | Tags and Data tabs | Reduces clutter and improves discoverability |
+
+---
+
+## V2 Phase 5 — Dashboard (`/`)
+
+### What this phase was about
+
+The V1 home page was useful, but still close to a generic board-and-grid mindset. V2 Phase 5 redefines `/` as a true dashboard: a page that answers "what matters right now?" at a glance.
+
+### The new dashboard layout
+
+The homepage is rebuilt into four main widgets:
+
+```text
+[TypeStats]
+[InProgress]
+[RecentlyAdded] [NextToConsume]
+```
+
+### What each widget does
+
+**TypeStats**
+- one tile per media type
+- shows how many items exist in that category
+- links into the dedicated route for that type
+
+**InProgress**
+- shows what the user is currently consuming
+- highlights active work rather than all work
+
+**RecentlyAdded**
+- surfaces the newest additions
+- helps the user reconnect with things they just saved
+
+**NextToConsume**
+- puts AI ranking directly on the homepage
+- removes the need to open a separate panel first
+
+### Why this matters
+
+This phase changes the homepage from "one more page" into the command center of the app. It becomes useful even when the user does not want to manage the full library in detail.
+
+### V2 Phase 5 Summary
+
+| What | How | Why |
+|---|---|---|
+| Homepage redesign | widget-based dashboard | Makes `/` useful at a glance |
+| Type overview | `TypeStats` cards | Gives quick access to each media category |
+| Current activity | `InProgressItems` | Highlights active items |
+| Fresh context | `RecentlyAdded` | Surfaces the newest saved content |
+| AI guidance | inline `NextToConsume` | Makes recommendations visible immediately |
+
+---
+
+## V2 Phase 6 — Item Detail Page (`/item/$id`)
+
+### What this phase was about
+
+V1 already had an item detail slide-over, which was great for quick inspection. But some item interactions had become too rich to live only inside a panel. V2 Phase 6 adds a full-page item route.
+
+### What changed
+
+The app gained a new dynamic route:
+
+```text
+/item/$id
+```
+
+Instead of opening only a side panel, users can now navigate directly to a dedicated page for one item.
+
+### Layout idea
+
+The item page is split into two major areas:
+
+**Left side**
+- cover or poster
+- title and creator
+- release date, duration, status, rating, source link
+
+**Right side**
+- editable fields
+- notes
+- tag manager
+- AI analysis panel
+
+### Reusable pieces
+
+This phase also extracts shared item-detail logic into reusable components:
+
+- `AIPanel`
+- `InlineTagManager`
+
+That way both the full-page detail view and the older slide-over can share the same behavior instead of duplicating logic.
+
+### Why this matters
+
+This phase upgrades SirajHub from a dashboard-centric app into a route-centric app. Individual items become first-class pages, which is important for:
+
+- deeper editing
+- direct linking
+- better navigation history
+- more room for AI output and metadata
+
+### V2 Phase 6 Summary
+
+| What | How | Why |
+|---|---|---|
+| Item route | `/item/$id` | Makes individual items directly navigable |
+| Editing UX | inline field editing | Lets the user update details without modal friction |
+| Shared AI UI | `AIPanel` | Reuses analysis and suggestion features cleanly |
+| Shared tag UI | `InlineTagManager` | Prevents tag logic duplication |
+| Better navigation | back flow + direct routes | Makes item exploration feel more natural |
+
+---
+
+## V2 Phase 7 — Per-Type Artistic Views
+
+### What this phase was about
+
+This is the most visually ambitious V2 phase. In V1, different media types mostly shared the same presentation. But books, movies, podcasts, articles, tweets, and videos do not feel the same in real life. V2 Phase 7 gives each of them a page style that matches the medium.
+
+### The core idea
+
+Each media type gets:
+- its own route
+- its own layout component
+- the same underlying data source
+- the same status filtering idea
+
+So the data model stays consistent, but the visual language changes based on the content type.
+
+### The seven views
+
+**Articles**
+- a text-first reading list
+- emphasizes title, source, author, date, and reading time
+
+**Tweets**
+- a centered feed
+- emphasizes short-form text and social-post rhythm
+
+**Podcasts**
+- square artwork grid
+- emphasizes cover art and show identity
+
+**Videos**
+- wide thumbnail grid
+- emphasizes 16:9 imagery and duration
+
+**Movies**
+- dense poster wall
+- emphasizes visual browsing like a film catalog
+
+**TV**
+- similar to movies, but with season-aware metadata
+
+**Books**
+- a shelf-based presentation with spines
+- the most custom layout of the set
+
+### Why this matters
+
+This phase gives SirajHub personality. Instead of treating every item as a generic card, the interface reflects how people naturally think about each medium.
+
+That makes the product feel less like a spreadsheet and more like a curated media space.
+
+### V2 Phase 7 Summary
+
+| What | How | Why |
+|---|---|---|
+| Dedicated type routes | one route per media type | Gives each category its own home |
+| Custom view components | separate layout per medium | Matches UI style to content style |
+| Shared filtering idea | status tabs/pills | Keeps interaction patterns familiar |
+| Bookshelf / poster / feed / list layouts | medium-specific presentation | Gives the app a stronger identity |
+| Item linking | cards lead to `/item/$id` | Connects browsing views to deeper detail |
+
+---
+
+## V2 Files Changed
+
+### Frontend additions
+
+V2 adds or heavily expands a large number of frontend files, including:
+
+- shadcn configuration and generated UI components
+- `AppSidebar` and `AppTopbar`
+- dashboard widgets
+- `AIPanel` and `InlineTagManager`
+- per-type view components
+- dedicated routes for books, movies, TV, podcasts, videos, articles, tweets, and item detail
+
+### Frontend modifications
+
+Important existing files also evolve during V2:
+
+- `apps/web/src/routes/__root.tsx`
+- `apps/web/src/routes/index.tsx`
+- `apps/web/src/routes/settings.tsx`
+- `apps/web/src/index.css`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/hooks/useUser.ts`
+- project config files for aliases and component setup
+
+### Backend modifications
+
+The backend changes are smaller than the frontend redesign, but still important:
+
+- migration for `user.apiKeys`
+- schema update
+- user settings routes
+- AI and ingest key-resolution changes
+- Gemini model resolution support
+
+---
+
+## V2 Summary Table
+
+| Phase | Goal | Status |
+|---|---|---|
+| V2 Phase 1 | Install shadcn/ui and prepare the design system | Complete |
+| V2 Phase 2 | Replace the header-only shell with sidebar + topbar navigation | Complete |
+| V2 Phase 3 | Add per-user API keys and AI model selection | Complete |
+| V2 Phase 4 | Rebuild Settings into a tabbed control center | Complete |
+| V2 Phase 5 | Turn `/` into a real dashboard | Complete |
+| V2 Phase 6 | Add a full-page item detail route | Complete |
+| V2 Phase 7 | Build artistic per-type views for all media categories | Complete |

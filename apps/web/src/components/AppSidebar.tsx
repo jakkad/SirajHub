@@ -1,19 +1,40 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
-  LayoutDashboard, BookOpen, Film, Tv, Mic, Play,
-  FileText, MessageSquare, Settings,
+  BookOpen,
+  FileText,
+  Film,
+  LayoutDashboard,
+  MessageSquare,
+  Mic,
+  Play,
+  Settings,
+  Tv,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
+import { Badge } from "@/components/ui/badge";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarSeparator,
+} from "@/components/ui/sidebar";
 
 const NAV_ITEMS = [
-  { to: "/",         label: "Dashboard",  icon: LayoutDashboard, color: undefined },
-  { to: "/books",    label: "Books",      icon: BookOpen,        color: "var(--color-book)"    },
-  { to: "/movies",   label: "Movies",     icon: Film,            color: "var(--color-movie)"   },
-  { to: "/tv",       label: "TV Shows",   icon: Tv,              color: "var(--color-tv)"      },
-  { to: "/podcasts", label: "Podcasts",   icon: Mic,             color: "var(--color-podcast)" },
-  { to: "/videos",   label: "Videos",     icon: Play,            color: "var(--color-youtube)" },
-  { to: "/articles", label: "Articles",   icon: FileText,        color: "var(--color-article)" },
-  { to: "/tweets",   label: "Tweets",     icon: MessageSquare,   color: "var(--color-tweet)"   },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, color: undefined },
+  { to: "/books", label: "Books", icon: BookOpen, color: "var(--color-book)" },
+  { to: "/movies", label: "Movies", icon: Film, color: "var(--color-movie)" },
+  { to: "/tv", label: "TV Shows", icon: Tv, color: "var(--color-tv)" },
+  { to: "/podcasts", label: "Podcasts", icon: Mic, color: "var(--color-podcast)" },
+  { to: "/videos", label: "Videos", icon: Play, color: "var(--color-youtube)" },
+  { to: "/articles", label: "Articles", icon: FileText, color: "var(--color-article)" },
+  { to: "/tweets", label: "Tweets", icon: MessageSquare, color: "var(--color-tweet)" },
 ] as const;
 
 interface AppSidebarProps {
@@ -24,78 +45,69 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const { location } = useRouterState();
 
   return (
-    <nav className="flex flex-col h-full py-3 px-2 gap-0.5">
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-3 py-2 mb-2">
-        <div
-          className="flex items-center justify-center rounded-lg text-white font-bold text-sm"
-          style={{
-            width: 28, height: 28,
-            backgroundColor: "var(--color-accent)",
-            flexShrink: 0,
-          }}
-        >
-          S
+    <Sidebar collapsible="offcanvas" className="border-none">
+      <SidebarHeader className="gap-4 p-4">
+        <div className="flex items-center gap-3 rounded-[22px] border-2 border-sidebar-border bg-sidebar-accent px-3 py-3 shadow-[4px_4px_0_hsl(var(--shadow-ink))]">
+          <div className="flex size-12 items-center justify-center rounded-[18px] border-2 border-sidebar-border bg-primary text-primary-foreground shadow-[3px_3px_0_hsl(var(--shadow-ink))]">
+            <span className="font-display text-xl">S</span>
+          </div>
+          <div className="min-w-0">
+            <p className="font-display truncate text-2xl leading-none text-sidebar-foreground">SirajHub</p>
+            <p className="mt-1 text-xs uppercase tracking-[0.24em] text-sidebar-foreground/60">Media Control Room</p>
+          </div>
         </div>
-        <span className="font-semibold text-sm tracking-tight" style={{ color: "var(--color-foreground)" }}>
-          SirajHub
-        </span>
-      </div>
+      </SidebarHeader>
 
-      {/* Nav items */}
-      {NAV_ITEMS.map(({ to, label, icon: Icon, color }) => {
-        const isActive = to === "/"
-          ? location.pathname === "/"
-          : location.pathname.startsWith(to);
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Explore</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {NAV_ITEMS.map(({ to, label, icon: Icon, color }) => {
+                const isActive = to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
+                return (
+                  <SidebarMenuItem key={to}>
+                    <SidebarMenuButton asChild isActive={isActive} tooltip={label} className="font-medium">
+                      <Link to={to} onClick={onNavigate}>
+                        <Icon style={color ? { color } : undefined} />
+                        <span>{label}</span>
+                        {color ? (
+                          <span
+                            className="ml-auto size-2.5 rounded-full border border-sidebar-border"
+                            style={{ backgroundColor: color }}
+                          />
+                        ) : null}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
 
-        return (
-          <Link
-            key={to}
-            to={to}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-              isActive
-                ? "text-white"
-                : "hover:bg-white/5"
-            )}
-            style={{
-              backgroundColor: isActive ? "var(--color-accent-subtle)" : undefined,
-              color: isActive ? "var(--color-accent)" : "var(--color-muted)",
-            }}
-          >
-            <Icon
-              size={16}
-              style={{ color: isActive ? "var(--color-accent)" : (color ?? "var(--color-muted)") }}
-              className="shrink-0"
-            />
-            <span>{label}</span>
-            {color && isActive && (
-              <span
-                className="ml-auto h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: color }}
-              />
-            )}
-          </Link>
-        );
-      })}
-
-      {/* Divider */}
-      <div className="mt-auto mb-1 mx-3 h-px" style={{ backgroundColor: "var(--color-border)" }} />
-
-      {/* Settings */}
-      <Link
-        to="/settings"
-        onClick={onNavigate}
-        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/5"
-        style={{
-          color: location.pathname === "/settings" ? "var(--color-accent)" : "var(--color-muted)",
-          backgroundColor: location.pathname === "/settings" ? "var(--color-accent-subtle)" : undefined,
-        }}
-      >
-        <Settings size={16} className="shrink-0" style={{ color: location.pathname === "/settings" ? "var(--color-accent)" : "var(--color-muted)" }} />
-        <span>Settings</span>
-      </Link>
-    </nav>
+      <SidebarFooter className="p-4 pt-2">
+        <SidebarSeparator />
+        <div className="flex flex-col gap-3 rounded-[24px] border-2 border-sidebar-border bg-sidebar-accent px-3 py-4 shadow-[4px_4px_0_hsl(var(--shadow-ink))]">
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-display text-xl text-sidebar-foreground">Settings</p>
+            <Badge variant="secondary" className="bg-primary text-primary-foreground">
+              live
+            </Badge>
+          </div>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={location.pathname === "/settings"}>
+                <Link to="/settings" onClick={onNavigate}>
+                  <Settings />
+                  <span>Workspace Preferences</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

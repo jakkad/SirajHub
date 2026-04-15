@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db/client";
-import { urlCache } from "../db/schema";
+import { urlCache, user } from "../db/schema";
 import { dispatch } from "../services/metadata";
 import type { Env } from "../types";
 
@@ -11,7 +11,34 @@ type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+type ApiKeysBlob = {
+  tmdb?: string;
+  youtube?: string;
+  googleBooks?: string;
+  podcastIndexKey?: string;
+  podcastIndexSecret?: string;
+};
+
+async function resolveMetadataEnv(
+  db: ReturnType<typeof import("../db/client").createDb>,
+  userId: string,
+  env: Env
+): Promise<Env> {
+  const [row] = await db.select({ apiKeys: user.apiKeys }).from(user).where(eq(user.id, userId));
+  const keys: ApiKeysBlob = row?.apiKeys ? JSON.parse(row.apiKeys) : {};
+
+  return {
+    ...env,
+    TMDB_API_KEY: keys.tmdb || env.TMDB_API_KEY,
+    YOUTUBE_API_KEY: keys.youtube || env.YOUTUBE_API_KEY,
+    GOOGLE_BOOKS_API_KEY: keys.googleBooks || env.GOOGLE_BOOKS_API_KEY,
+    PODCAST_INDEX_KEY: keys.podcastIndexKey || env.PODCAST_INDEX_KEY,
+    PODCAST_INDEX_SECRET: keys.podcastIndexSecret || env.PODCAST_INDEX_SECRET,
+  };
+}
+
 router.post("/", async (c) => {
+  const userId = c.get("userId");
   const body = await c.req.json<{
     url?: string;
     query?: string;
@@ -25,6 +52,7 @@ router.post("/", async (c) => {
   }
 
   const db = createDb(c.env.DB);
+  const resolvedEnv = await resolveMetadataEnv(db, userId, c.env);
 
   // Return from cache if URL was recently fetched
   if (url) {
@@ -41,7 +69,7 @@ router.post("/", async (c) => {
   // Fetch fresh metadata
   let metadata;
   try {
-    metadata = await dispatch({ url, query, contentType: content_type }, c.env);
+    metadata = await dispatch({ url, query, contentType: content_type }, resolvedEnv);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Fetch failed";
     return c.json({ error: message }, 502);

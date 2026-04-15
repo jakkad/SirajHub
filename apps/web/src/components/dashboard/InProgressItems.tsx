@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
 import { CONTENT_TYPES } from "../../lib/constants";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface InProgressItemsProps {
   items: Item[];
@@ -22,69 +23,39 @@ export function InProgressItems({ items }: InProgressItemsProps) {
   const inProgress = items.filter((i) => i.status === "in_progress");
 
   if (inProgress.length === 0) {
-    return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "4px 0" }}>Nothing in progress.</div>;
+    return <div className="py-1 text-sm text-muted-foreground">Nothing in progress.</div>;
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div className="flex flex-col gap-4">
       {inProgress.map((item) => {
         const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
         return (
-          <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                borderRadius: 10,
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                cursor: "pointer",
-                transition: "border-color 0.12s",
-              }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = ct?.color ?? "var(--color-accent)")}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--color-border)")}
-            >
-              {/* Cover / icon */}
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 6,
-                  overflow: "hidden",
-                  background: ct ? `color-mix(in oklch, ${ct.color} 20%, var(--color-surface))` : "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                {item.coverUrl ? (
-                  <img src={item.coverUrl} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <span style={{ fontSize: 18 }}>{ct?.icon ?? "📄"}</span>
-                )}
-              </div>
-
-              {/* Title + creator */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {item.title}
+          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block no-underline">
+            <Card className="transition-transform hover:-translate-y-1">
+              <CardContent className="flex items-center gap-4 p-4">
+                <div
+                  className="flex size-14 items-center justify-center overflow-hidden rounded-[18px] border-2 border-[hsl(var(--border-strong))] bg-secondary"
+                  style={ct ? { backgroundColor: `color-mix(in oklch, ${ct.color} 18%, hsl(var(--card)))` } : undefined}
+                >
+                  {item.coverUrl ? (
+                    <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="font-display text-2xl">{ct?.icon ?? "📄"}</span>
+                  )}
                 </div>
-                {item.creator && (
-                  <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {item.creator}
-                  </div>
-                )}
-              </div>
 
-              {/* Started date */}
-              <div style={{ fontSize: 11, color: "var(--color-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                {item.startedAt ? `Started ${timeAgo(item.startedAt)}` : ""}
-              </div>
-            </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-base font-semibold text-foreground">{item.title}</div>
+                  {item.creator ? <div className="truncate text-sm text-muted-foreground">{item.creator}</div> : null}
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <div className="font-display text-lg text-foreground">{item.startedAt ? timeAgo(item.startedAt) : "now"}</div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">in progress</div>
+                </div>
+              </CardContent>
+            </Card>
           </Link>
         );
       })}

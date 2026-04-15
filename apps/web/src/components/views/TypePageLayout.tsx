@@ -3,6 +3,10 @@ import { useItems } from "../../hooks/useItems";
 import type { ContentTypeId, StatusId } from "../../lib/constants";
 import { STATUSES } from "../../lib/constants";
 import type { Item } from "../../lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TypePageLayoutProps {
   contentType: ContentTypeId;
@@ -29,62 +33,39 @@ export function TypePageLayout({ contentType, title, color, icon, children }: Ty
     id === "all" ? allItems.length : allItems.filter((i) => i.status === id).length;
 
   return (
-    <div className="mx-auto max-w-screen-lg px-4 py-8">
-      {/* Page header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-        <span style={{ fontSize: 26 }}>{icon}</span>
-        <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color }}>{title}</h1>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            padding: "2px 10px",
-            borderRadius: 999,
-            background: `color-mix(in oklch, ${color} 15%, transparent)`,
-            color,
-            marginLeft: 2,
-          }}
-        >
-          {allItems.length}
-        </span>
-      </div>
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardContent className="flex flex-col gap-6 p-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex size-16 items-center justify-center rounded-[22px] border-2 border-[hsl(var(--border-strong))] bg-card shadow-[4px_4px_0_hsl(var(--shadow-ink))]">
+              <span className="font-display text-4xl">{icon}</span>
+            </div>
+            <div>
+              <p className="hero-kicker mb-1 text-xs">Collection View</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="font-display text-4xl leading-none" style={{ color }}>{title}</h1>
+                <Badge variant="outline">{allItems.length} saved</Badge>
+              </div>
+            </div>
+          </div>
 
-      {/* Status filter tabs */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
-        {STATUS_FILTERS.map((sf) => {
-          const count = countByStatus(sf.id);
-          if (sf.id !== "all" && count === 0) return null;
-          const active = statusFilter === sf.id;
-          return (
-            <button
-              key={sf.id}
-              onClick={() => setStatusFilter(sf.id)}
-              style={{
-                fontSize: 12,
-                fontWeight: active ? 700 : 500,
-                padding: "5px 13px",
-                borderRadius: 999,
-                border: "none",
-                cursor: "pointer",
-                background: active ? `color-mix(in oklch, ${color} 22%, transparent)` : "var(--color-surface)",
-                color: active ? color : "var(--color-muted)",
-                outline: active ? `1px solid color-mix(in oklch, ${color} 45%, transparent)` : "none",
-                transition: "background 0.12s, color 0.12s",
-              }}
-            >
-              {sf.label}
-              <span style={{ opacity: 0.7, marginLeft: 4 }}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
+          <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusId | "all")}>
+            <TabsList className="flex w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
+              {STATUS_FILTERS.map((sf) => {
+                const count = countByStatus(sf.id);
+                if (sf.id !== "all" && count === 0) return null;
+                return (
+                  <TabsTrigger key={sf.id} value={sf.id} className="border-2 border-[hsl(var(--border-strong))] bg-card shadow-[3px_3px_0_hsl(var(--shadow-ink))] data-[state=active]:bg-accent">
+                    {sf.label} <span className="ml-1 text-muted-foreground">{count}</span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        </CardContent>
+      </Card>
 
-      {/* Content */}
-      {isLoading ? (
-        <div style={{ height: 120, borderRadius: 12, background: "var(--color-surface)", border: "1px solid var(--color-border)" }} />
-      ) : (
-        children(filtered)
-      )}
+      {isLoading ? <Skeleton className="h-48 w-full" /> : children(filtered)}
     </div>
   );
 }
