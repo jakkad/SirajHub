@@ -1,8 +1,7 @@
 // Gemini API service for SirajHub AI features.
-// Model: gemini-2.0-flash-lite (free tier: 1,000 req/day, 1M context window)
-// Switch to gemini-2.5-flash-lite when it leaves preview.
+// Model: gemini-2.5-flash (free tier: 20 req/day, 250K TPM)
 
-const GEMINI_MODEL = "gemini-2.0-flash-lite";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_BASE = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 export interface CategorizeResult {
@@ -44,7 +43,7 @@ async function callGemini(apiKey: string, prompt: string, schema: object): Promi
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 200)}`);
+    throw new Error(`Gemini ${res.status}: ${body.slice(0, 500)}`);
   }
 
   const data = (await res.json()) as {
