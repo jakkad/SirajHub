@@ -50,17 +50,35 @@ export function TypePageLayout({ contentType, title, color, icon, children }: Ty
           </div>
 
           <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusId | "all")}>
-            <TabsList className="flex w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
-              {STATUS_FILTERS.map((sf) => {
-                const count = countByStatus(sf.id);
-                if (sf.id !== "all" && count === 0) return null;
-                return (
-                  <TabsTrigger key={sf.id} value={sf.id} className="border border-[hsl(var(--border))] bg-card shadow-none data-[state=active]:bg-secondary">
-                    {sf.label} <span className="ml-1 text-muted-foreground">{count}</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+            <div className="rounded-[28px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Filter by status
+                </p>
+                <Badge variant="secondary" className="bg-white/80 text-muted-foreground">
+                  {filtered.length} shown
+                </Badge>
+              </div>
+
+              <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 rounded-[22px] border border-[hsl(var(--border))] bg-white/80 p-2 shadow-none">
+                {STATUS_FILTERS.map((sf) => {
+                  const count = countByStatus(sf.id);
+                  if (sf.id !== "all" && count === 0) return null;
+                  return (
+                    <TabsTrigger
+                      key={sf.id}
+                      value={sf.id}
+                      className="rounded-[18px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-semibold text-muted-foreground shadow-none data-[state=active]:border-[hsl(var(--border))] data-[state=active]:bg-[hsl(var(--secondary))] data-[state=active]:text-foreground"
+                    >
+                      <span>{sf.label}</span>
+                      <span className="ml-2 rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                        {count}
+                      </span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
           </Tabs>
         </CardContent>
       </Card>
