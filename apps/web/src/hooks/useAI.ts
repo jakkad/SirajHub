@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { aiApi } from "../lib/api";
+import type { CategorizeResult } from "../lib/api";
 
 export function useAnalyzeItem() {
   return useMutation({
@@ -23,5 +24,15 @@ export function useRefreshNextList() {
     onSuccess: (data) => {
       qc.setQueryData(["ai-next"], data);
     },
+  });
+}
+
+export function useCategorizeItem() {
+  return useMutation<
+    CategorizeResult,
+    Error,
+    { title: string; description?: string | null; sourceUrl?: string | null; contentType: string }
+  >({
+    mutationFn: (input) => aiApi.categorize(input),
   });
 }

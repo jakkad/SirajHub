@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
 import { createDb } from "../db/client";
 import { items, aiCache, user } from "../db/schema";
-import { analyzeItem, rankNextList } from "../services/ai";
+import { analyzeItem, categorizeItem, rankNextList } from "../services/ai";
 import { ulid } from "ulidx";
 import type { Env } from "../types";
 
@@ -14,6 +14,34 @@ const nextListKey = (userId: string) => `next_list:v1:${userId}`;
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// ── POST /api/ai/categorize ───────────────────────────────────────────────────
+// Lightweight categorization call: given title + description + url, returns
+// content_type, confidence, suggested_tags, suggested_status. No caching —
+// used in the add-item dialog and item detail panel (fast, one-shot).
+router.post("/categorize", async (c) => {
+  const body = await c.req.json<{
+    title: string;
+    description?: string;
+    sourceUrl?: string;
+    contentType: string;
+  }>();
+
+  if (!body.title) return c.json({ error: "title is required" }, 400);
+
+  try {
+    const result = await categorizeItem(c.env.GEMINI_API_KEY, {
+      title: body.title,
+      description: body.description,
+      sourceUrl: body.sourceUrl,
+      contentType: body.contentType,
+    });
+    return c.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "AI request failed";
+    return c.json({ error: message }, 502);
+  }
+});
 
 // ── POST /api/ai/analyze/:id ──────────────────────────────────────────────────
 // Returns an AI summary for a single item. Checks ai_cache first; calls Gemini

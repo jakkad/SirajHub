@@ -5,12 +5,19 @@ import {
   DragOverlay,
   DragStartEvent,
   PointerSensor,
-  useDraggable,
   useDroppable,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useQueryClient } from "@tanstack/react-query";
 import { useUpdateItem } from "../hooks/useItems";
+import { itemsApi } from "../lib/api";
 import { ItemCard } from "./ItemCard";
 import type { Item } from "../lib/api";
 import type { Tag } from "../hooks/useTags";
@@ -27,6 +34,7 @@ interface Props {
 
 export function BoardView({ filteredItems, allTags, onItemClick }: Props) {
   const { mutate: updateItem } = useUpdateItem();
+  const qc = useQueryClient();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -73,9 +81,34 @@ export function BoardView({ filteredItems, allTags, onItemClick }: Props) {
       : findItemColumn(overId);
 
     if (!sourceColumn || !destColumn) return;
-    if (sourceColumn === destColumn) return;
 
-    updateItem({ id: activeItemId, status: destColumn });
+    if (sourceColumn !== destColumn) {
+      // Cross-column: update status (timestamps auto-set by worker)
+      updateItem({ id: activeItemId, status: destColumn });
+      return;
+    }
+
+    // Within-column reorder
+    const columnItems = byStatus[sourceColumn];
+    if (!columnItems) return;
+
+    const oldIndex = columnItems.findIndex((i) => i.id === activeItemId);
+    const newIndex = columnItems.findIndex((i) => i.id === overId);
+
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+    const reordered = arrayMove(columnItems, oldIndex, newIndex);
+
+    // Normalise all items in the column to index * 1000; only PATCH changed ones
+    const updates = reordered
+      .map((item, i) => ({ id: item.id, newPos: i * 1000, oldPos: item.position ?? 0 }))
+      .filter(({ newPos, oldPos }) => newPos !== oldPos);
+
+    if (updates.length === 0) return;
+
+    Promise.all(updates.map(({ id, newPos }) => itemsApi.update(id, { position: newPos }))).then(
+      () => qc.invalidateQueries({ queryKey: ["items"] })
+    );
   }
 
   if (filteredItems.length === 0 && allTags.length === 0) {
@@ -191,17 +224,19 @@ function BoardColumn({
         </span>
       </div>
 
-      {/* Cards */}
+      {/* Cards — wrapped in SortableContext for within-column reordering */}
       <div style={{ padding: "0 10px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
-        {items.map((item) => (
-          <DraggableCard
-            key={item.id}
-            item={item}
-            isGhost={item.id === activeId}
-            allTags={allTags}
-            onItemClick={onItemClick}
-          />
-        ))}
+        <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+          {items.map((item) => (
+            <SortableCard
+              key={item.id}
+              item={item}
+              isGhost={item.id === activeId}
+              allTags={allTags}
+              onItemClick={onItemClick}
+            />
+          ))}
+        </SortableContext>
         {items.length === 0 && (
           <p
             style={{
@@ -220,7 +255,7 @@ function BoardColumn({
   );
 }
 
-function DraggableCard({
+function SortableCard({
   item,
   isGhost,
   allTags,
@@ -231,7 +266,9 @@ function DraggableCard({
   allTags: Tag[];
   onItemClick: (item: Item) => void;
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: item.id });
+  const { attributes, listeners, setNodeRef, isDragging, transform, transition } = useSortable({
+    id: item.id,
+  });
 
   return (
     <div
@@ -242,6 +279,10 @@ function DraggableCard({
         opacity: isDragging || isGhost ? 0 : 1,
         touchAction: "none",
         outline: "none",
+        transform: transform
+          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+          : undefined,
+        transition,
       }}
     >
       <ItemCard

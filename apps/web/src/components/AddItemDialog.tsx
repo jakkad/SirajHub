@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CONTENT_TYPES, STATUSES } from "../lib/constants";
 import type { ContentTypeId, StatusId } from "../lib/constants";
 import { useCreateItem, useIngest } from "../hooks/useItems";
+import { useCategorizeItem } from "../hooks/useAI";
 
 interface Props {
   open: boolean;
@@ -27,11 +28,14 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [searchType, setSearchType] = useState<ContentTypeId>("book");
   const [mode, setMode] = useState<"url" | "search" | "manual">("url");
   const [form, setForm] = useState(DEFAULT_FORM);
+  const [aiTypeHint, setAiTypeHint] = useState<{ type: ContentTypeId; label: string } | null>(null);
 
   const { mutate: createItem, isPending: saving, error: saveError } = useCreateItem();
   const { mutate: fetchMeta, isPending: fetching, error: fetchError } = useIngest();
+  const { mutate: categorize } = useCategorizeItem();
 
   function setField(field: string, value: string) {
+    if (field === "contentType") setAiTypeHint(null); // user manually chose a type — clear hint
     setForm((f) => ({ ...f, [field]: value }));
   }
 
@@ -43,7 +47,7 @@ export function AddItemDialog({ open, onClose }: Props) {
         : { query: queryInput.trim(), content_type: searchType },
       {
         onSuccess(meta) {
-          setForm({
+          const filled: typeof DEFAULT_FORM = {
             title: meta.title ?? "",
             contentType: (meta.contentType as ContentTypeId) ?? searchType,
             status: "suggestions",
@@ -54,7 +58,30 @@ export function AddItemDialog({ open, onClose }: Props) {
             rating: "",
             notes: "",
             sourceUrl: meta.sourceUrl ?? (isUrl ? urlInput.trim() : ""),
-          });
+          };
+          setForm(filled);
+          setAiTypeHint(null);
+          // Fire AI categorize in background — non-blocking
+          categorize(
+            {
+              title: filled.title,
+              description: filled.description || null,
+              sourceUrl: filled.sourceUrl || null,
+              contentType: filled.contentType,
+            },
+            {
+              onSuccess(cat) {
+                if (
+                  cat.confidence > 0.7 &&
+                  cat.content_type !== filled.contentType &&
+                  CONTENT_TYPES.some((t) => t.id === cat.content_type)
+                ) {
+                  const ct = CONTENT_TYPES.find((t) => t.id === cat.content_type);
+                  setAiTypeHint({ type: cat.content_type as ContentTypeId, label: ct?.label ?? cat.content_type });
+                }
+              },
+            }
+          );
         },
       }
     );
@@ -88,6 +115,7 @@ export function AddItemDialog({ open, onClose }: Props) {
     setQueryInput("");
     setMode("url");
     setForm(DEFAULT_FORM);
+    setAiTypeHint(null);
     onClose();
   }
 
@@ -310,6 +338,27 @@ export function AddItemDialog({ open, onClose }: Props) {
                     <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
                   ))}
                 </select>
+                {aiTypeHint && (
+                  <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--color-muted)" }}>AI suggests:</span>
+                    <button
+                      type="button"
+                      onClick={() => { setField("contentType", aiTypeHint.type); }}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        border: "1px solid var(--color-accent)",
+                        background: "transparent",
+                        color: "var(--color-accent)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {aiTypeHint.label} →
+                    </button>
+                  </div>
+                )}
               </Field>
               <Field label="Status">
                 <select value={form.status} onChange={(e) => setField("status", e.target.value)} style={inputStyle}>

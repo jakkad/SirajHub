@@ -105,6 +105,13 @@ export interface RankedSuggestion {
   reason: string;
 }
 
+export interface CategorizeResult {
+  content_type: string;
+  confidence: number;
+  suggested_tags: string[];
+  suggested_status: string;
+}
+
 export const aiApi = {
   analyze(itemId: string): Promise<{ cached: boolean; result: AiAnalysis }> {
     return request(`/api/ai/analyze/${itemId}`, { method: "POST" });
@@ -112,6 +119,18 @@ export const aiApi = {
 
   getNextList(refresh = false): Promise<{ cached: boolean; result: RankedSuggestion[] }> {
     return request(`/api/ai/next${refresh ? "?refresh=1" : ""}`);
+  },
+
+  categorize(input: {
+    title: string;
+    description?: string | null;
+    sourceUrl?: string | null;
+    contentType: string;
+  }): Promise<CategorizeResult> {
+    return request<CategorizeResult>("/api/ai/categorize", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
 };
 

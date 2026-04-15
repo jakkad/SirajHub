@@ -1475,3 +1475,276 @@ The mobile hamburger menu renders as a dropdown below the nav bar when open, lis
 | Clear cache | Deletes D1 `ai_cache` rows + KV next-list key | Both caches must be cleared together or state is inconsistent |
 | Mobile board | `minmax(200px, 1fr)` + `overflowX: auto` | Columns stay intact; horizontal scroll is native and free |
 | Mobile nav | `hidden sm:flex` / `flex sm:hidden` Tailwind classes | Pure CSS — no resize listeners or JavaScript state |
+
+---
+
+---
+
+---
+
+# Phase 7 — Deferred Requirements
+
+## What Phase 7 Was About
+
+Phases 1–6 built a fully working app, but four features were explicitly deferred and never wired up. Phase 7 closes those gaps:
+
+1. **Within-column drag reordering** — you could drag cards between columns (changing status) but not reorder cards within the same column
+2. **AI auto-categorize on add** — the `categorizeItem()` function existed since Phase 5 but was never called from the UI
+3. **AI "Suggest tags"** — the AI's tag suggestions were being generated but discarded; now surfaced as clickable chips in the item detail panel
+4. **Auto-timestamps on status change** — `started_at` and `finished_at` columns existed in the database since Phase 1 but were never written
+
+---
+
+## Part 1: Within-Column Drag Reordering
+
+### The problem with the old drag code
+
+Phase 3 used `useDraggable` from `@dnd-kit/core` for each card. `useDraggable` only knows how to drag — it doesn't know about the order of items in a list. So when you dropped a card onto another card in the same column, nothing happened:
+
+```ts
+// Old handleDragEnd — early-returned for within-column drops
+if (sourceColumn === destColumn) return;  // ← just gave up
+```
+
+The `@dnd-kit/sortable` package (which was installed but unused) adds the concept of a **sortable list**: items know their position in the list, and dropping one item onto another reorders them.
+
+### SortableContext
+
+```tsx
+// Old: plain list of DraggableCards
+{items.map((item) => <DraggableCard key={item.id} item={item} />)}
+
+// New: items wrapped in a SortableContext
+<SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+  {items.map((item) => <SortableCard key={item.id} item={item} />)}
+</SortableContext>
+```
+
+`SortableContext` takes an ordered array of IDs. When a drag ends, `@dnd-kit/sortable` knows the old index and new index of the moved item within that list. `verticalListSortingStrategy` tells it the items are stacked vertically — this affects the "snap" ghost animation during the drag.
+
+### useSortable vs useDraggable
+
+`useSortable` is a superset of `useDraggable`. It gives you everything `useDraggable` gives (listeners, attributes, setNodeRef, isDragging) plus two new things:
+
+| Extra from useSortable | What it does |
+|---|---|
+| `transform` | The CSS translate to apply during sorting — animates the card to its new position |
+| `transition` | The CSS transition string for smooth animation |
+
+```tsx
+const { attributes, listeners, setNodeRef, isDragging, transform, transition } = useSortable({ id: item.id });
+
+// Apply the animated position during dragging
+<div
+  style={{
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+  }}
+>
+```
+
+Without `transform` applied, the card would teleport to its destination on drop rather than smoothly sliding.
+
+### How positions are stored and updated
+
+The `items` table has a `position INTEGER` column. When you drag a card to a new position within a column, we need to persist that order. The strategy used here is **index normalisation**: after every reorder, each item's position is set to its array index × 1000.
+
+```ts
+const reordered = arrayMove(columnItems, oldIndex, newIndex);
+// reordered is the new desired order
+
+const updates = reordered
+  .map((item, i) => ({ id: item.id, newPos: i * 1000, oldPos: item.position ?? 0 }))
+  .filter(({ newPos, oldPos }) => newPos !== oldPos);  // skip items that didn't move
+
+Promise.all(updates.map(({ id, newPos }) => itemsApi.update(id, { position: newPos })))
+  .then(() => qc.invalidateQueries({ queryKey: ['items'] }));
+```
+
+**Why index × 1000 instead of midpoint?**
+The midpoint approach (set the moved item to the average of its neighbours' positions) is elegant for single updates, but it breaks down when many items have the same position (which was the case here — all items defaulted to `position: 0`). Normalising to `index * 1000` always produces distinct, stable positions and doesn't require knowing the neighbours' values in advance.
+
+**Why `Promise.all` instead of a loop?**
+`Promise.all` sends all PATCH requests simultaneously, so N requests take roughly the same time as 1 request. A sequential loop would be N times slower. For a personal board with ~10-20 items per column, this is fast enough that it feels instant.
+
+After all updates resolve, a single `invalidateQueries` call re-fetches the items in their new order.
+
+---
+
+## Part 2: AI Auto-Categorize on Add
+
+### What categorize does
+
+`categorizeItem()` in `services/ai.ts` sends a lightweight Gemini call:
+
+```
+Input:  title, description, URL domain, current content type
+Output: { content_type, confidence (0–1), suggested_tags, suggested_status }
+```
+
+The idea is that the URL-based dispatcher (Phase 4) is very accurate for recognisable URLs (YouTube, TMDB, etc.), but for ambiguous cases — a podcast episode URL, a blog post that could be an article or a tweet thread — the AI can provide a second opinion.
+
+### The new endpoint
+
+```ts
+// worker/src/routes/ai.ts
+router.post("/categorize", async (c) => {
+  const body = await c.req.json();
+  const result = await categorizeItem(c.env.GEMINI_API_KEY, body);
+  return c.json(result);
+});
+```
+
+No caching here — `categorizeItem` is fast (one small Gemini call) and is only triggered by explicit user actions, so caching would add complexity for no real benefit.
+
+### The UX flow in AddItemDialog
+
+```
+User pastes URL
+    │
+    ▼
+POST /api/ingest  →  metadata fills the form (title, type, cover, etc.)
+    │
+    ▼ (fires in background, non-blocking)
+POST /api/ai/categorize
+    │
+    ├── confidence ≤ 0.7 → no UI change (ingest's type detection was probably right)
+    │
+    └── confidence > 0.7 AND type differs from fetched type
+            │
+            ▼
+        Shows: "AI suggests: [Podcast] →"  (clickable chip below the Type select)
+        Clicking the chip switches the type and clears the chip
+        Changing the type manually also clears the chip
+```
+
+The key design decision: fire it **after** ingest succeeds, not before or during. There's no point in running AI categorization without a title and description to work with. And it's non-blocking — the user can start editing the form immediately; the chip appears a second later if AI disagrees.
+
+---
+
+## Part 3: AI "Suggest Tags"
+
+### Why this lives in ItemDetailPanel, not AddItemDialog
+
+Tags can only be added to items that already exist in the database (the `item_tags` join table requires an `item_id`). So the natural home is the detail panel, which opens after an item has been created.
+
+### The "✨ Suggest" button
+
+```tsx
+<button onClick={handleSuggestTags} disabled={suggestingTags}>
+  {suggestingTags ? "…" : "✨ Suggest"}
+</button>
+```
+
+On click, this fires the same `POST /api/ai/categorize` endpoint used by the Add dialog. The response includes `suggested_tags` — an array of 1–4 short lowercase strings like `["sci-fi", "thriller", "must-watch"]`.
+
+### Filtering and rendering suggestions
+
+```ts
+onSuccess(result) {
+  const existing = new Set(itemTags.map(t => t.name.toLowerCase()));
+  const fresh = result.suggested_tags.filter(s => !existing.has(s.toLowerCase()));
+  setAiTagSuggestions(fresh.length > 0 ? fresh : []);
+}
+```
+
+Tags the item already has are filtered out — there's no point suggesting a tag that's already applied. The remaining suggestions render as `"+ [name]"` chips.
+
+### Applying a suggested tag
+
+When a chip is clicked, the logic checks whether a tag with that name already exists in the user's tag library:
+
+```ts
+function handleApplySuggestedTag(name: string) {
+  const match = allTags.find(t => t.name.toLowerCase() === name.toLowerCase());
+  if (match) {
+    addTag(match.id);               // reuse existing tag
+  } else {
+    createTag(                      // create new tag, then add it
+      { name, color: randomColor },
+      { onSuccess: tag => addTag(tag.id) }
+    );
+  }
+  setAiTagSuggestions(prev => prev?.filter(s => s !== name) ?? null);  // remove from chips
+}
+```
+
+This reuse-or-create pattern is important: if you've already tagged another movie "sci-fi", clicking "sci-fi" on a new item should link to the same tag — not create a duplicate. The case-insensitive match handles `"Sci-Fi"` vs `"sci-fi"` variations.
+
+---
+
+## Part 4: Auto-Timestamps on Status Transition
+
+### The schema had it; the code didn't
+
+The `items` table has had `started_at INTEGER` and `finished_at INTEGER` columns since Phase 1. But the PATCH handler only wrote whatever was explicitly sent in the request body. Nobody ever sent these fields, so they stayed NULL forever.
+
+### The fix: check the transition in the worker
+
+The PATCH handler now reads the current row's `status`, `startedAt`, and `finishedAt` before applying updates:
+
+```ts
+// Before: only fetched id
+const [existing] = await db.select({ id: items.id }).from(items).where(...);
+
+// After: fetch the fields we need to reason about
+const [existing] = await db
+  .select({ id: items.id, status: items.status, startedAt: items.startedAt, finishedAt: items.finishedAt })
+  .from(items).where(...);
+```
+
+Then, after building the update object from the request body:
+
+```ts
+if ("status" in body && body.status !== existing.status) {
+  // Status is actually changing (not just sending the same value)
+
+  if (body.status === "in_progress" && existing.startedAt == null && !("startedAt" in body)) {
+    update.startedAt = now;   // first time entering "in progress" — record it
+  }
+  if (body.status === "finished" && existing.finishedAt == null && !("finishedAt" in body)) {
+    update.finishedAt = now;  // first time finishing — record it
+  }
+}
+```
+
+**Three guards on each timestamp:**
+1. `body.status !== existing.status` — only fire on real status changes
+2. `existing.startedAt == null` — only set once (the first time you start it)
+3. `!("startedAt" in body)` — if the caller explicitly provides the timestamp, respect it
+
+The third guard means you can still override the timestamp manually from the UI if needed, and the auto-logic won't stomp on it.
+
+**What doesn't get cleared:**
+If you drag an item from "In Progress" back to "Suggestions", `startedAt` is kept. This is intentional — it's a historical record of when you first picked something up, not a live status indicator.
+
+### Where the timestamps appear
+
+The `ItemDetailPanel` timestamps row now shows all four dates when present:
+
+```tsx
+<div>
+  Added {new Date(item.createdAt).toLocaleDateString()}
+  {item.updatedAt !== item.createdAt && <> · Updated {new Date(item.updatedAt).toLocaleDateString()}</>}
+  {item.startedAt && <> · Started {new Date(item.startedAt).toLocaleDateString()}</>}
+  {item.finishedAt && <> · Finished {new Date(item.finishedAt).toLocaleDateString()}</>}
+</div>
+```
+
+`toLocaleDateString()` formats as "4/15/2026" in the US, "15/04/2026" in the UK, etc. — it respects the browser's locale automatically.
+
+---
+
+## Phase 7 Summary
+
+| What | How | Why |
+|---|---|---|
+| Within-column sort | `SortableContext` + `useSortable` + `arrayMove` | `useDraggable` only supports drag, not list reordering |
+| Position persistence | Normalise entire column to `index * 1000` | Midpoint approach breaks when all positions are 0 (the default) |
+| Batch position update | `Promise.all` + one `invalidateQueries` | All PATCHes fire in parallel; one refetch at the end |
+| AI categorize endpoint | `POST /api/ai/categorize` — no caching | Fast one-shot call; caching adds complexity for no benefit |
+| Type hint in dialog | Shows chip only if confidence > 0.7 AND type differs | Low-confidence or redundant suggestions are noise |
+| Tag suggestions | Same categorize endpoint, filtered against existing item tags | Reuses existing endpoint; filters prevent duplicate-tag confusion |
+| Apply suggested tag | Match existing tag by name or create new one | Prevents duplicate tags in the user's library |
+| Auto-timestamps | Worker reads existing row, sets timestamp on first transition | Client never needs to know about the timestamp logic |
+| Timestamp display | `item.startedAt` / `item.finishedAt` in detail panel | Historical record alongside the existing created/updated dates |

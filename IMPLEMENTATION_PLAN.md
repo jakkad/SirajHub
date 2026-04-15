@@ -378,6 +378,63 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 ---
 
+## Phase 7 — Deferred Requirements
+
+> Goal: Close the gap between PLAN_V1.md and the implemented code. Four features were explicitly deferred across Phases 5 and 6, plus the auto-timestamping that the schema was built for but never wired up.
+
+### 7.1 — Within-Column Drag Reordering ✅
+
+`@dnd-kit/sortable` and the `position INTEGER` column were scaffolded in Phases 3 and 6 but only cross-column dragging (status changes) was wired. Within-column reordering is needed to let users manually rank items inside a status column.
+
+- [x] Wrap each column's item list in `SortableContext` (using `verticalListSortingStrategy`)
+- [x] Replace raw `useDraggable` on `ItemCard` with `useSortable` so items can be reordered within a column
+- [x] In `onDragEnd`: when `sourceColumn === destColumn`, use `arrayMove` to compute new order, normalise all positions to `index * 1000`, batch-PATCH only changed ones, then invalidate query cache
+- [x] `GET /api/items` already orders by `position` then `createdAt` — sort is stable after a reorder
+
+### 7.2 — Auto-Categorize on Add ✅
+
+`categorizeItem()` in `services/ai.ts` returns `{ content_type, confidence, suggested_tags, suggested_status }` and has been ready since Phase 5. It was meant to fire on every new item but was deferred twice.
+
+- [x] Add `POST /api/ai/categorize` route in `worker/src/routes/ai.ts` — calls `categorizeItem()`, returns result directly (no caching needed for this fast call)
+- [x] `CategorizeResult` interface + `aiApi.categorize()` added to `apps/web/src/lib/api.ts`
+- [x] `useCategorizeItem()` hook added to `apps/web/src/hooks/useAI.ts`
+- [x] In `AddItemDialog`: after ingest fetch `onSuccess`, fires `categorize()` in the background; if AI confidence > 0.7 and suggested type differs from fetched type, shows a clickable "AI suggests: [Type] →" chip next to the Type select; clicking the chip switches the type; chip is cleared when user manually changes the type
+
+### 7.3 — AI "Suggest Tags" in Item Detail ✅
+
+Tags were fully built in Phase 6, but the `categorizeItem()` → `suggested_tags` path was never wired to a user-facing action. This closes the loop between the AI and the tags system.
+
+- [x] "✨ Suggest" button added to `ItemDetailPanel` next to the "+ Add tag" button
+- [x] On click: calls `POST /api/ai/categorize` with the item's title + description + sourceUrl + contentType
+- [x] Renders each suggested tag as a clickable "+ [name]" chip; tags already applied to the item are filtered out
+- [x] Clicking a chip: adds an existing tag with the same name (case-insensitive), or creates + assigns a new one with a random color
+- [x] Shows "…" loading state while AI call is in flight; shows "No tag suggestions" when Gemini returns an empty array
+
+### 7.4 — Auto-Timestamp on Status Transition ✅
+
+The `started_at` and `finished_at` columns exist in the `items` schema and are surfaced in the UI, but the PATCH handler never auto-populates them when status changes.
+
+- [x] PATCH handler now selects `status`, `startedAt`, `finishedAt` from the existing row (was only selecting `id`)
+- [x] When status transitions to `"in_progress"` and `startedAt` is NULL: auto-sets `startedAt = now`
+- [x] When status transitions to `"finished"` and `finishedAt` is NULL: auto-sets `finishedAt = now`
+- [x] Does not overwrite if caller explicitly provides `startedAt`/`finishedAt` in the request body
+- [x] Timestamps not cleared on backwards transitions (preserves history)
+- [x] `ItemDetailPanel` displays "Started [date]" and "Finished [date]" in the timestamps row when non-null
+
+### 7.5 — Final Deployment
+
+(Carried over from Phase 6.6 — these are manual steps only Jake can run.)
+
+- [ ] Run `wrangler d1 migrations apply sirajhub-db --remote` (production D1)
+- [ ] Set all secrets: `wrangler secret put GEMINI_API_KEY` · `TMDB_API_KEY` · `YOUTUBE_API_KEY` · `GOOGLE_BOOKS_API_KEY` · `PODCAST_INDEX_KEY` · `PODCAST_INDEX_SECRET` · `AUTH_SECRET`
+- [ ] `wrangler deploy` → verify live Worker URL
+- [ ] Add custom domain in Cloudflare Dashboard → Workers & Pages → your worker → Custom Domains
+- [ ] Smoke test: add one item of each type, verify AI analysis, verify drag-drop, verify search, verify settings save
+
+**Phase 7 complete when:** Items can be reordered within a column. Adding an item via URL/search pre-fills the content type from AI. The item detail panel has a working "Suggest tags" button. Status changes to In Progress and Finished auto-record their timestamps. App is live at the custom domain. ✅ (code complete — deployment is a manual step)
+
+---
+
 ## Summary Table
 
 | Phase               | Goal                                                      | Estimated Files |
@@ -388,3 +445,4 @@ Before any code is written, you need these accounts and keys set up. Everything 
 | 4 — Ingest Pipeline ✅ | URL dispatcher + 6 fetchers, caching                   | ~10 files — done |
 | 5 — AI Features ✅  | Gemini service, item analysis, next list panel            | ~6 files — done |
 | 6 — Polish ✅       | Grid, tags, search, settings, mobile, deploy              | ~12 files — done |
+| 7 — Deferred Requirements ✅ | Within-column sort, auto-categorize, suggest tags, timestamps, deploy | ~5 files — done |

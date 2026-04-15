@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import type { Item } from "../lib/api";
 import { CONTENT_TYPES, STATUSES } from "../lib/constants";
+import type { StatusId } from "../lib/constants";
 import { useUpdateItem } from "../hooks/useItems";
 import { useTags, useItemTags, useAddTagToItem, useRemoveTagFromItem, useCreateTag, TAG_COLORS } from "../hooks/useTags";
 import type { Tag } from "../hooks/useTags";
+import { useCategorizeItem } from "../hooks/useAI";
 
 interface Props {
   item: Item | null;
@@ -14,7 +16,8 @@ export function ItemDetailPanel({ item, onClose }: Props) {
   const [notes, setNotes] = useState(item?.notes ?? "");
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [newTagName, setNewTagName] = useState("");
-  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0].value);
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]?.value ?? "#6366f1");
+  const [aiTagSuggestions, setAiTagSuggestions] = useState<string[] | null>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const { mutate: updateItem } = useUpdateItem();
@@ -23,11 +26,13 @@ export function ItemDetailPanel({ item, onClose }: Props) {
   const { mutate: addTag } = useAddTagToItem(item?.id ?? "");
   const { mutate: removeTag } = useRemoveTagFromItem(item?.id ?? "");
   const { mutate: createTag, isPending: creatingTag } = useCreateTag();
+  const { mutate: categorize, isPending: suggestingTags } = useCategorizeItem();
 
   // Sync notes when item changes
   useEffect(() => {
     setNotes(item?.notes ?? "");
     setTagPickerOpen(false);
+    setAiTagSuggestions(null);
   }, [item?.id]);
 
   // Close on Escape
@@ -61,6 +66,42 @@ export function ItemDetailPanel({ item, onClose }: Props) {
         },
       }
     );
+  }
+
+  function handleSuggestTags() {
+    if (!item) return;
+    setAiTagSuggestions(null);
+    categorize(
+      {
+        title: item.title,
+        description: item.description,
+        sourceUrl: item.sourceUrl,
+        contentType: item.contentType,
+      },
+      {
+        onSuccess(result) {
+          // Filter out tags already applied to this item (case-insensitive)
+          const existing = new Set(itemTags.map((t) => t.name.toLowerCase()));
+          const fresh = result.suggested_tags.filter((s) => !existing.has(s.toLowerCase()));
+          setAiTagSuggestions(fresh.length > 0 ? fresh : []);
+        },
+      }
+    );
+  }
+
+  function handleApplySuggestedTag(name: string) {
+    // If a tag with this name already exists, add it; otherwise create + add
+    const match = allTags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+    if (match) {
+      addTag(match.id);
+    } else {
+      createTag(
+        { name, color: TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)]?.value ?? "#6366f1" },
+        { onSuccess: (tag) => addTag(tag.id) }
+      );
+    }
+    // Remove from suggestions list
+    setAiTagSuggestions((prev) => prev?.filter((s) => s !== name) ?? null);
   }
 
   return (
@@ -230,7 +271,7 @@ export function ItemDetailPanel({ item, onClose }: Props) {
             <Label>Status</Label>
             <select
               value={item.status}
-              onChange={(e) => updateItem({ id: item.id, status: e.target.value })}
+              onChange={(e) => updateItem({ id: item.id, status: e.target.value as StatusId })}
               style={selectStyle}
             >
               {STATUSES.map((s) => (
@@ -331,7 +372,55 @@ export function ItemDetailPanel({ item, onClose }: Props) {
               >
                 + Add tag
               </button>
+              <button
+                onClick={handleSuggestTags}
+                disabled={suggestingTags}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  border: "1px dashed var(--color-accent)",
+                  background: "transparent",
+                  color: "var(--color-accent)",
+                  cursor: suggestingTags ? "not-allowed" : "pointer",
+                  opacity: suggestingTags ? 0.6 : 1,
+                }}
+              >
+                {suggestingTags ? "…" : "✨ Suggest"}
+              </button>
             </div>
+
+            {/* AI-suggested tags */}
+            {aiTagSuggestions !== null && (
+              <div style={{ marginBottom: 8 }}>
+                {aiTagSuggestions.length > 0 ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "var(--color-muted)", marginRight: 2 }}>AI suggests:</span>
+                    {aiTagSuggestions.map((name) => (
+                      <button
+                        key={name}
+                        onClick={() => handleApplySuggestedTag(name)}
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          padding: "2px 9px",
+                          borderRadius: 999,
+                          border: "1px solid var(--color-accent)",
+                          background: "transparent",
+                          color: "var(--color-accent)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        + {name}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 11, color: "var(--color-muted)", margin: 0 }}>No tag suggestions</p>
+                )}
+              </div>
+            )}
 
             {tagPickerOpen && (
               <div
@@ -462,10 +551,16 @@ export function ItemDetailPanel({ item, onClose }: Props) {
           </div>
 
           {/* Timestamps */}
-          <div style={{ fontSize: 11, color: "var(--color-muted)", paddingBottom: 8 }}>
+          <div style={{ fontSize: 11, color: "var(--color-muted)", paddingBottom: 8, lineHeight: 1.8 }}>
             Added {new Date(item.createdAt).toLocaleDateString()}
             {item.updatedAt !== item.createdAt && (
               <> · Updated {new Date(item.updatedAt).toLocaleDateString()}</>
+            )}
+            {item.startedAt && (
+              <> · Started {new Date(item.startedAt).toLocaleDateString()}</>
+            )}
+            {item.finishedAt && (
+              <> · Finished {new Date(item.finishedAt).toLocaleDateString()}</>
             )}
           </div>
         </div>

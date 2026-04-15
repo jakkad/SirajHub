@@ -103,14 +103,15 @@ router.patch("/:id", async (c) => {
   const db = createDb(c.env.DB);
 
   const [existing] = await db
-    .select({ id: items.id })
+    .select({ id: items.id, status: items.status, startedAt: items.startedAt, finishedAt: items.finishedAt })
     .from(items)
     .where(and(eq(items.id, id), eq(items.userId, userId)));
 
   if (!existing) return c.json({ error: "Not found" }, 404);
 
   // Build update object with only provided fields
-  const update: Record<string, unknown> = { updatedAt: Date.now() };
+  const now = Date.now();
+  const update: Record<string, unknown> = { updatedAt: now };
   const allowed = [
     "title", "contentType", "status", "creator", "description",
     "coverUrl", "releaseDate", "rating", "notes", "position",
@@ -118,6 +119,16 @@ router.patch("/:id", async (c) => {
   ] as const;
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
+  }
+
+  // Auto-timestamp on status transitions (only when not explicitly provided)
+  if ("status" in body && body.status !== existing.status) {
+    if (body.status === "in_progress" && existing.startedAt == null && !("startedAt" in body)) {
+      update.startedAt = now;
+    }
+    if (body.status === "finished" && existing.finishedAt == null && !("finishedAt" in body)) {
+      update.finishedAt = now;
+    }
   }
 
   await db

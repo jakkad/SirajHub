@@ -45,7 +45,7 @@ export function SearchCommand({ open, onClose, onSelect }: Props) {
   const grouped: Record<string, Item[]> = {};
   for (const item of results) {
     if (!grouped[item.contentType]) grouped[item.contentType] = [];
-    grouped[item.contentType].push(item);
+    grouped[item.contentType]!.push(item);
   }
 
   if (!open) return null;
