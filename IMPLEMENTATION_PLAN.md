@@ -897,3 +897,53 @@ worker/src/services/ai-queue.ts
 | V2.2–2 — Search Suggestions | Return and resolve the top 5 external-source matches before adding | ✅ Done |
 | V2.2–3 — Source Tips | Explain which URLs can be auto-detected, with examples | ✅ Done |
 | V2.2–4 — AI Queue | Add scheduled, persistent AI jobs with a configurable interval | ✅ Done |
+
+---
+
+# V2.3 — UX Polish and Queue Behavior
+
+> **Motivation:** After V2.2, the core features were in place, but a few day-to-day interaction details still felt rough: the articles view was too plain, item edit actions were not obvious enough, the item-page status select had a layout bug, and AI queue timing needed smarter behavior.
+
+## V2.3 Step 1 — Article Feed Redesign
+
+- [x] Rework the articles page from a plain list into a cleaner editorial feed
+- [x] Add a left-side timeline rail and stronger card hierarchy for article rows
+- [x] Improve metadata presentation for domain, creator, date, and estimated reading time
+- [x] Add clearer per-item actions inside each article row
+
+## V2.3 Step 2 — Explicit Edit Actions
+
+- [x] Add an explicit `Edit` action to article rows instead of relying only on row click behavior
+- [x] Add a visible `Edit Details` button inside the item detail page itself
+- [x] Add an in-page editor card for core item metadata on `/item/$id`
+
+## V2.3 Step 3 — Status Select Fix
+
+- [x] Fix the shared `Select` viewport sizing so the status dropdown no longer collapses or overlaps nearby controls
+- [x] Apply the fix at the shared UI primitive level so all select menus benefit from the correction
+
+## V2.3 Step 4 — Queue Timing Policy
+
+- [x] Update AI queue scheduling so newly queued jobs run immediately when there are fewer than 5 active jobs
+- [x] Change failed automatic retries to run again after 60 minutes
+- [x] Keep manual retries immediate from the queue management UI
+
+## V2.3 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+worker/src/services/ai-queue.ts
+apps/web/src/components/views/ArticleList.tsx
+apps/web/src/routes/item.$id.tsx
+apps/web/src/components/ui/select.tsx
+```
+
+## V2.3 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.3–1 — Article Feed | Improve the articles page into a cleaner editorial feed | ✅ Done |
+| V2.3–2 — Edit Actions | Make editing obvious from both article rows and the item page | ✅ Done |
+| V2.3–3 — Select Fix | Fix the status dropdown layout issue at the shared component level | ✅ Done |
+| V2.3–4 — Queue Timing | Run small queues immediately and retry failures after 60 minutes | ✅ Done |

@@ -8,6 +8,7 @@ import { InlineTagManager } from "../components/InlineTagManager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -35,10 +36,31 @@ function ItemDetailPage() {
   // Editable field state
   const [notes, setNotes] = useState("");
   const [suggestedTags, setSuggestedTags] = useState<string[] | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    creator: "",
+    description: "",
+    releaseDate: "",
+    coverUrl: "",
+    contentType: "book" as typeof CONTENT_TYPES[number]["id"],
+  });
 
   useEffect(() => {
     if (item) setNotes(item.notes ?? "");
   }, [item?.id]);
+
+  useEffect(() => {
+    if (!item) return;
+    setEditForm({
+      title: item.title ?? "",
+      creator: item.creator ?? "",
+      description: item.description ?? "",
+      releaseDate: item.releaseDate ?? "",
+      coverUrl: item.coverUrl ?? "",
+      contentType: item.contentType,
+    });
+  }, [item]);
 
   if (isLoading) {
     return <div className="py-24 text-center text-muted-foreground">Loading…</div>;
@@ -68,11 +90,36 @@ function ItemDetailPage() {
     deleteItem(currentItem.id, { onSuccess: () => navigate({ to: "/" }) });
   }
 
+  function handleSaveDetails() {
+    updateItem(
+      {
+        id: currentItem.id,
+        title: editForm.title.trim(),
+        creator: editForm.creator.trim() || null,
+        description: editForm.description.trim() || null,
+        releaseDate: editForm.releaseDate || null,
+        coverUrl: editForm.coverUrl.trim() || null,
+        contentType: editForm.contentType,
+      },
+      {
+        onSuccess: () => {
+          setEditOpen(false);
+        },
+      }
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-white/90">
-        Back
-      </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-white/90">
+          Back
+        </Button>
+
+        <Button variant={editOpen ? "secondary" : "outline"} onClick={() => setEditOpen((prev) => !prev)}>
+          {editOpen ? "Close Editor" : "Edit Details"}
+        </Button>
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
         <Card>
@@ -148,6 +195,96 @@ function ItemDetailPage() {
         </Card>
 
         <div className="flex flex-col gap-6">
+          {editOpen ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit Details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                      placeholder="Title"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Label>Creator</Label>
+                    <Input
+                      value={editForm.creator}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, creator: e.target.value }))}
+                      placeholder="Author, director, channel..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label>Content Type</Label>
+                    <Select
+                      value={editForm.contentType}
+                      onValueChange={(value) =>
+                        setEditForm((prev) => ({ ...prev, contentType: value as (typeof CONTENT_TYPES)[number]["id"] }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {CONTENT_TYPES.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Label>Release Date</Label>
+                    <Input
+                      type="date"
+                      value={editForm.releaseDate}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, releaseDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Cover URL</Label>
+                  <Input
+                    value={editForm.coverUrl}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, coverUrl: e.target.value }))}
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Description</Label>
+                  <Textarea
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="Description"
+                  />
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-3">
+                  <Button variant="outline" onClick={() => setEditOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveDetails} disabled={!editForm.title.trim()}>
+                    Save changes
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {item.description ? (
             <Card>
               <CardHeader>

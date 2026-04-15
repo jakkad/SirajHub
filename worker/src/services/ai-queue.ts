@@ -1,4 +1,4 @@
-import { and, desc, eq, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, lte } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb, type Db } from "../db/client";
 import { aiCache, aiJobs, items, user } from "../db/schema";
@@ -11,7 +11,8 @@ export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
 
 const NEXT_LIST_KV_TTL_SECONDS = 6 * 60 * 60;
 const MAX_RETRY_ATTEMPTS = 3;
-const RETRY_DELAY_MINUTES = 15;
+const RETRY_DELAY_MINUTES = 60;
+const IMMEDIATE_RUN_THRESHOLD = 5;
 
 export function serializeJob(job: typeof aiJobs.$inferSelect) {
   return {
@@ -54,6 +55,15 @@ export function getRunAfterFromInterval(intervalMinutes = DEFAULT_AI_QUEUE_INTER
   return Date.now() + Math.max(5, intervalMinutes) * 60 * 1000;
 }
 
+async function resolveQueuedRunAfter(db: Db, requestedRunAfter: number) {
+  const activeJobs = await db
+    .select({ id: aiJobs.id })
+    .from(aiJobs)
+    .where(inArray(aiJobs.status, ["queued", "processing"]));
+
+  return activeJobs.length < IMMEDIATE_RUN_THRESHOLD ? Date.now() : requestedRunAfter;
+}
+
 export async function queueAiJob(
   db: Db,
   userId: string,
@@ -64,13 +74,14 @@ export async function queueAiJob(
 ) {
   const existing = await getLatestJob(db, userId, jobType, itemId);
   const now = Date.now();
+  const resolvedRunAfter = await resolveQueuedRunAfter(db, runAfter);
 
   if (existing && (existing.status === "queued" || existing.status === "processing")) {
     await db
       .update(aiJobs)
       .set({
         payload: JSON.stringify(payload),
-        runAfter,
+        runAfter: resolvedRunAfter,
         updatedAt: now,
         lastError: null,
       })
@@ -90,7 +101,7 @@ export async function queueAiJob(
     attempts: 0,
     maxAttempts: MAX_RETRY_ATTEMPTS,
     lastError: null,
-    runAfter,
+    runAfter: resolvedRunAfter,
     completedAt: null,
     createdAt: now,
     updatedAt: now,

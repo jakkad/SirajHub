@@ -2708,3 +2708,135 @@ The most important areas are:
 | V2.2 Step 2 | Return and resolve the top 5 external-source matches before adding | Complete |
 | V2.2 Step 3 | Explain which URLs can be auto-detected, with examples | Complete |
 | V2.2 Step 4 | Add scheduled, persistent AI jobs with queue monitoring and retry | Complete |
+
+---
+
+# V2.3 — UX Polish and Queue Behavior
+
+## What V2.3 Was About
+
+V2.3 is a smaller follow-up version focused on everyday usability.
+
+The large V2 and V2.2 systems were already working, but some product details still felt rough in normal use:
+
+- the articles page looked too plain compared to the rest of the app
+- edit actions were not obvious enough in article rows or inside the item detail page
+- the status dropdown on the item page had a shared select-layout bug
+- AI queue timing needed smarter behavior for light usage and failures
+
+So V2.3 is about polish, clarity, and operational quality.
+
+---
+
+## V2.3 Step 1 — Article Feed Redesign
+
+### What this step was about
+
+The original articles page worked, but it felt more like a utilitarian list than a designed reading feed.
+
+That made it inconsistent with the newer dashboard and collection pages.
+
+### What changed
+
+The articles view was redesigned into a more editorial feed:
+
+- a left-side timeline rail gives the list more structure
+- each article row feels more like a content card than a plain line item
+- domain, creator, date, and reading-time metadata are easier to scan
+- row actions are clearer instead of being hidden behind implied click behavior
+
+### Why this matters
+
+Articles are text-first content, so their view has to feel readable and intentional.
+
+---
+
+## V2.3 Step 2 — Explicit Edit Actions
+
+### What this step was about
+
+Editing existed in the app, but it was not always obvious.
+
+Users should not have to guess whether a row click edits, opens, or navigates somewhere else.
+
+### What changed
+
+Two things were improved:
+
+1. Article rows now include a clear `Edit` action
+2. The item detail page now includes its own visible `Edit Details` button
+
+That button opens an in-page editor card for the core metadata fields, so editing is not limited to smaller inline controls.
+
+### Why this matters
+
+Good UX does not just support editing. It makes editing discoverable.
+
+---
+
+## V2.3 Step 3 — Status Select Fix
+
+### What this step was about
+
+The item-page status dropdown had a layout bug where the menu viewport was being constrained incorrectly.
+
+That made the options collapse visually and overlap nearby controls like the rating buttons.
+
+### What changed
+
+The fix was made at the shared `Select` primitive level instead of only patching the item page.
+
+That means:
+
+- the status menu on the item page now opens correctly
+- the fix also benefits any other screen that uses the same shared select component
+
+### Why this matters
+
+Fixing shared primitives is usually better than patching one broken screen at a time.
+
+---
+
+## V2.3 Step 4 — Queue Timing Policy
+
+### What this step was about
+
+The AI queue was durable and visible after V2.2, but its timing behavior was still too blunt.
+
+For a light personal workload, waiting the full interval before every queued job can feel unnecessarily slow.
+
+### What changed
+
+The queue policy now behaves more intelligently:
+
+- if there are fewer than 5 active AI jobs, a new job is scheduled immediately
+- if an automatic run fails, the retry is delayed by 60 minutes
+- manual retries from the Settings queue view still run immediately
+
+This makes the queue feel more responsive during normal use while still backing off properly after failures.
+
+### Why this matters
+
+Queue systems should feel fast when load is low and cautious when errors happen.
+
+---
+
+## V2.3 Files Changed
+
+The most important updated areas are:
+
+- `worker/src/services/ai-queue.ts`
+- `apps/web/src/components/views/ArticleList.tsx`
+- `apps/web/src/routes/item.$id.tsx`
+- `apps/web/src/components/ui/select.tsx`
+
+---
+
+## V2.3 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.3 Step 1 | Improve the articles page into a cleaner editorial feed | Complete |
+| V2.3 Step 2 | Make editing obvious from both article rows and the item page | Complete |
+| V2.3 Step 3 | Fix the status dropdown layout issue at the shared component level | Complete |
+| V2.3 Step 4 | Run small queues immediately and retry failures after 60 minutes | Complete |
