@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useCategorizeItem } from "../hooks/useAI";
-import { useCreateItem, useIngest, useIngestSearch, useResolveIngestSuggestion } from "../hooks/useItems";
+import { useCreateItem, useImportItems, useIngest, useIngestSearch, useResolveIngestSuggestion } from "../hooks/useItems";
+import { parseCsv, prepareCsvImport } from "../lib/csv";
 import { AUTO_DETECT_SOURCES, CONTENT_TYPES, SEARCHABLE_EXTERNAL_TYPES, STATUSES } from "../lib/constants";
 import type { ContentTypeId, StatusId } from "../lib/constants";
-import type { FetchedMetadata, SearchSuggestion } from "../lib/api";
+import type { BulkImportResult, FetchedMetadata, SearchSuggestion } from "../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,16 +45,21 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [urlInput, setUrlInput] = useState("");
   const [queryInput, setQueryInput] = useState("");
   const [searchType, setSearchType] = useState<ContentTypeId>("book");
-  const [mode, setMode] = useState<"url" | "search" | "manual">("url");
+  const [mode, setMode] = useState<"url" | "search" | "manual" | "csv">("url");
   const [form, setForm] = useState(DEFAULT_FORM);
   const [aiTypeHint, setAiTypeHint] = useState<{ type: ContentTypeId; label: string } | null>(null);
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [csvText, setCsvText] = useState("");
+  const [csvImportResult, setCsvImportResult] = useState<BulkImportResult | null>(null);
 
   const { mutate: createItem, isPending: saving, error: saveError } = useCreateItem();
+  const { mutate: importItems, isPending: importing, error: importError } = useImportItems();
   const { mutate: fetchMeta, isPending: fetching, error: fetchError } = useIngest();
   const { mutate: searchMeta, isPending: searching, error: searchError } = useIngestSearch();
   const { mutate: resolveSuggestion, isPending: resolving, error: resolveError } = useResolveIngestSuggestion();
   const { mutate: categorize } = useCategorizeItem();
+  const csvPreparation = useMemo(() => prepareCsvImport(parseCsv(csvText)), [csvText]);
 
   function setField(field: keyof typeof DEFAULT_FORM, value: string) {
     if (field === "contentType") setAiTypeHint(null);
@@ -106,6 +112,9 @@ export function AddItemDialog({ open, onClose }: Props) {
     setForm(DEFAULT_FORM);
     setAiTypeHint(null);
     setSearchSuggestions([]);
+    setCsvFileName("");
+    setCsvText("");
+    setCsvImportResult(null);
   }
 
   function handleFetchUrl() {
@@ -146,6 +155,8 @@ export function AddItemDialog({ open, onClose }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "csv") return;
+
     createItem(
       {
         title: form.title.trim(),
@@ -168,7 +179,27 @@ export function AddItemDialog({ open, onClose }: Props) {
     );
   }
 
-  const error = fetchError ?? searchError ?? resolveError ?? saveError;
+  async function handleCsvFileChange(file: File | null) {
+    if (!file) return;
+    const text = await file.text();
+    setCsvFileName(file.name);
+    setCsvText(text);
+    setCsvImportResult(null);
+  }
+
+  function handleImportCsv() {
+    if (csvPreparation.items.length === 0) return;
+
+    importItems(csvPreparation.items, {
+      onSuccess(result) {
+        setCsvImportResult(result);
+      },
+    });
+  }
+
+  const error = fetchError ?? searchError ?? resolveError ?? saveError ?? importError;
+  const isCsvMode = mode === "csv";
+  const csvImportDisabled = csvPreparation.items.length === 0;
 
   return (
     <Dialog
@@ -194,7 +225,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                   <Tabs
                     value={mode}
                     onValueChange={(value) => {
-                      setMode(value as "url" | "search" | "manual");
+                      setMode(value as "url" | "search" | "manual" | "csv");
                       setSearchSuggestions([]);
                     }}
                   >
@@ -202,6 +233,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                       <TabsTrigger value="url" className="border border-[hsl(var(--border))] bg-card shadow-none">Paste URL</TabsTrigger>
                       <TabsTrigger value="search" className="border border-[hsl(var(--border))] bg-card shadow-none">Search by Name</TabsTrigger>
                       <TabsTrigger value="manual" className="border border-[hsl(var(--border))] bg-card shadow-none">Manual</TabsTrigger>
+                      <TabsTrigger value="csv" className="border border-[hsl(var(--border))] bg-card shadow-none">CSV Import</TabsTrigger>
                     </TabsList>
                   </Tabs>
 
@@ -312,6 +344,121 @@ export function AddItemDialog({ open, onClose }: Props) {
                     <p className="text-sm text-muted-foreground">Manual mode skips ingest and lets you fill in everything yourself.</p>
                   ) : null}
 
+                  {mode === "csv" ? (
+                    <div className="grid gap-4">
+                      <div className="flex flex-col gap-3 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">Upload a CSV file</p>
+                            <p className="text-xs leading-5 text-muted-foreground">
+                              Required columns: <code>title</code> and <code>contentType</code>. Optional: <code>status</code>, <code>creator</code>, <code>description</code>, <code>coverUrl</code>, <code>releaseDate</code>, <code>rating</code>, <code>notes</code>, <code>sourceUrl</code>.
+                            </p>
+                          </div>
+                          {csvFileName ? <Badge variant="outline">{csvFileName}</Badge> : null}
+                        </div>
+
+                        <Input
+                          type="file"
+                          accept=".csv,text/csv"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            void handleCsvFileChange(file);
+                          }}
+                        />
+
+                        <p className="text-xs leading-5 text-muted-foreground">
+                          Aliases like <code>content_type</code>, <code>type</code>, <code>author</code>, <code>url</code>, and <code>cover_url</code> also work.
+                        </p>
+                      </div>
+
+                      {csvText ? (
+                        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                          <Card>
+                            <CardContent className="grid gap-4 p-5">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground">Import preview</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {csvPreparation.items.length} valid row{csvPreparation.items.length === 1 ? "" : "s"} ready to import
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  <Badge variant="secondary">{csvPreparation.preview.length} shown</Badge>
+                                  {csvPreparation.errors.length > 0 ? (
+                                    <Badge variant="outline">{csvPreparation.errors.length} issue{csvPreparation.errors.length === 1 ? "" : "s"}</Badge>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              <div className="grid gap-3">
+                                {csvPreparation.preview.map((row) => (
+                                  <div key={row.rowNumber} className="rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Badge variant="outline">Row {row.rowNumber}</Badge>
+                                      <Badge variant="secondary">
+                                        {CONTENT_TYPES.find((type) => type.id === row.contentType)?.label ?? row.contentType}
+                                      </Badge>
+                                      <Badge variant="outline">
+                                        {STATUSES.find((status) => status.id === row.status)?.label ?? row.status}
+                                      </Badge>
+                                    </div>
+                                    <p className="mt-3 text-sm font-semibold text-foreground">{row.title}</p>
+                                    {row.creator ? <p className="mt-1 text-xs text-muted-foreground">{row.creator}</p> : null}
+                                  </div>
+                                ))}
+                              </div>
+                            </CardContent>
+                          </Card>
+
+                          <Card>
+                            <CardContent className="grid gap-4 p-5">
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">Validation</p>
+                                <p className="text-xs text-muted-foreground">
+                                  We import valid rows and leave broken ones in the report so you can fix them and retry.
+                                </p>
+                              </div>
+
+                              {csvPreparation.errors.length > 0 ? (
+                                <div className="grid gap-2">
+                                  {csvPreparation.errors.slice(0, 8).map((entry) => (
+                                    <div key={`${entry.row}-${entry.error}`} className="rounded-[18px] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                                      Row {entry.row}: {entry.error}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="rounded-[18px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                                  No validation issues so far.
+                                </div>
+                              )}
+
+                              {csvImportResult ? (
+                                <div className="grid gap-3 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.3)] p-4">
+                                  <div className="flex flex-wrap gap-2">
+                                    <Badge variant="secondary">{csvImportResult.createdCount} imported</Badge>
+                                    <Badge variant="outline">{csvImportResult.failedCount} failed</Badge>
+                                  </div>
+                                  {csvImportResult.errors.length > 0 ? (
+                                    <div className="grid gap-2">
+                                      {csvImportResult.errors.slice(0, 8).map((entry) => (
+                                        <p key={`${entry.row}-${entry.error}`} className="text-xs text-muted-foreground">
+                                          Row {entry.row}: {entry.error}
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-muted-foreground">Everything in this file imported successfully.</p>
+                                  )}
+                                </div>
+                              ) : null}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
                   {aiTypeHint ? (
                     <div className="flex flex-wrap items-center gap-3">
                       <Badge variant="secondary">AI hint</Badge>
@@ -326,7 +473,8 @@ export function AddItemDialog({ open, onClose }: Props) {
                 </CardContent>
               </Card>
 
-              <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+              {!isCsvMode ? (
+                <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
                 <Card>
                   <CardContent className="grid gap-4 p-5">
                     <div className="grid gap-4 md:grid-cols-2">
@@ -428,7 +576,8 @@ export function AddItemDialog({ open, onClose }: Props) {
                     </p>
                   </CardContent>
                 </Card>
-              </div>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -437,9 +586,15 @@ export function AddItemDialog({ open, onClose }: Props) {
               <Button type="button" variant="outline" onClick={() => { reset(); onClose(); }}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving || !form.title.trim()}>
-                {saving ? "Saving…" : "Save item"}
-              </Button>
+              {isCsvMode ? (
+                <Button type="button" onClick={handleImportCsv} disabled={importing || csvImportDisabled}>
+                  {importing ? "Importing…" : `Import ${csvPreparation.items.length} item${csvPreparation.items.length === 1 ? "" : "s"}`}
+                </Button>
+              ) : (
+                <Button type="submit" disabled={saving || !form.title.trim()}>
+                  {saving ? "Saving…" : "Save item"}
+                </Button>
+              )}
             </div>
           </div>
         </form>

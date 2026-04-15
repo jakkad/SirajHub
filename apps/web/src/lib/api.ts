@@ -39,6 +39,13 @@ export interface CreateItemInput {
   sourceUrl?: string;
 }
 
+export interface BulkImportResult {
+  created: Item[];
+  createdCount: number;
+  failedCount: number;
+  errors: { row: number; title?: string; error: string }[];
+}
+
 export type UpdateItemInput = Partial<
   Pick<Item,
     | "title" | "contentType" | "status" | "creator" | "description"
@@ -339,6 +346,13 @@ export const itemsApi = {
 
   create(data: CreateItemInput): Promise<Item> {
     return request<Item>("/api/items", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  importCsv(rows: CreateItemInput[]): Promise<BulkImportResult> {
+    return request<BulkImportResult>("/api/items/import/csv", {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    });
   },
 
   update(id: string, data: UpdateItemInput): Promise<Item> {

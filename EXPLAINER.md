@@ -2840,3 +2840,147 @@ The most important updated areas are:
 | V2.3 Step 2 | Make editing obvious from both article rows and the item page | Complete |
 | V2.3 Step 3 | Fix the status dropdown layout issue at the shared component level | Complete |
 | V2.3 Step 4 | Run small queues immediately and retry failures after 60 minutes | Complete |
+
+---
+
+# V2.4 — Bulk Import Foundations
+
+## What V2.4 Was About
+
+Until this point, SirajHub was optimized for adding items one at a time:
+
+- paste a URL
+- search for one title
+- fill one item manually
+
+That is good for casual use, but it is not good enough for migration.
+
+The first version of bulk import starts with the most practical format: CSV.
+
+This step does not try to solve every external source yet. It establishes the first reusable import workflow so the app can accept structured batches of content instead of only single entries.
+
+---
+
+## V2.4 Step 1 — CSV Bulk Import Flow
+
+### What this step was about
+
+The app already had an Add Item dialog, so the cleanest first implementation was to extend that existing surface rather than building a totally separate import page.
+
+### What changed
+
+A new `CSV Import` mode was added to the Add Item dialog.
+
+Users can now:
+
+- upload a `.csv` file directly from the dialog
+- let the frontend parse the file before any network request happens
+- reuse the same item data model the rest of the app already understands
+
+The CSV parser also supports a few practical aliases so imports are less fragile:
+
+- `content_type` or `type`
+- `author`
+- `cover_url`
+- `url`
+
+That means a CSV does not have to match the internal field names perfectly to be useful.
+
+### Why this matters
+
+This is the first step that turns SirajHub into a tool that can accept a real library, not just individual discoveries.
+
+---
+
+## V2.4 Step 2 — Preview and Validation
+
+### What this step was about
+
+Bulk import is only safe if the user can see what is about to happen.
+
+If the app blindly imported every row immediately, a single bad CSV could create a messy library very quickly.
+
+### What changed
+
+The import flow now validates rows before sending them:
+
+- `title` is required
+- `contentType` is required and must match one of the supported internal types
+- `status` must match the allowed workflow states
+- `rating` must be an integer from 1 to 5
+
+The dialog also shows:
+
+- a preview of valid rows
+- row-level issues for invalid rows
+- a summary after import showing how many succeeded and how many failed
+
+Most importantly, the flow supports partial success.
+
+That means valid rows can still be imported even if some rows are broken.
+
+### Why this matters
+
+This makes CSV import practical instead of brittle. Users can move forward with the good rows first and then fix the bad ones.
+
+---
+
+## V2.4 Step 3 — Bulk Create Endpoint
+
+### What this step was about
+
+Frontend parsing alone is not enough. The backend needs a proper bulk-create path so imports are handled as a real product workflow.
+
+### What changed
+
+A new route was added:
+
+- `POST /api/items/import/csv`
+
+This route:
+
+- accepts normalized item rows from the frontend
+- validates them again on the worker
+- creates items for the current authenticated user
+- returns a structured import result with:
+  - created items
+  - created count
+  - failed count
+  - row-level errors
+
+This means the import system is not just a UI trick. It is now a proper backend-supported feature.
+
+### Why this matters
+
+This creates the foundation for future bulk sources too.
+
+Even if later versions import from other sites directly, they will still need the same ideas:
+
+- normalize external data
+- validate it
+- create many items safely
+- report partial success clearly
+
+So V2.4 is small on the surface, but strategically important.
+
+---
+
+## V2.4 Files Changed
+
+The most important updated areas are:
+
+- `apps/web/src/components/AddItemDialog.tsx`
+- `apps/web/src/lib/csv.ts`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/hooks/useItems.ts`
+- `worker/src/routes/items.ts`
+
+---
+
+## V2.4 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.4 Step 1 | Add a dedicated CSV import path inside the Add Item dialog | Complete |
+| V2.4 Step 2 | Preview rows, validate input, and support partial imports | Complete |
+| V2.4 Step 3 | Add a worker route that creates items in bulk and returns import results | Complete |

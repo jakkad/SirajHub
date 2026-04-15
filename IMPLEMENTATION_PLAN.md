@@ -947,3 +947,64 @@ apps/web/src/components/ui/select.tsx
 | V2.3–2 — Edit Actions | Make editing obvious from both article rows and the item page | ✅ Done |
 | V2.3–3 — Select Fix | Fix the status dropdown layout issue at the shared component level | ✅ Done |
 | V2.3–4 — Queue Timing | Run small queues immediately and retry failures after 60 minutes | ✅ Done |
+
+---
+
+# V2.4 — Bulk Import Foundations
+
+> **Motivation:** Adding items one by one works for discovery, but it is too slow when someone already has a library elsewhere. V2.4 starts the bulk import track with CSV support first, giving the app a practical import path without waiting for richer source integrations.
+
+## V2.4 Step 1 — CSV Bulk Import Flow
+
+- [x] Add a dedicated `CSV Import` mode inside the existing Add Item dialog
+- [x] Let users upload a `.csv` file directly from the dialog
+- [x] Parse CSV rows in the frontend and prepare normalized item payloads before sending them to the backend
+- [x] Support common column aliases such as:
+  - `content_type` / `type`
+  - `author`
+  - `cover_url`
+  - `url`
+- [x] Keep single-item URL, search, and manual flows unchanged
+
+## V2.4 Step 2 — Preview and Validation
+
+- [x] Show a preview of valid rows before import
+- [x] Validate required fields such as `title` and `contentType`
+- [x] Validate constrained values like supported statuses and `rating` from 1 to 5
+- [x] Show row-level validation issues in the dialog before import
+- [x] Allow partial import behavior so valid rows can still be imported even when some rows are invalid
+
+## V2.4 Step 3 — Bulk Create Endpoint
+
+- [x] Add `POST /api/items/import/csv` on the worker
+- [x] Accept an array of normalized item rows from the frontend
+- [x] Create items in bulk for the current authenticated user
+- [x] Return a useful import summary including:
+  - created items
+  - created count
+  - failed count
+  - row-level errors
+
+## V2.4 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+apps/web/src/components/AddItemDialog.tsx
+apps/web/src/hooks/useItems.ts
+apps/web/src/lib/api.ts
+worker/src/routes/items.ts
+```
+
+### Created
+```text
+apps/web/src/lib/csv.ts
+```
+
+## V2.4 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.4–1 — CSV Flow | Add a dedicated CSV import path inside the Add Item dialog | ✅ Done |
+| V2.4–2 — Preview + Validation | Preview rows, validate input, and support partial imports | ✅ Done |
+| V2.4–3 — Bulk Create API | Add a worker route that creates items in bulk and returns import results | ✅ Done |

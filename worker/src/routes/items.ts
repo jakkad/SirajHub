@@ -7,6 +7,9 @@ import type { Env } from "../types";
 
 type Variables = { userId: string };
 
+const VALID_CONTENT_TYPES = new Set(["book", "movie", "tv", "podcast", "youtube", "article", "tweet"]);
+const VALID_STATUSES = new Set(["suggestions", "in_progress", "finished", "archived"]);
+
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // GET /api/items — list items for current user
@@ -77,6 +80,94 @@ router.post("/", async (c) => {
 
   const [newItem] = await db.select().from(items).where(eq(items.id, id));
   return c.json(newItem, 201);
+});
+
+// POST /api/items/import/csv — bulk create items from CSV-parsed rows
+router.post("/import/csv", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{ rows?: Array<{
+    title?: string;
+    contentType?: string;
+    status?: string;
+    creator?: string;
+    description?: string;
+    coverUrl?: string;
+    releaseDate?: string;
+    rating?: number;
+    notes?: string;
+    sourceUrl?: string;
+  }> }>();
+
+  const rows = body.rows ?? [];
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return c.json({ error: "rows are required" }, 400);
+  }
+
+  const db = createDb(c.env.DB);
+  const createdIds: string[] = [];
+  const errors: Array<{ row: number; title?: string; error: string }> = [];
+
+  for (const [index, row] of rows.entries()) {
+    const rowNumber = index + 2;
+    const title = row.title?.trim();
+    const contentType = row.contentType?.trim();
+    const status = row.status?.trim() || "suggestions";
+
+    if (!title) {
+      errors.push({ row: rowNumber, error: "Missing title." });
+      continue;
+    }
+
+    if (!contentType || !VALID_CONTENT_TYPES.has(contentType)) {
+      errors.push({ row: rowNumber, title, error: "Unsupported content type." });
+      continue;
+    }
+
+    if (!VALID_STATUSES.has(status)) {
+      errors.push({ row: rowNumber, title, error: "Unsupported status." });
+      continue;
+    }
+
+    const rating = row.rating ?? null;
+    if (rating != null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      errors.push({ row: rowNumber, title, error: "Rating must be an integer from 1 to 5." });
+      continue;
+    }
+
+    const now = Date.now();
+    const id = ulid();
+
+    await db.insert(items).values({
+      id,
+      userId,
+      title,
+      contentType,
+      status,
+      creator: row.creator?.trim() || null,
+      description: row.description?.trim() || null,
+      coverUrl: row.coverUrl?.trim() || null,
+      releaseDate: row.releaseDate?.trim() || null,
+      rating,
+      notes: row.notes?.trim() || null,
+      sourceUrl: row.sourceUrl?.trim() || null,
+      position: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    createdIds.push(id);
+  }
+
+  const created = createdIds.length > 0
+    ? await db.select().from(items).where(or(...createdIds.map((id) => eq(items.id, id)))!)
+    : [];
+
+  return c.json({
+    created,
+    createdCount: created.length,
+    failedCount: errors.length,
+    errors,
+  }, 201);
 });
 
 // PATCH /api/items/:id — update item fields

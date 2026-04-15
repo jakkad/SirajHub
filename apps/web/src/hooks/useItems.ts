@@ -19,6 +19,14 @@ export function useCreateItem() {
   });
 }
 
+export function useImportItems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (rows: CreateItemInput[]) => itemsApi.importCsv(rows),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+  });
+}
+
 export function useUpdateItem() {
   const qc = useQueryClient();
   return useMutation({
