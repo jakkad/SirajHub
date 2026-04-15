@@ -823,3 +823,77 @@ apps/web/src/components/ui/*
 |------|------|--------|
 | V2.1–1 — Theme Pass | Replace the first redesign with a soft analytics visual system | ✅ Done |
 | V2.1–2 — Layout Fixes | Simplify sidebar and move/readjust squeezed dashboard stats | ✅ Done |
+
+---
+
+# V2.2 — Feature Optimization
+
+> **Motivation:** V2 shipped a polished interface, but several product workflows still needed to become more durable and automation-friendly. V2.2 focuses on persisting AI outputs, improving search-based ingest, clarifying supported auto-detected sources, and turning AI work into a scheduled queue rather than one-off transient actions.
+
+## V2.2 Step 1 — Saved Analysis Per Item
+
+- [x] Keep `ai_cache` as the source of truth for the latest saved analysis result per item
+- [x] Add a read endpoint for saved analysis so the UI can load the latest persisted result without regenerating it
+- [x] Update the analysis action to save/refresh the latest result and expose saved metadata (`savedAt`, `modelUsed`, cached/queued state)
+- [x] Show saved analysis by default in item AI surfaces and add an explicit refresh action
+
+## V2.2 Step 2 — Top-5 External Search Suggestions
+
+- [x] Add `POST /api/ingest/search` returning up to 5 suggestions for books, movies, TV shows, and podcasts
+- [x] Add `POST /api/ingest/resolve` to turn a selected suggestion into normalized metadata for the add form
+- [x] Keep direct URL ingest unchanged for auto-detected sources
+- [x] Update Add Item search mode into a pick-first flow: search, review 5 suggestions, select one, then populate the form
+
+## V2.2 Step 3 — Source Detection Tips
+
+- [x] Add a shared frontend constant describing auto-detectable URL sources per content type, with examples
+- [x] Show an inline helper block in Add Item URL mode listing supported source patterns
+- [x] Show a compact helper note in search mode indicating which content types support top-5 external search
+
+## V2.2 Step 4 — Persistent AI Queue
+
+- [x] Add a D1-backed `ai_jobs` table and migration for queued AI work
+- [x] Extend user settings with `aiQueueIntervalMinutes`, default `60`
+- [x] Queue analysis refreshes and next-to-consume ranking instead of relying only on transient UI state
+- [x] Add a Cloudflare scheduled handler and cron trigger in `wrangler.toml`
+- [x] Persist completed queue results, retry transient failures with capped attempts, and surface queued/failed states in the UI
+- [x] Add an AI Queue tasks section in Settings so users can review job progress and retry failed tasks
+
+## V2.2 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+worker/src/db/schema.ts
+worker/src/routes/ai.ts
+worker/src/routes/ingest.ts
+worker/src/routes/user.ts
+worker/src/index.ts
+worker/src/services/metadata/*
+apps/web/src/lib/api.ts
+apps/web/src/hooks/useAI.ts
+apps/web/src/hooks/useItems.ts
+apps/web/src/components/AddItemDialog.tsx
+apps/web/src/components/AIPanel.tsx
+apps/web/src/components/ItemCard.tsx
+apps/web/src/components/NextListPanel.tsx
+apps/web/src/components/dashboard/NextToConsume.tsx
+apps/web/src/routes/settings.tsx
+wrangler.toml
+```
+
+### Created
+```text
+worker/src/db/migrations/0003_ai_jobs.sql
+worker/src/lib/user-settings.ts
+worker/src/services/ai-queue.ts
+```
+
+## V2.2 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.2–1 — Saved Analysis | Persist and reuse the latest AI analysis per item | ✅ Done |
+| V2.2–2 — Search Suggestions | Return and resolve the top 5 external-source matches before adding | ✅ Done |
+| V2.2–3 — Source Tips | Explain which URLs can be auto-detected, with examples | ✅ Done |
+| V2.2–4 — AI Queue | Add scheduled, persistent AI jobs with a configurable interval | ✅ Done |

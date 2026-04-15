@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { createDb } from "../db/client";
-import { urlCache, user } from "../db/schema";
-import { dispatch } from "../services/metadata";
+import { urlCache } from "../db/schema";
+import { resolveMetadataEnv } from "../lib/user-settings";
+import { dispatch, resolveSuggestion, searchByQuery } from "../services/metadata";
 import type { Env } from "../types";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -10,32 +11,6 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
-
-type ApiKeysBlob = {
-  tmdb?: string;
-  youtube?: string;
-  googleBooks?: string;
-  podcastIndexKey?: string;
-  podcastIndexSecret?: string;
-};
-
-async function resolveMetadataEnv(
-  db: ReturnType<typeof import("../db/client").createDb>,
-  userId: string,
-  env: Env
-): Promise<Env> {
-  const [row] = await db.select({ apiKeys: user.apiKeys }).from(user).where(eq(user.id, userId));
-  const keys: ApiKeysBlob = row?.apiKeys ? JSON.parse(row.apiKeys) : {};
-
-  return {
-    ...env,
-    TMDB_API_KEY: keys.tmdb || env.TMDB_API_KEY,
-    YOUTUBE_API_KEY: keys.youtube || env.YOUTUBE_API_KEY,
-    GOOGLE_BOOKS_API_KEY: keys.googleBooks || env.GOOGLE_BOOKS_API_KEY,
-    PODCAST_INDEX_KEY: keys.podcastIndexKey || env.PODCAST_INDEX_KEY,
-    PODCAST_INDEX_SECRET: keys.podcastIndexSecret || env.PODCAST_INDEX_SECRET,
-  };
-}
 
 router.post("/", async (c) => {
   const userId = c.get("userId");
@@ -96,6 +71,51 @@ router.post("/", async (c) => {
   }
 
   return c.json(metadata);
+});
+
+router.post("/search", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{
+    query?: string;
+    content_type?: string;
+  }>();
+
+  if (!body.query?.trim() || !body.content_type) {
+    return c.json({ error: "query and content_type are required" }, 400);
+  }
+
+  const db = createDb(c.env.DB);
+  const resolvedEnv = await resolveMetadataEnv(db, userId, c.env);
+
+  try {
+    const suggestions = await searchByQuery(body.query.trim(), body.content_type, resolvedEnv);
+    return c.json({ suggestions: suggestions.slice(0, 5) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Search failed";
+    return c.json({ error: message }, 502);
+  }
+});
+
+router.post("/resolve", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{
+    suggestion?: Parameters<typeof resolveSuggestion>[0];
+  }>();
+
+  if (!body.suggestion) {
+    return c.json({ error: "suggestion is required" }, 400);
+  }
+
+  const db = createDb(c.env.DB);
+  const resolvedEnv = await resolveMetadataEnv(db, userId, c.env);
+
+  try {
+    const metadata = await resolveSuggestion(body.suggestion, resolvedEnv);
+    return c.json(metadata);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Resolve failed";
+    return c.json({ error: message }, 502);
+  }
 });
 
 export default router;

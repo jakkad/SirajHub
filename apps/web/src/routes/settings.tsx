@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import { useAiJobs, useRetryAiJob } from "../hooks/useAI";
 import { useTags, useDeleteTag } from "../hooks/useTags";
 import {
   useClearAiCache,
@@ -251,54 +252,184 @@ function AiModelTab() {
   const { data: settings } = useUserSettings();
   const { mutate: updateKey, isPending } = useUpdateApiKey();
   const [selected, setSelected] = useState("gemini-2.5-flash");
-  const [saved, setSaved] = useState(false);
+  const [queueInterval, setQueueInterval] = useState("60");
+  const [saved, setSaved] = useState<"model" | "queue" | null>(null);
 
   useEffect(() => {
     setSelected(settings?.aiModel ?? "gemini-2.5-flash");
+    setQueueInterval(String(settings?.aiQueueIntervalMinutes ?? 60));
   }, [settings]);
 
-  function handleSave() {
+  function handleSaveModel() {
     updateKey(
       { service: "aiModel", key: selected },
       {
         onSuccess: () => {
-          setSaved(true);
-          setTimeout(() => setSaved(false), 1800);
+          setSaved("model");
+          setTimeout(() => setSaved(null), 1800);
+        },
+      }
+    );
+  }
+
+  function handleSaveQueue() {
+    updateKey(
+      { service: "aiQueueIntervalMinutes", key: queueInterval },
+      {
+        onSuccess: () => {
+          setSaved("queue");
+          setTimeout(() => setSaved(null), 1800);
         },
       }
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Model Selection</CardTitle>
-        <CardDescription>Choose the Gemini model used for categorization, ranking, and analysis.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">
-          {AI_MODELS.map((model) => (
-            <Label
-              key={model.id}
-              htmlFor={model.id}
-              className="flex cursor-pointer items-start gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.85)]"
-            >
-              <RadioGroupItem id={model.id} value={model.id} className="mt-1 size-5 border-[hsl(var(--border-strong))]" />
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-foreground">{model.label}</span>
-                <span className="text-sm text-muted-foreground">{model.description}</span>
-              </div>
-            </Label>
-          ))}
-        </RadioGroup>
-        <div className="flex items-center gap-3">
-          <Button onClick={handleSave} disabled={isPending}>
-            Save model
-          </Button>
-          {saved ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Model Selection</CardTitle>
+          <CardDescription>Choose the Gemini model used for categorization, ranking, and analysis.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">
+            {AI_MODELS.map((model) => (
+              <Label
+                key={model.id}
+                htmlFor={model.id}
+                className="flex cursor-pointer items-start gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.85)]"
+              >
+                <RadioGroupItem id={model.id} value={model.id} className="mt-1 size-5 border-[hsl(var(--border-strong))]" />
+                <div className="flex flex-col gap-1">
+                  <span className="font-semibold text-foreground">{model.label}</span>
+                  <span className="text-sm text-muted-foreground">{model.description}</span>
+                </div>
+              </Label>
+            ))}
+          </RadioGroup>
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSaveModel} disabled={isPending}>
+              Save model
+            </Button>
+            {saved === "model" ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Queue</CardTitle>
+          <CardDescription>
+            Control how long queued AI jobs wait before they are processed automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="queue-interval">Queue interval (minutes)</Label>
+            <Input
+              id="queue-interval"
+              type="number"
+              min="5"
+              step="5"
+              value={queueInterval}
+              onChange={(e) => setQueueInterval(e.target.value)}
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Analysis refreshes and next-to-consume rankings are saved as jobs, then processed automatically after this delay. The default is 60 minutes.
+          </p>
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSaveQueue} disabled={isPending}>
+              Save queue interval
+            </Button>
+            {saved === "queue" ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Queue Tasks</CardTitle>
+          <CardDescription>
+            Monitor queued and completed AI jobs, then retry failed tasks when needed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AiQueueSection />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AiQueueSection() {
+  const { data, isLoading, refetch } = useAiJobs();
+  const { mutate: retryJob, isPending: retrying } = useRetryAiJob();
+  const jobs = data?.jobs ?? [];
+
+  if (isLoading) {
+    return <div className="text-sm text-muted-foreground">Loading AI queue…</div>;
+  }
+
+  if (jobs.length === 0) {
+    return <div className="text-sm text-muted-foreground">No AI jobs have been created yet.</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">
+          {jobs.filter((job: (typeof jobs)[number]) => job.status === "queued").length} queued,{" "}
+          {jobs.filter((job: (typeof jobs)[number]) => job.status === "processing").length} processing,{" "}
+          {jobs.filter((job: (typeof jobs)[number]) => job.status === "failed").length} failed
         </div>
-      </CardContent>
-    </Card>
+        <Button variant="outline" onClick={() => refetch()}>
+          Refresh queue
+        </Button>
+      </div>
+
+      {jobs.map((job: (typeof jobs)[number]) => (
+        <div
+          key={job.id}
+          className="flex flex-col gap-3 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold text-foreground">
+                  {job.jobType === "analyze_item" ? "Item analysis" : "Next to consume"}
+                </span>
+                <Badge variant={job.status === "failed" ? "destructive" : job.status === "completed" ? "secondary" : "outline"}>
+                  {job.status.replace("_", " ")}
+                </Badge>
+              </div>
+              {job.itemTitle ? <div className="text-sm text-foreground">{job.itemTitle}</div> : null}
+              <div className="text-xs text-muted-foreground">
+                Created {new Date(job.createdAt).toLocaleString()}
+              </div>
+            </div>
+
+            {job.status === "failed" ? (
+              <Button variant="outline" onClick={() => retryJob(job.id)} disabled={retrying}>
+                {retrying ? "Retrying…" : "Retry"}
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
+            <div>Attempts: {job.attempts}</div>
+            <div>Run after: {new Date(job.runAfter).toLocaleString()}</div>
+            <div>Updated: {new Date(job.updatedAt).toLocaleString()}</div>
+          </div>
+
+          {job.lastError ? (
+            <div className="rounded-[16px] bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {job.lastError}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
   );
 }
 

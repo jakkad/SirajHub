@@ -21,6 +21,19 @@ export interface FetchedMetadata {
   metadata?: string;     // JSON blob for type-specific extras
 }
 
+export interface SearchSuggestion {
+  provider: string;
+  contentType: ContentType;
+  title: string;
+  creator?: string;
+  description?: string;
+  coverUrl?: string;
+  releaseDate?: string;
+  sourceUrl?: string;
+  externalId?: string;
+  metadata?: string;
+}
+
 export interface DispatchInput {
   url?: string;
   query?: string;

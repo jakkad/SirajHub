@@ -77,6 +77,19 @@ export interface FetchedMetadata {
   metadata?: string;
 }
 
+export interface SearchSuggestion {
+  provider: string;
+  contentType: ContentTypeId;
+  title: string;
+  creator?: string;
+  description?: string;
+  coverUrl?: string;
+  releaseDate?: string;
+  sourceUrl?: string;
+  externalId?: string;
+  metadata?: string;
+}
+
 export const ingestApi = {
   fetch(input: {
     url?: string;
@@ -86,6 +99,23 @@ export const ingestApi = {
     return request<FetchedMetadata>("/api/ingest", {
       method: "POST",
       body: JSON.stringify(input),
+    });
+  },
+
+  search(input: {
+    query: string;
+    content_type: ContentTypeId;
+  }): Promise<{ suggestions: SearchSuggestion[] }> {
+    return request<{ suggestions: SearchSuggestion[] }>("/api/ingest/search", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  resolve(suggestion: SearchSuggestion): Promise<FetchedMetadata> {
+    return request<FetchedMetadata>("/api/ingest/resolve", {
+      method: "POST",
+      body: JSON.stringify({ suggestion }),
     });
   },
 };
@@ -105,6 +135,53 @@ export interface RankedSuggestion {
   reason: string;
 }
 
+export interface AiJobSummary {
+  id: string;
+  itemId?: string | null;
+  jobType: "analyze_item" | "rank_next";
+  status: "queued" | "processing" | "completed" | "failed";
+  runAfter: number;
+  completedAt: number | null;
+  lastError: string | null;
+  attempts: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AiQueueJob extends AiJobSummary {
+  itemTitle?: string | null;
+}
+
+export interface SavedAnalysisResponse {
+  cached: boolean;
+  result: AiAnalysis | null;
+  savedAt: number | null;
+  modelUsed: string | null;
+  job: AiJobSummary | null;
+}
+
+export interface QueuedAnalysisResponse {
+  queued: boolean;
+  result: AiAnalysis | null;
+  savedAt: number | null;
+  modelUsed: string | null;
+  intervalMinutes: number;
+  job: AiJobSummary;
+}
+
+export interface NextListResponse {
+  result: RankedSuggestion[];
+  savedAt: number | null;
+  modelUsed: string | null;
+  job: AiJobSummary | null;
+}
+
+export interface QueuedNextListResponse extends NextListResponse {
+  queued: boolean;
+  intervalMinutes: number;
+  job: AiJobSummary;
+}
+
 export interface CategorizeResult {
   content_type: string;
   confidence: number;
@@ -113,12 +190,28 @@ export interface CategorizeResult {
 }
 
 export const aiApi = {
-  analyze(itemId: string): Promise<{ cached: boolean; result: AiAnalysis }> {
+  getAnalysis(itemId: string): Promise<SavedAnalysisResponse> {
+    return request(`/api/ai/analyze/${itemId}`);
+  },
+
+  analyze(itemId: string): Promise<QueuedAnalysisResponse> {
     return request(`/api/ai/analyze/${itemId}`, { method: "POST" });
   },
 
-  getNextList(refresh = false): Promise<{ cached: boolean; result: RankedSuggestion[] }> {
-    return request(`/api/ai/next${refresh ? "?refresh=1" : ""}`);
+  getNextList(): Promise<NextListResponse> {
+    return request(`/api/ai/next`);
+  },
+
+  queueNextList(): Promise<QueuedNextListResponse> {
+    return request(`/api/ai/next`, { method: "POST" });
+  },
+
+  listJobs(): Promise<{ jobs: AiQueueJob[] }> {
+    return request("/api/ai/jobs");
+  },
+
+  retryJob(jobId: string): Promise<{ ok: true; job: AiJobSummary }> {
+    return request(`/api/ai/jobs/${jobId}/retry`, { method: "POST" });
   },
 
   categorize(input: {
@@ -209,6 +302,7 @@ export interface UserSettings {
   podcastIndexKey: "set" | null;
   podcastIndexSecret: "set" | null;
   aiModel: string | null;
+  aiQueueIntervalMinutes: number;
 }
 
 export const userSettingsApi = {

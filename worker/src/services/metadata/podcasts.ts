@@ -1,5 +1,5 @@
 import type { Env } from "../../types";
-import type { FetchedMetadata } from "./types";
+import type { FetchedMetadata, SearchSuggestion } from "./types";
 
 // ── iTunes Search ─────────────────────────────────────────────────────────────
 
@@ -108,4 +108,69 @@ export async function fetchPodcast(input: string, env: Env): Promise<FetchedMeta
   }
 
   throw new Error(`No podcast found for "${input}"`);
+}
+
+export async function searchPodcasts(query: string, env: Env): Promise<SearchSuggestion[]> {
+  const itunesRes = await fetch(
+    `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(query)}&limit=5`
+  );
+
+  if (itunesRes.ok) {
+    const itunesData = (await itunesRes.json()) as iTunesSearch;
+    const suggestions = (itunesData.results ?? []).slice(0, 5).map((podcast) => ({
+      provider: "itunes",
+      contentType: "podcast" as const,
+      title: podcast.collectionName,
+      creator: podcast.artistName,
+      coverUrl: podcast.artworkUrl600 ?? podcast.artworkUrl100,
+      sourceUrl: podcast.collectionViewUrl,
+      externalId: String(podcast.collectionId),
+      metadata: JSON.stringify({
+        feedUrl: podcast.feedUrl,
+        episodeCount: podcast.trackCount,
+        genre: podcast.primaryGenreName,
+      }),
+    }));
+    if (suggestions.length > 0) {
+      return suggestions;
+    }
+  }
+
+  if (!env.PODCAST_INDEX_KEY || !env.PODCAST_INDEX_SECRET) {
+    throw new Error(`No podcast found for "${query}"`);
+  }
+
+  const ts = Math.floor(Date.now() / 1000).toString();
+  const hash = await sha1Hex(env.PODCAST_INDEX_KEY + env.PODCAST_INDEX_SECRET + ts);
+
+  const piRes = await fetch(
+    `https://api.podcastindex.org/api/1.0/search/byterm?q=${encodeURIComponent(query)}&max=5`,
+    {
+      headers: {
+        "X-Auth-Key": env.PODCAST_INDEX_KEY,
+        "X-Auth-Date": ts,
+        "X-Auth-Hash": hash,
+        "User-Agent": "SirajHub/1.0",
+      },
+    }
+  );
+
+  if (!piRes.ok) {
+    throw new Error(`No podcast found for "${query}"`);
+  }
+
+  const piData = (await piRes.json()) as PodcastIndexSearch;
+  return (piData.feeds ?? []).slice(0, 5).map((feed) => ({
+    provider: "podcastindex",
+    contentType: "podcast",
+    title: feed.title,
+    creator: feed.author,
+    description: feed.description?.slice(0, 500),
+    coverUrl: feed.artwork ?? feed.image,
+    sourceUrl: feed.link,
+    metadata: JSON.stringify({
+      feedUrl: feed.url,
+      episodeCount: feed.episodeCount,
+    }),
+  }));
 }

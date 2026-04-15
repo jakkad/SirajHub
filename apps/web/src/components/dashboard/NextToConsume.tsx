@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function NextToConsume() {
-  const { data: aiData, isLoading, isFetched, refetch } = useNextList();
+  const { data: aiData, isLoading } = useNextList();
   const { data: allItems = [] } = useItems();
   const { mutate: refresh, isPending: refreshing } = useRefreshNextList();
 
@@ -16,39 +16,44 @@ export function NextToConsume() {
   const itemMap = Object.fromEntries(allItems.map((i) => [i.id, i]));
   const suggestionsCount = allItems.filter((item) => item.status === "suggestions").length;
 
-  useEffect(() => {
-    if (suggestionsCount > 0 && !isFetched && !isLoading) {
-      refetch();
-    }
-  }, [suggestionsCount, isFetched, isLoading, refetch]);
-
   function handleLoad() {
     refresh();
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {!isFetched && !isLoading && (
+      {!aiData && !isLoading && (
         <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-foreground">Ranking suggestions</p>
-              <p className="mt-1 text-sm text-muted-foreground">Preparing AI recommendations from your queue.</p>
+              <p className="text-sm font-semibold text-foreground">Saved next list</p>
+              <p className="mt-1 text-sm text-muted-foreground">Queue a ranking to refresh your AI ordering.</p>
             </div>
-            <Button onClick={handleLoad} size="sm">Load</Button>
+            <Button onClick={handleLoad} size="sm">Queue</Button>
           </div>
         </div>
       )}
 
       {(isLoading || refreshing) && (
         <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 text-sm text-muted-foreground">
-          Ranking your suggestions…
+          Updating queue state…
         </div>
       )}
 
-      {isFetched && !isLoading && ranked.length === 0 && (
+      {aiData?.job ? (
         <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 text-sm text-muted-foreground">
-          {suggestionsCount === 0 ? "No items in Suggestions yet." : "No ranking available right now."}
+          {aiData.job.status === "queued" ? `Queued for ${new Date(aiData.job.runAfter).toLocaleString()}.` : null}
+          {aiData.job.status === "processing" ? "AI is ranking your queue right now." : null}
+          {aiData.job.status === "failed" ? `Last queue attempt failed: ${aiData.job.lastError ?? "Unknown error"}` : null}
+          {aiData.job.status === "completed" && aiData.savedAt ? `Latest ranking saved ${new Date(aiData.savedAt).toLocaleString()}.` : null}
+        </div>
+      ) : null}
+
+      {aiData && !isLoading && ranked.length === 0 && (
+        <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 text-sm text-muted-foreground">
+          {suggestionsCount === 0
+            ? "No items in Suggestions yet."
+            : "No saved ranking available yet. Queue one to generate it automatically."}
         </div>
       )}
 
@@ -85,7 +90,7 @@ export function NextToConsume() {
             })}
           </div>
           <Button onClick={() => refresh()} disabled={refreshing} variant="outline" className="w-fit">
-            {refreshing ? "Refreshing…" : "Refresh"}
+            {refreshing ? "Queueing…" : "Refresh ranking"}
           </Button>
         </>
       )}

@@ -42,3 +42,15 @@ export function useIngest() {
       ingestApi.fetch(input),
   });
 }
+
+export function useIngestSearch() {
+  return useMutation({
+    mutationFn: (input: { query: string; content_type: ContentTypeId }) => ingestApi.search(input),
+  });
+}
+
+export function useResolveIngestSuggestion() {
+  return useMutation({
+    mutationFn: (suggestion: Parameters<typeof ingestApi.resolve>[0]) => ingestApi.resolve(suggestion),
+  });
+}

@@ -1,12 +1,13 @@
 import { MoreHorizontal, Sparkles, Trash2, Archive } from "lucide-react";
 import { useState } from "react";
 
-import type { Item, AiAnalysis } from "../lib/api";
+import type { Item } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
-import { useAnalyzeItem } from "../hooks/useAI";
+import { useAnalyzeItem, useSavedAnalysis } from "../hooks/useAI";
 import { useDeleteItem, useUpdateItem } from "../hooks/useItems";
 import type { Tag } from "../hooks/useTags";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -23,23 +24,20 @@ interface Props {
 }
 
 export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props) {
-  const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
   const { mutate: updateItem } = useUpdateItem();
   const { mutate: deleteItem } = useDeleteItem();
-  const { mutate: analyzeItem, isPending: analyzing, error: analyzeError } = useAnalyzeItem();
+  const { data: analysisState, error: analyzeError } = useSavedAnalysis(item.id, analysisOpen);
+  const { mutate: queueAnalysis, isPending: analyzing } = useAnalyzeItem(item.id);
 
   const contentType = CONTENT_TYPES.find((t) => t.id === item.contentType);
+  const analysis = analysisState?.result;
 
   function handleAnalyze() {
     setAnalysisOpen(true);
-    if (!analysis) {
-      analyzeItem(item.id, {
-        onSuccess(data) {
-          setAnalysis(data.result);
-        },
-      });
+    if (!analysisState?.result && !analysisState?.job) {
+      queueAnalysis(item.id);
     }
   }
 
@@ -118,8 +116,13 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
 
         {analysisOpen ? (
           <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.45)] p-3 shadow-[inset_0_1px_0_hsl(0_0%_100%/0.9)]">
-            {analyzing ? <p className="text-xs text-muted-foreground">Analyzing…</p> : null}
+            {analyzing ? <p className="text-xs text-muted-foreground">Queueing analysis…</p> : null}
             {analyzeError ? <p className="text-xs text-destructive">{(analyzeError as Error).message}</p> : null}
+            {analysisState?.job?.status === "queued" ? (
+              <p className="text-xs text-muted-foreground">
+                Queued for {new Date(analysisState.job.runAfter).toLocaleString()}
+              </p>
+            ) : null}
             {analysis ? (
               <div className="flex flex-col gap-2">
                 {analysis.mood ? <Badge variant="secondary" className="w-fit">{analysis.mood}</Badge> : null}
@@ -133,6 +136,10 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
                 ) : null}
                 <p className="text-xs italic text-muted-foreground">{analysis.recommendation}</p>
               </div>
+            ) : !analysisState?.job ? (
+              <Button size="sm" variant="outline" onClick={() => queueAnalysis(item.id)}>
+                Queue Analysis
+              </Button>
             ) : null}
           </div>
         ) : null}

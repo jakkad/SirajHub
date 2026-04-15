@@ -12,7 +12,7 @@ export function NextListPanel() {
   const [open, setOpen] = useState(false);
   const { data: items = [] } = useItems();
   const suggestionsCount = items.filter((i) => i.status === "suggestions").length;
-  const { data, isFetching, error, refetch } = useNextList();
+  const { data, isFetching, error } = useNextList();
   const { mutate: refresh, isPending: refreshing } = useRefreshNextList();
 
   const ranked = data?.result ?? [];
@@ -20,7 +20,6 @@ export function NextListPanel() {
 
   function handleOpen() {
     setOpen(true);
-    if (!data) refetch();
   }
 
   return (
@@ -43,12 +42,17 @@ export function NextListPanel() {
           <div className="flex items-center justify-between gap-3">
             <Badge variant="outline">{suggestionsCount} queued</Badge>
             <Button variant="outline" onClick={() => refresh()} disabled={refreshing || isFetching}>
-              {refreshing || isFetching ? "Ranking…" : "Refresh"}
+              {refreshing || isFetching ? "Queueing…" : ranked.length > 0 ? "Refresh" : "Queue ranking"}
             </Button>
           </div>
 
-          {(isFetching || refreshing) && ranked.length === 0 ? (
-            <div className="py-10 text-center text-sm text-muted-foreground">Asking the AI to rank your queue…</div>
+          {data?.job ? (
+            <div className="text-sm text-muted-foreground">
+              {data.job.status === "queued" ? `Queued for ${new Date(data.job.runAfter).toLocaleString()}.` : null}
+              {data.job.status === "processing" ? "Queue job is processing now." : null}
+              {data.job.status === "failed" ? `Last queue attempt failed: ${data.job.lastError ?? "Unknown error"}` : null}
+              {data.job.status === "completed" && data.savedAt ? `Latest ranking saved ${new Date(data.savedAt).toLocaleString()}.` : null}
+            </div>
           ) : null}
 
           {error ? <div className="text-sm text-destructive">{(error as Error).message}</div> : null}
@@ -86,6 +90,11 @@ export function NextListPanel() {
                   );
                 })}
             </ol>
+          ) : null}
+          {ranked.length === 0 && suggestionsCount > 0 && !data?.job ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              No saved ranking yet. Queue one and it will run automatically after your configured interval.
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>

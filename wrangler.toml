@@ -7,6 +7,9 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./apps/web/dist"
 not_found_handling = "single-page-application"
 
+[triggers]
+crons = ["*/15 * * * *"]
+
 # ── Cloudflare D1 (SQLite database) ──────────────────────────────────────────
 # Run: wrangler d1 create sirajhub-db
 # Then replace the database_id below with the output ID.

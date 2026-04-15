@@ -1,7 +1,7 @@
 # SirajHub — Plain English Explainer
 
-This document explains what was built in each phase, written for a junior developer.
-No jargon without explanation. Updated at the end of every phase.
+This document explains what was built in each major phase and version, written for a junior developer.
+It focuses on the current understanding of the system while still preserving the historical build-up of the project. Older sections are kept when they help explain why the architecture looks the way it does today.
 
 ---
 
@@ -834,11 +834,11 @@ The dialog now has three modes:
 
 1. **Paste URL** — type or paste any URL, hit "Fetch". The app auto-detects the content type and calls `POST /api/ingest`. On success, all form fields are pre-populated and the cover image appears as a preview.
 
-2. **Search by name** — pick a content type (book, movie, TV, podcast), type a title, hit "Search". This also calls `POST /api/ingest` with `query` + `content_type` instead of a URL.
+2. **Search by name** — in the original Phase 4 version, this used the same `POST /api/ingest` endpoint with `query` + `content_type` instead of a URL. In V2.2 this became a better two-step flow: `POST /api/ingest/search` returns the top 5 suggestions first, then `POST /api/ingest/resolve` fills the form after the user picks one.
 
 3. **Manual** — hides the fetch section entirely and shows a blank form (same as Phase 3).
 
-The state machine is simple: `mode` is `"url" | "search" | "manual"`. When a fetch succeeds, the returned `FetchedMetadata` is mapped directly onto the `form` state object. The user can then edit any field before clicking "Add Item".
+The state machine is still simple: `mode` is `"url" | "search" | "manual"`. The important change is that search is no longer forced to guess one result immediately. The current flow lets the user review likely matches before metadata is applied to the form.
 
 ---
 
@@ -870,7 +870,9 @@ The state machine is simple: `mode` is `"url" | "search" | "manual"`. When a fet
 
 ## What Phase 5 Was About
 
-Phase 5 adds three AI-powered capabilities on top of the existing app: on-demand analysis of any item (summary, key points, recommendation), a "Next to Consume" feature that ranks your Suggestions list best-first, and a utility that can automatically categorise an item from its title and description. All AI calls go to Google's Gemini API, which has a free tier of 1,000 requests per day — far more than a personal tracker will ever use.
+Phase 5 adds three AI-powered capabilities on top of the existing app: on-demand analysis of any item (summary, key points, recommendation), a "Next to Consume" feature that ranks your Suggestions list best-first, and a utility that can automatically categorise an item from its title and description.
+
+This section explains the original AI architecture introduced in Phase 5. Later, V2.2 upgraded part of that design into a persistent AI job queue with saved analysis reads, scheduled processing, retry support, and queue monitoring in Settings.
 
 By the end of Phase 5 we had:
 - A `POST /api/ai/analyze/:id` endpoint that generates a rich summary for any item and caches it for 7 days
@@ -1053,9 +1055,9 @@ If the cache is stale, the worker calls Gemini and then does an **upsert**:
 
 This keeps the `ai_cache` table lean — one row per item per analysis type, never accumulating history.
 
-### KV cache for the "Next" list
+### KV cache for the original "Next" list flow
 
-The ranked list is cached in **Cloudflare KV** (not D1) for 6 hours. Why KV instead of D1?
+At the end of Phase 5, the ranked list was cached in **Cloudflare KV** (not D1) for 6 hours. Why KV instead of D1?
 
 D1 is a relational database — good for structured data you need to query and filter. KV is a key-value store — good for caching entire blobs by a simple key. The ranked list is fetched as a complete unit (we always want the whole ranking, never a filtered subset), so KV is the right tool:
 
@@ -1067,7 +1069,9 @@ await c.env.SIRAJHUB_KV.put(
 );
 ```
 
-`expirationTtl` is built into KV — you don't need a cron job to clean up old entries. Pass `?refresh=1` to the endpoint to bypass this cache and force a fresh Gemini ranking.
+`expirationTtl` is built into KV — you don't need a cron job to clean up old entries.
+
+Later in V2.2, this evolved into a persistent queued flow: next-list generation became an AI job stored in D1, the latest result became part of the saved AI state, and KV became only a fast cache layer rather than the main source of truth.
 
 ---
 
@@ -1078,7 +1082,7 @@ The AI router follows the same pattern as the items and ingest routers: a separa
 **Why `POST` for analyze instead of `GET`?**
 `GET` requests are sometimes cached by browsers, CDNs, and proxies. For a request that triggers a potentially expensive AI call and writes to the database, `POST` is semantically correct — it has side effects (the cache write) and should never be cached by intermediaries.
 
-**The `?refresh=1` parameter on `GET /api/ai/next`:**
+**The original `?refresh=1` parameter on `GET /api/ai/next`:**
 Rather than a separate `DELETE /api/ai/next/cache` endpoint, the refresh is just a query parameter on the same `GET`. The logic:
 ```ts
 if (!refresh) {
@@ -1088,6 +1092,8 @@ if (!refresh) {
 // ... fetch fresh from D1 + Gemini
 ```
 When `refresh=1`, the KV check is skipped entirely. The fresh result from Gemini overwrites the KV entry, so the next normal request sees the updated ranking.
+
+This is no longer the latest design. V2.2 replaced the one-shot refresh model with queue-backed endpoints that expose saved results, queued state, failure state, and retry behavior.
 
 ---
 
@@ -1109,7 +1115,7 @@ All elements inside the analysis panel need `onPointerDown: e.stopPropagation()`
 
 ## Part 6: The "Next to Consume" Panel (`NextListPanel.tsx`)
 
-The panel is a modal overlay, not a full page route. This keeps the interaction lightweight — you click the button, see your ranking, close it, and drag an item straight into "In Progress" without a navigation. The nav button itself shows the suggestion count as a badge so you can see at a glance how many unranked items are waiting.
+The panel is a modal overlay, not a full page route. This keeps the interaction lightweight — you click the button, see your ranking, close it, and drag an item straight into "In Progress" without a navigation. The nav button itself shows the suggestion count as a badge so you can see at a glance how many items are waiting.
 
 The `useNextList()` hook is configured with `enabled: false`:
 ```ts
@@ -1124,6 +1130,8 @@ useQuery({
 `enabled: false` means TanStack Query won't fire this query automatically when the component mounts. It only fetches when `refetch()` is called manually (triggered by the panel opening). `staleTime` matches the KV cache TTL — the browser won't re-request if you close and reopen the panel within 6 hours, because the cached data is considered fresh.
 
 The "Refresh" button calls `useRefreshNextList()`, which calls `getNextList(true)` (the `?refresh=1` endpoint) and then does `qc.setQueryData(["ai-next"], data)` to push the fresh result directly into the query cache without a second fetch.
+
+Later in V2.2 this UI was reshaped around queue state rather than a direct "run now" flow. The panel can now show saved rankings, queued jobs, failed jobs, and refresh actions that enqueue work instead of only hitting Gemini immediately.
 
 ---
 
@@ -1381,6 +1389,8 @@ This builds a plain object keyed by content type. `Object.entries(grouped)` then
 
 The settings page lives at `/settings` — a full TanStack Router file-based route. The nav bar's `⚙` button is a `<Link to="/settings">` (not a `button`), so the browser treats it like navigation and the back button works.
 
+The Phase 6 version of Settings was the first full settings page. Later versions expanded it substantially with API keys, AI model selection, AI queue interval, and queue task management.
+
 **Profile and AI Preferences save independently:**
 Each section has its own "Save" button that calls `updateProfile({ name })` or `updateProfile({ preferences })`. They share the same `PATCH /api/user/me` endpoint which only updates fields that are provided. This avoids a race condition where saving name and saving preferences simultaneously could overwrite each other.
 
@@ -1414,16 +1424,24 @@ The Worker sets `Content-Disposition: attachment; filename="..."` on the export 
 
 `URL.revokeObjectURL` releases the temporary object URL from memory. Without it, the URL would persist until the page unloads.
 
-**Clearing AI cache — two places to clear:**
+**Clearing AI cache — the modern version clears multiple AI state layers:**
 ```ts
 // D1: delete all ai_cache rows for this user's items
 await db.delete(aiCache).where(inArray(aiCache.contentId, itemIds));
+
+// D1: delete queued AI jobs for this user
+await db.delete(aiJobs).where(eq(aiJobs.userId, userId));
 
 // KV: delete the cached "next list" ranking
 await c.env.SIRAJHUB_KV.delete(`next_list:v1:${userId}`);
 ```
 
-The AI cache lives in two places — per-item analyses in D1, and the ranked next-list in KV. Both need to be cleared together or the "next list" would show stale data while item analyses were refreshed.
+The AI state now lives in three places:
+- per-item analyses in D1
+- queued AI jobs in D1
+- the fast next-list cache in KV
+
+All three need to be cleared together or the app can show stale saved results, stale queue state, or stale next-list data.
 
 ---
 
@@ -1472,7 +1490,7 @@ The mobile hamburger menu renders as a dropdown below the nav bar when open, lis
 | Search results | Grouped by content type | Easier to scan when you roughly know the type |
 | Settings | Independent save buttons per section | Avoids race conditions; clear feedback per field group |
 | JSON export | `fetch` → blob → `URL.createObjectURL` → `<a>.click()` | Standard browser pattern for downloading API responses |
-| Clear cache | Deletes D1 `ai_cache` rows + KV next-list key | Both caches must be cleared together or state is inconsistent |
+| Clear cache | Deletes saved AI analysis, queued AI jobs, and the next-list cache | All AI state layers must be cleared together or state is inconsistent |
 | Mobile board | `minmax(200px, 1fr)` + `overflowX: auto` | Columns stay intact; horizontal scroll is native and free |
 | Mobile nav | `hidden sm:flex` / `flex sm:hidden` Tailwind classes | Pure CSS — no resize listeners or JavaScript state |
 
@@ -2466,3 +2484,227 @@ The most important updated areas are:
 |---|---|---|
 | V2.1 Step 1 | Replace the earlier redesign with a softer analytics-style visual system | Complete |
 | V2.1 Step 2 | Simplify the sidebar and make dashboard type stats readable | Complete |
+
+---
+
+# V2.2 — Feature Optimization
+
+## What V2.2 Was About
+
+V2.2 improves the product in four practical areas that were still rough after the visual redesign:
+
+- AI analysis needed to behave more like saved application data, not a one-time response
+- search-based ingest needed to show choices before filling the form
+- the Add Item flow needed clearer guidance about which URLs can be auto-detected
+- AI work needed to become durable and schedulable instead of depending only on immediate UI actions
+
+In other words, V2.2 is about making the product feel more reliable.
+
+---
+
+## The Big Picture: What Changed In V2.2
+
+Before V2.2, several flows still felt "live only":
+
+- analyze an item and the result appeared, but the saved-state story was weak
+- search by title and the app tried to guess the best match immediately
+- next-to-consume ranking was treated more like a transient request than a real queued job
+- there was no place to inspect AI job progress or retry failures
+
+After V2.2:
+
+- item analysis has a saved read path
+- external search returns the top 5 suggestions first
+- Add Item explains supported source patterns directly in the UI
+- analysis and next-list generation run through a persistent D1-backed AI jobs queue
+- the queue has a user-configurable interval
+- Settings shows queue tasks, their status, and retry actions for failed jobs
+
+That is the core shift:
+
+V2.2 moves part of the app from "request/response features" to "saved state plus background work."
+
+---
+
+## V2.2 Step 1 — Saved Analysis Per Item
+
+### What this step was about
+
+The old mental model for item analysis was too close to "press button, get response."
+
+That works for a demo, but a real app needs a stronger model:
+
+- the latest result should be readable later
+- the UI should know when that result was saved
+- the system should know whether new work is queued, running, failed, or finished
+
+### What changed
+
+The `ai_cache` table remains the source of truth for the latest saved item analysis.
+
+What changed is the surrounding behavior:
+
+- there is now a read endpoint for saved analysis
+- the UI can load the current saved result without regenerating it
+- queueing a fresh analysis does not erase the old saved result immediately
+- item AI surfaces can show saved data and queue state at the same time
+
+This is a better product model because the user can still see the last good answer while a refresh is waiting in the queue.
+
+### Why this matters
+
+This makes AI feel like part of the app's data model instead of a temporary popup result.
+
+---
+
+## V2.2 Step 2 — Top-5 External Search Suggestions
+
+### What this step was about
+
+The original search-by-name flow was too aggressive.
+
+If the app searched for a title and immediately chose the first result, the user had no chance to correct near-matches, remakes, alternate editions, or items with similar names.
+
+### What changed
+
+The ingest flow now has two separate search steps:
+
+1. `POST /api/ingest/search`
+   Returns up to 5 suggestions for searchable external content types
+
+2. `POST /api/ingest/resolve`
+   Takes the chosen suggestion and turns it into the normalized metadata shape used by the form
+
+The Add Item dialog reflects this new behavior:
+
+- type a query
+- view the top suggestions
+- pick the correct one
+- then populate the form
+
+This is much safer than forcing the first result into the form.
+
+### Why this matters
+
+The app now helps the user make the right choice instead of pretending it can always guess correctly.
+
+---
+
+## V2.2 Step 3 — Source Detection Tips
+
+### What this step was about
+
+Auto-detection is useful only if the user understands what kinds of URLs the app can actually recognize.
+
+Without that guidance, users have to guess:
+
+- should this YouTube link work?
+- can I paste Goodreads?
+- does any article URL count?
+
+### What changed
+
+The Add Item dialog now includes explicit guidance:
+
+- URL mode shows which sources can be auto-detected
+- each content type includes concrete examples
+- search mode explains which content types support the top-5 external search flow
+
+This guidance is driven by shared constants so the frontend explanation stays aligned with the backend detection rules.
+
+### Why this matters
+
+The app becomes easier to trust because it explains what it knows how to do.
+
+---
+
+## V2.2 Step 4 — Persistent AI Queue
+
+### What this step was about
+
+This is the biggest architectural change in V2.2.
+
+The original AI features worked, but they were still mostly immediate actions:
+
+- ask for analysis now
+- ask for next-list ranking now
+- hope the request succeeds
+
+That is not enough once the app starts treating AI work as something that should survive time, delays, and failure states.
+
+### What changed in the backend
+
+A new `ai_jobs` table was added in D1.
+
+Each job stores:
+
+- which user it belongs to
+- which item it belongs to, if any
+- what type of job it is
+- whether it is queued, processing, completed, or failed
+- when it should run
+- how many attempts have already happened
+- the last error, if one exists
+
+This turns AI work into durable records rather than temporary requests.
+
+### Scheduled processing
+
+The Worker now has a scheduled handler and a cron trigger in `wrangler.toml`.
+
+That means queued jobs can be processed automatically on a repeating schedule instead of only when the user happens to click the same button again.
+
+The user can also control the queue interval in Settings, with a default of 60 minutes.
+
+### Queue visibility and retry
+
+V2.2 does not stop at background processing.
+
+It also adds operational visibility:
+
+- Settings now includes an AI Queue section
+- users can see recent queue tasks
+- users can see which tasks are queued, processing, completed, or failed
+- failed jobs can be retried directly from the UI
+
+This is important because background work should never feel invisible or mysterious.
+
+### Why this matters
+
+This step upgrades the app from "AI actions" to "AI operations."
+
+That is a much more serious product capability.
+
+---
+
+## V2.2 Files Changed
+
+V2.2 touches both the backend and the frontend because it changes data flow, not just UI.
+
+The most important areas are:
+
+- `worker/src/db/schema.ts`
+- `worker/src/db/migrations/0003_ai_jobs.sql`
+- `worker/src/routes/ai.ts`
+- `worker/src/routes/ingest.ts`
+- `worker/src/routes/user.ts`
+- `worker/src/services/ai-queue.ts`
+- `worker/src/lib/user-settings.ts`
+- `apps/web/src/components/AddItemDialog.tsx`
+- `apps/web/src/components/AIPanel.tsx`
+- `apps/web/src/components/NextListPanel.tsx`
+- `apps/web/src/components/dashboard/NextToConsume.tsx`
+- `apps/web/src/routes/settings.tsx`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/hooks/useAI.ts`
+
+---
+
+## V2.2 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.2 Step 1 | Persist and reuse the latest AI analysis per item | Complete |
+| V2.2 Step 2 | Return and resolve the top 5 external-source matches before adding | Complete |
+| V2.2 Step 3 | Explain which URLs can be auto-detected, with examples | Complete |
+| V2.2 Step 4 | Add scheduled, persistent AI jobs with queue monitoring and retry | Complete |

@@ -7,6 +7,7 @@ import ingestRouter from "./routes/ingest";
 import aiRouter from "./routes/ai";
 import tagsRouter from "./routes/tags";
 import userRouter from "./routes/user";
+import { processAiQueue } from "./services/ai-queue";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -49,7 +50,12 @@ app.route("/api/ai", aiRouter);
 app.route("/api/tags", tagsRouter);
 app.route("/api/user", userRouter);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled: async (_controller: ScheduledController, env: Env) => {
+    await processAiQueue(env);
+  },
+};
 
 // Export the app type for end-to-end type-safe Hono RPC client in apps/web
 export type AppType = typeof app;

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useAnalyzeItem, useCategorizeItem } from "../hooks/useAI";
+import { useAnalyzeItem, useCategorizeItem, useSavedAnalysis } from "../hooks/useAI";
 import type { Item } from "../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,22 +9,15 @@ interface AIPanelProps {
 }
 
 export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
-  const { mutate: analyze, isPending: analyzing } = useAnalyzeItem();
+  const { data: analysisState, error: analysisError } = useSavedAnalysis(item.id);
+  const { mutate: queueAnalysis, isPending: queueing } = useAnalyzeItem(item.id);
   const { mutate: categorize, isPending: categorizing } = useCategorizeItem();
-  const [analysis, setAnalysis] = useState<{
-    summary: string;
-    key_points: string[];
-    recommendation: string;
-    mood?: string;
-  } | null>(null);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const analysis = analysisState?.result;
+  const job = analysisState?.job;
 
   function handleAnalyze() {
-    setAnalysisError(null);
-    analyze(item.id, {
-      onSuccess: (data) => setAnalysis(data.result),
-      onError: (err) => setAnalysisError(err.message),
-    });
+    queueAnalysis(item.id);
   }
 
   function handleSuggestTags() {
@@ -47,8 +39,8 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
-        <Button onClick={handleAnalyze} disabled={analyzing} variant="outline" size="sm">
-          {analyzing ? "Analyzing…" : "✨ Analyze"}
+        <Button onClick={handleAnalyze} disabled={queueing} variant="outline" size="sm">
+          {queueing ? "Queueing…" : analysis ? "Refresh Analysis" : "Queue Analysis"}
         </Button>
 
         {onSuggestTags && (
@@ -58,15 +50,27 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
         )}
       </div>
 
-      {analysisError && (
-        <div className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {analysisError}
+      {job ? (
+        <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] px-4 py-3 text-sm text-muted-foreground">
+          {job.status === "queued" ? `Analysis queued for ${new Date(job.runAfter).toLocaleString()}.` : null}
+          {job.status === "processing" ? "Analysis is currently processing." : null}
+          {job.status === "failed" ? `Last queue attempt failed: ${job.lastError ?? "Unknown error"}` : null}
+          {job.status === "completed" && analysisState?.savedAt ? `Latest saved analysis updated ${new Date(analysisState.savedAt).toLocaleString()}.` : null}
         </div>
-      )}
+      ) : null}
 
-      {analysis && (
+      {analysisError ? (
+        <div className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {(analysisError as Error).message}
+        </div>
+      ) : null}
+
+      {analysis ? (
         <div className="flex flex-col gap-4">
-          {analysis.mood ? <Badge variant="secondary" className="w-fit">{analysis.mood}</Badge> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {analysis.mood ? <Badge variant="secondary" className="w-fit">{analysis.mood}</Badge> : null}
+            {analysisState?.modelUsed ? <Badge variant="outline">{analysisState.modelUsed}</Badge> : null}
+          </div>
           <div>
             <AiLabel>Summary</AiLabel>
             <p className="m-0 text-sm leading-7 text-foreground">{analysis.summary}</p>
@@ -87,6 +91,10 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
             <AiLabel>Recommendation</AiLabel>
             <p className="m-0 text-sm leading-6">{analysis.recommendation}</p>
           </div>
+        </div>
+      ) : (
+        <div className="rounded-[20px] border border-dashed border-[hsl(var(--border))] px-4 py-5 text-sm text-muted-foreground">
+          No saved analysis yet. Queue one and it will be generated automatically using your AI queue interval.
         </div>
       )}
     </div>

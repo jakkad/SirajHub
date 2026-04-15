@@ -1,5 +1,5 @@
 import type { Env } from "../../types";
-import type { FetchedMetadata } from "./types";
+import type { FetchedMetadata, SearchSuggestion } from "./types";
 
 interface TMDBSearchResult {
   id: number;
@@ -94,4 +94,38 @@ export async function fetchTMDB(
       ...(isTV ? { seasons: (detail as TMDBTv).number_of_seasons } : {}),
     }),
   };
+}
+
+export async function searchTMDB(
+  query: string,
+  mediaType: "movie" | "tv",
+  env: Env
+): Promise<SearchSuggestion[]> {
+  const searchRes = await fetch(
+    `${BASE}/search/${mediaType}?query=${encodeURIComponent(query)}&api_key=${env.TMDB_API_KEY}`
+  );
+  if (!searchRes.ok) throw new Error(`TMDB search error: HTTP ${searchRes.status}`);
+
+  const searchData = (await searchRes.json()) as {
+    results?: Array<{
+      id: number;
+      title?: string;
+      name?: string;
+      overview?: string;
+      poster_path?: string | null;
+      release_date?: string;
+      first_air_date?: string;
+    }>;
+  };
+
+  return (searchData.results ?? []).slice(0, 5).map((item) => ({
+    provider: "tmdb",
+    contentType: mediaType,
+    title: mediaType === "tv" ? item.name ?? "Untitled" : item.title ?? "Untitled",
+    description: item.overview?.slice(0, 500),
+    coverUrl: item.poster_path ? `${IMG}${item.poster_path}` : undefined,
+    releaseDate: (mediaType === "tv" ? item.first_air_date : item.release_date)?.slice(0, 10),
+    sourceUrl: `https://www.themoviedb.org/${mediaType}/${item.id}`,
+    externalId: String(item.id),
+  }));
 }

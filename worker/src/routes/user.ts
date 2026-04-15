@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { and, eq, inArray } from "drizzle-orm";
 import { createDb } from "../db/client";
-import { user, items, aiCache } from "../db/schema";
+import { aiCache, aiJobs, items, user } from "../db/schema";
+import {
+  DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+  readUserSettings,
+  writeUserSettings,
+  type ApiKeysBlob,
+} from "../lib/user-settings";
 import type { Env } from "../types";
 
 type Variables = { userId: string };
@@ -75,46 +81,24 @@ router.delete("/ai-cache", async (c) => {
     await db.delete(aiCache).where(inArray(aiCache.contentId, itemIds));
   }
 
+  await db.delete(aiJobs).where(eq(aiJobs.userId, userId));
+
   // Also clear the "next list" KV cache
   await c.env.SIRAJHUB_KV.delete(`next_list:v1:${userId}`);
 
   return c.json({ ok: true, cleared: userItems.length });
 });
 
-// ── API Key settings ──────────────────────────────────────────────────────────
-
-type ApiKeysBlob = {
-  gemini?: string;
-  tmdb?: string;
-  youtube?: string;
-  googleBooks?: string;
-  podcastIndexKey?: string;
-  podcastIndexSecret?: string;
-  aiModel?: string;
-};
-
 const VALID_SERVICES = [
   "gemini", "tmdb", "youtube", "googleBooks",
-  "podcastIndexKey", "podcastIndexSecret", "aiModel",
+  "podcastIndexKey", "podcastIndexSecret", "aiModel", "aiQueueIntervalMinutes",
 ] as const;
-
-async function readApiKeys(
-  db: ReturnType<typeof import("../db/client").createDb>,
-  userId: string
-): Promise<ApiKeysBlob> {
-  const [row] = await db
-    .select({ apiKeys: user.apiKeys })
-    .from(user)
-    .where(eq(user.id, userId));
-
-  return row?.apiKeys ? JSON.parse(row.apiKeys) : {};
-}
 
 // GET /api/user/settings — returns which keys are set (never returns raw values)
 router.get("/settings", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
-  const keys = await readApiKeys(db, userId);
+  const keys = await readUserSettings(db, userId);
 
   return c.json({
     gemini:           keys.gemini            ? "set" : null,
@@ -124,6 +108,10 @@ router.get("/settings", async (c) => {
     podcastIndexKey:  keys.podcastIndexKey   ? "set" : null,
     podcastIndexSecret: keys.podcastIndexSecret ? "set" : null,
     aiModel:          keys.aiModel           ?? null,
+    aiQueueIntervalMinutes:
+      typeof keys.aiQueueIntervalMinutes === "number"
+        ? keys.aiQueueIntervalMinutes
+        : DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
   });
 });
 
@@ -137,18 +125,21 @@ router.patch("/settings", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const current = await readApiKeys(db, userId);
+  const current = await readUserSettings(db, userId);
 
-  if (body.key === "") {
+  if (body.service === "aiQueueIntervalMinutes") {
+    const parsed = Number.parseInt(body.key, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return c.json({ error: "Queue interval must be a positive number of minutes" }, 400);
+    }
+    current.aiQueueIntervalMinutes = Math.max(5, parsed);
+  } else if (body.key === "") {
     delete current[body.service as keyof ApiKeysBlob];
   } else {
     (current as Record<string, string>)[body.service] = body.key;
   }
 
-  await db
-    .update(user)
-    .set({ apiKeys: JSON.stringify(current), updatedAt: new Date() })
-    .where(eq(user.id, userId));
+  await writeUserSettings(db, userId, current);
 
   return c.json({ ok: true });
 });
@@ -163,7 +154,7 @@ router.post("/settings/test", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const keys = await readApiKeys(db, userId);
+  const keys = await readUserSettings(db, userId);
   const keyToTest = body.key?.trim() || keys.gemini || c.env.GEMINI_API_KEY;
 
   if (!keyToTest) {

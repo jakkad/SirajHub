@@ -11,8 +11,8 @@ export const user = sqliteTable("user", {
   image: text("image"),
   // Extended field: AI taste profile ("I like hard sci-fi, dislike horror")
   preferences: text("preferences"),
-  // Per-user API keys and AI model preference (JSON blob)
-  // Shape: { gemini?, tmdb?, youtube?, googleBooks?, podcastIndexKey?, podcastIndexSecret?, aiModel? }
+  // Per-user API keys, AI model preference, and queue settings (JSON blob)
+  // Shape: { gemini?, tmdb?, youtube?, googleBooks?, podcastIndexKey?, podcastIndexSecret?, aiModel?, aiQueueIntervalMinutes? }
   apiKeys: text("api_keys"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
@@ -150,6 +150,34 @@ export const aiCache = sqliteTable("ai_cache", {
   createdAt: integer("created_at").notNull(),
 });
 
+// ── AI Jobs Queue ────────────────────────────────────────────────────────────
+export const aiJobs = sqliteTable(
+  "ai_jobs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    itemId: text("item_id").references(() => items.id, { onDelete: "cascade" }),
+    jobType: text("job_type").notNull(), // 'analyze_item' | 'rank_next'
+    status: text("status").notNull().default("queued"), // 'queued' | 'processing' | 'completed' | 'failed'
+    payload: text("payload").notNull(), // JSON blob
+    result: text("result"), // JSON blob
+    modelUsed: text("model_used"),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    lastError: text("last_error"),
+    runAfter: integer("run_after").notNull(),
+    completedAt: integer("completed_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_ai_jobs_user_status_run_after").on(t.userId, t.status, t.runAfter),
+    index("idx_ai_jobs_item_type").on(t.itemId, t.jobType),
+  ]
+);
+
 // ── URL Metadata Cache ────────────────────────────────────────────────────────
 // Prevents re-fetching the same external URL within 24 hours
 export const urlCache = sqliteTable("url_cache", {
@@ -167,6 +195,7 @@ export type NewItem = typeof items.$inferInsert;
 export type Tag = typeof tags.$inferSelect;
 export type NewTag = typeof tags.$inferInsert;
 export type AiCache = typeof aiCache.$inferSelect;
+export type AiJob = typeof aiJobs.$inferSelect;
 export type UrlCache = typeof urlCache.$inferSelect;
 export type Account = typeof account.$inferSelect;
 export type Verification = typeof verification.$inferSelect;
