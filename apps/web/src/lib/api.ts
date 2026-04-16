@@ -360,8 +360,8 @@ export const userSettingsApi = {
     });
   },
 
-  updateInterestProfiles(interestProfiles: InterestProfiles): Promise<{ ok: boolean }> {
-    return request<{ ok: boolean }>("/api/user/settings", {
+  updateInterestProfiles(interestProfiles: InterestProfiles): Promise<{ ok: boolean; interestProfiles: InterestProfiles }> {
+    return request<{ ok: boolean; interestProfiles: InterestProfiles }>("/api/user/settings", {
       method: "PATCH",
       body: JSON.stringify({ interestProfiles }),
     });

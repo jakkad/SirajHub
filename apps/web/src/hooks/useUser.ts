@@ -54,7 +54,12 @@ export function useUpdateInterestProfiles() {
   return useMutation({
     mutationFn: (interestProfiles: InterestProfiles) =>
       userSettingsApi.updateInterestProfiles(interestProfiles),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      qc.setQueryData(["user-settings"], (current: Awaited<ReturnType<typeof userSettingsApi.getSettings>> | undefined) =>
+        current
+          ? { ...current, interestProfiles: result.interestProfiles }
+          : current
+      );
       qc.invalidateQueries({ queryKey: ["user-settings"] });
     },
   });

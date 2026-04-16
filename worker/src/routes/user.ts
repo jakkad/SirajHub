@@ -127,7 +127,7 @@ router.patch("/settings", async (c) => {
     const current = await readUserSettings(db, userId);
     current.interestProfiles = normalizeInterestProfiles(body.interestProfiles);
     await writeUserSettings(db, userId, current);
-    return c.json({ ok: true });
+    return c.json({ ok: true, interestProfiles: current.interestProfiles });
   }
 
   if (!body.service || !VALID_SERVICES.includes(body.service as typeof VALID_SERVICES[number])) {
@@ -153,7 +153,13 @@ router.patch("/settings", async (c) => {
 
   await writeUserSettings(db, userId, current);
 
-  return c.json({ ok: true });
+  return c.json({
+    ok: true,
+    interestProfiles:
+      body.service === "interestProfiles"
+        ? current.interestProfiles ?? {}
+        : undefined,
+  });
 });
 
 // POST /api/user/settings/test — verify an API key without storing it

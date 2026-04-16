@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAiJobs, useRetryAiJob } from "../hooks/useAI";
 import { useTags, useDeleteTag } from "../hooks/useTags";
@@ -108,12 +108,23 @@ function InterestProfilesTab() {
   const { data: settings } = useUserSettings();
   const { mutate: saveProfiles, isPending } = useUpdateInterestProfiles();
   const [profiles, setProfiles] = useState<InterestProfiles>({});
+  const profilesRef = useRef<InterestProfiles>({});
   const [drafts, setDrafts] = useState<Record<string, { label: string; weight: InterestWeight }>>({});
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    setProfiles(settings?.interestProfiles ?? {});
+    const nextProfiles = settings?.interestProfiles ?? {};
+    profilesRef.current = nextProfiles;
+    setProfiles(nextProfiles);
   }, [settings?.interestProfiles]);
+
+  function setProfilesState(next: InterestProfiles | ((current: InterestProfiles) => InterestProfiles)) {
+    setProfiles((current) => {
+      const resolved = typeof next === "function" ? next(current) : next;
+      profilesRef.current = resolved;
+      return resolved;
+    });
+  }
 
   function updateDraft(contentType: string, key: "label" | "weight", value: string) {
     setDrafts((prev) => ({
@@ -131,7 +142,7 @@ function InterestProfilesTab() {
     const label = draft?.label?.trim();
     if (!label) return;
 
-    setProfiles((prev) => {
+    setProfilesState((prev) => {
       const current = prev[contentType as keyof InterestProfiles] ?? [];
       return {
         ...prev,
@@ -153,14 +164,14 @@ function InterestProfilesTab() {
   }
 
   function removeChip(contentType: string, id: string) {
-    setProfiles((prev) => ({
+    setProfilesState((prev) => ({
       ...prev,
       [contentType]: (prev[contentType as keyof InterestProfiles] ?? []).filter((chip) => chip.id !== id),
     }));
   }
 
   function updateChipWeight(contentType: string, id: string, weight: InterestWeight) {
-    setProfiles((prev) => ({
+    setProfilesState((prev) => ({
       ...prev,
       [contentType]: (prev[contentType as keyof InterestProfiles] ?? []).map((chip) =>
         chip.id === id ? { ...chip, weight } : chip
@@ -169,7 +180,7 @@ function InterestProfilesTab() {
   }
 
   function handleSave() {
-    saveProfiles(profiles, {
+    saveProfiles(profilesRef.current, {
       onSuccess: () => {
         setSaved(true);
         setTimeout(() => setSaved(false), 1800);
