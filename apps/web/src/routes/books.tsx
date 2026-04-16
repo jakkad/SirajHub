@@ -12,7 +12,6 @@ function BooksPage() {
       contentType="book"
       title="Books"
       color="var(--color-book)"
-      icon="📚"
     >
       {(items) => <BookshelfView items={items} />}
     </TypePageLayout>

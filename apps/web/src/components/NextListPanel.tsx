@@ -8,29 +8,35 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export function NextListPanel() {
-  const [open, setOpen] = useState(false);
+interface NextListPanelProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+}
+
+export function NextListPanel({ open: controlledOpen, onOpenChange, showTrigger = true }: NextListPanelProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const { data: items = [] } = useItems();
   const suggestionsCount = items.filter((i) => i.status === "suggestions").length;
   const { data, isFetching, error } = useNextList();
   const { mutate: refresh, isPending: refreshing } = useRefreshNextList();
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
 
   const ranked = data?.result ?? [];
   const itemById = Object.fromEntries(items.map((i) => [i.id, i]));
 
-  function handleOpen() {
-    setOpen(true);
-  }
-
   return (
     <>
-      <Button onClick={handleOpen} variant="outline" className="gap-2 bg-card/90">
-        <Sparkles data-icon="inline-start" />
-        Next To Consume
-        <Badge variant="secondary" className="ml-1">
-          {suggestionsCount}
-        </Badge>
-      </Button>
+      {showTrigger ? (
+        <Button onClick={() => setOpen(true)} variant="outline" className="gap-2 bg-card/90">
+          <Sparkles data-icon="inline-start" />
+          Next To Consume
+          <Badge variant="secondary" className="ml-1">
+            {suggestionsCount}
+          </Badge>
+        </Button>
+      ) : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl">

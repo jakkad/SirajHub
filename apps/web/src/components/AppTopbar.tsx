@@ -1,10 +1,9 @@
-import { LogOut, MoonStar, Plus, Search, Settings, SunMedium } from "lucide-react";
+import { LogOut, MoonStar, Plus, Search, Settings, Sparkles, SunMedium } from "lucide-react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
 import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -14,10 +13,11 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 interface AppTopbarProps {
   user?: { name?: string; email?: string } | null;
   onSearchOpen: () => void;
+  onNextListOpen: () => void;
   onAddItem: () => void;
 }
 
-export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
+export function AppTopbar({ user, onSearchOpen, onNextListOpen, onAddItem }: AppTopbarProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
 
@@ -36,12 +36,6 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
       <div className="soft-panel flex items-center gap-3 rounded-[30px] px-4 py-3 backdrop-blur-sm">
         <SidebarTrigger className="md:hidden" />
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
-            dashboard
-          </Badge>
-        </div>
-
         <Button
           variant="outline"
           className="ml-0 flex h-11 min-w-0 flex-1 items-center justify-between gap-3 border-[hsl(var(--border))] bg-[hsl(var(--input))] px-4 shadow-none sm:max-w-md"
@@ -57,6 +51,17 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
         </Button>
 
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={onNextListOpen}
+          >
+            <Sparkles data-icon="inline-start" />
+            <span className="hidden sm:inline">Next To Consume</span>
+            <span className="sm:hidden">Next</span>
+          </Button>
+
           <Button
             type="button"
             variant="outline"

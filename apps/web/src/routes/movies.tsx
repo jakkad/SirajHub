@@ -12,7 +12,6 @@ function MoviesPage() {
       contentType="movie"
       title="Movies"
       color="var(--color-movie)"
-      icon="🎬"
     >
       {(items) => <MoviePosterGrid items={items} />}
     </TypePageLayout>

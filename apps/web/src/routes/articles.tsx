@@ -12,7 +12,6 @@ function ArticlesPage() {
       contentType="article"
       title="Articles"
       color="var(--color-article)"
-      icon="📄"
     >
       {(items) => <ArticleList items={items} />}
     </TypePageLayout>

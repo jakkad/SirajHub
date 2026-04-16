@@ -12,7 +12,6 @@ function TVPage() {
       contentType="tv"
       title="TV Shows"
       color="var(--color-tv)"
-      icon="📺"
     >
       {(items) => <TVPosterGrid items={items} />}
     </TypePageLayout>

@@ -52,18 +52,15 @@ function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-6">
-          <p className="hero-kicker text-xs">Control room</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-5xl font-semibold leading-none tracking-[-0.05em]">Settings</h1>
-            <Badge variant="secondary">personal</Badge>
-          </div>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Tune your profile, plug in your own API keys, pick an AI model, manage tags, and maintain your data.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-5xl font-semibold leading-none tracking-[-0.05em]">Settings</h1>
+          <Badge variant="secondary">personal</Badge>
+        </div>
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Tune your profile, plug in your own API keys, pick an AI model, manage tags, and maintain your data.
+        </p>
+      </div>
 
       <Tabs defaultValue="profile" className="flex flex-col gap-6">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
@@ -75,22 +72,22 @@ function SettingsPage() {
           <TabsTrigger value="data" className="border border-[hsl(var(--border))] bg-card shadow-none">Data</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="mt-0">
           <ProfileTab profile={profile} />
         </TabsContent>
-        <TabsContent value="apikeys">
+        <TabsContent value="apikeys" className="mt-0">
           <ApiKeysTab />
         </TabsContent>
-        <TabsContent value="aimodel">
+        <TabsContent value="aimodel" className="mt-0">
           <AiModelTab />
         </TabsContent>
-        <TabsContent value="interests">
+        <TabsContent value="interests" className="mt-0">
           <InterestProfilesTab />
         </TabsContent>
-        <TabsContent value="tags">
+        <TabsContent value="tags" className="mt-0">
           <TagsTab />
         </TabsContent>
-        <TabsContent value="data">
+        <TabsContent value="data" className="mt-0">
           <DataTab />
         </TabsContent>
       </Tabs>

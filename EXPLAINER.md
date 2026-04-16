@@ -3371,3 +3371,217 @@ The most important updated areas are:
 | V2.6 Step 3 | Queue AI scoring for new and refreshed items | Complete |
 | V2.6 Step 4 | Rebuild next-to-consume around stored scores globally and per type | Complete |
 | V2.6 Step 5 | Show trending, score details, and score jobs in the UI | Complete |
+
+---
+
+# V2.7 — UI Cleanup Pass
+
+## What V2.7 Was About
+
+By this point, the app had a stronger design system, but some screens were still carrying too much framing.
+
+There were extra containers around the sidebar brand area, the top bar still used space on a decorative `dashboard` label, and many internal pages were built as stacks of separate large panels even when the information hierarchy was simple.
+
+V2.7 cleans that up.
+
+It does not add new product logic.
+
+Instead, it makes the app feel lighter and more intentional by reducing visual noise and standardizing page structure.
+
+---
+
+## V2.7 Step 1 — Sidebar Simplification
+
+### What this step was about
+
+The sidebar header and footer were visually heavier than they needed to be.
+
+The branding block was boxed in, and the bottom area used extra card framing for controls that could be much simpler.
+
+### What changed
+
+The sidebar header was reduced to just the app name:
+
+- `SirajHub`
+
+The following were removed from that header area:
+
+- the boxed logo treatment
+- the monogram tile
+- the slogan / subtitle line
+
+The footer was also simplified.
+
+Instead of a framed workspace card, it now contains:
+
+- a gear-only settings action
+- a small live-status dot
+
+The live indicator is now purely visual in this pass.
+
+### Why this matters
+
+This gives the sidebar more room for actual navigation and makes the shell feel calmer.
+
+---
+
+## V2.7 Step 2 — Top Bar Cleanup
+
+### What this step was about
+
+The top bar had one piece of low-value chrome taking up space:
+
+- the `dashboard` label
+
+At the same time, the `Next To Consume` entry point was living outside the bar, forcing a separate row and adding more layout clutter near the top of the page.
+
+### What changed
+
+The `dashboard` badge was removed from the top bar.
+
+The `Next To Consume` action was moved into the top bar itself as a compact button.
+
+The rest of the top-bar controls were preserved:
+
+- search
+- theme switcher
+- add button
+- avatar menu
+
+The dialog behavior for `Next To Consume` stayed the same.
+
+Only its trigger location changed.
+
+### Why this matters
+
+This makes the shell more efficient.
+
+The top bar now uses its space for meaningful actions instead of decorative labeling.
+
+---
+
+## V2.7 Step 3 — Shared Internal Page Layout
+
+### What this step was about
+
+Collection pages had started to feel like a stack of independent cards:
+
+- one for the page title
+- one for filters
+- one for next-to-consume
+- one for the content itself
+
+That worked functionally, but it made the pages feel boxed in and visually fragmented.
+
+### What changed
+
+The shared collection-page layout was flattened into a simpler structure:
+
+1. title row
+2. filter row
+3. one main content container
+
+The per-type `Next To Consume` block still exists, but it now lives inside the main content container rather than as a separate large page section.
+
+This keeps the feature while making the page read as one composition instead of several disconnected panels.
+
+### Why this matters
+
+This is the core cleanup move in V2.7.
+
+It standardizes how internal pages are read and reduces visual overhead without removing useful functionality.
+
+---
+
+## V2.7 Step 4 — Settings and Item Page Cleanup
+
+### What this step was about
+
+The cleanup was not meant to stop at collection pages.
+
+Settings and the item detail page also needed the same flatter hierarchy so the app felt consistent.
+
+### What changed
+
+Settings no longer opens with a framed hero card.
+
+It now starts more directly with:
+
+- the page title
+- supporting text
+- the tab row
+- the page content
+
+The item detail page was also restructured.
+
+Instead of a title living inside a decorative side card, the page now starts with the item title and actions first, then uses one main surface with clearer section breaks for:
+
+- metadata and controls
+- edit details
+- description
+- suggest metric
+- tags
+- notes
+- AI analysis
+
+### Why this matters
+
+This makes internal pages feel related to each other.
+
+The app now has a clearer shared pattern for “page title first, content second” instead of mixing several framing styles.
+
+---
+
+## V2.7 Step 5 — Internal Header Icon Cleanup
+
+### What this step was about
+
+Decorative emojis and header icons were useful earlier in development for quick differentiation, but they had started to work against the more polished visual system.
+
+### What changed
+
+Decorative emoji/icon treatment was removed from:
+
+- collection page headers
+- the item detail hero/header area
+
+Icons were intentionally kept where they still serve content meaningfully, such as:
+
+- item cards
+- preview blocks
+- list metadata
+
+So this was not an icon purge.
+
+It was specifically a cleanup of header decoration.
+
+### Why this matters
+
+The page headers now feel more mature and consistent with the overall UI direction.
+
+---
+
+## V2.7 Files Changed
+
+The most important updated areas are:
+
+- `apps/web/src/components/AppSidebar.tsx`
+- `apps/web/src/components/AppTopbar.tsx`
+- `apps/web/src/components/NextListPanel.tsx`
+- `apps/web/src/components/views/TypePageLayout.tsx`
+- `apps/web/src/routes/__root.tsx`
+- `apps/web/src/routes/settings.tsx`
+- `apps/web/src/routes/item.$id.tsx`
+- the collection route files for books, movies, TV, podcasts, videos, articles, and tweets
+
+---
+
+## V2.7 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.7 Step 1 | Simplify the sidebar header and footer chrome | Complete |
+| V2.7 Step 2 | Move next-to-consume into the top bar and remove extra label clutter | Complete |
+| V2.7 Step 3 | Flatten collection pages into a simpler title / filters / content structure | Complete |
+| V2.7 Step 4 | Simplify Settings and item detail page framing | Complete |
+| V2.7 Step 5 | Remove decorative header emojis/icons from internal pages | Complete |

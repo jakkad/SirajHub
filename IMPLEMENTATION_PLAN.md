@@ -1164,3 +1164,78 @@ worker/src/db/migrations/0004_suggest_metric.sql
 | V2.6–3 — Score Jobs | Queue AI scoring for new and refreshed items | ✅ Done |
 | V2.6–4 — Ranked Views | Rebuild next-to-consume around stored scores globally and per type | ✅ Done |
 | V2.6–5 — Visibility | Show trending, score details, and score jobs in the UI | ✅ Done |
+
+---
+
+# V2.7 — UI Cleanup Pass
+
+> **Motivation:** The app had reached a point where many pages and shell elements were visually correct but over-framed. V2.7 removes unnecessary wrappers, simplifies the shell, and standardizes internal pages around a lighter title-first layout.
+
+## V2.7 Step 1 — Sidebar Simplification
+
+- [x] Remove the boxed logo / slogan block from the sidebar header
+- [x] Keep only the app name `SirajHub` in the sidebar header
+- [x] Simplify the sidebar footer to:
+  - a gear-only settings action
+  - a dot-only live indicator
+- [x] Keep navigation items and active state behavior unchanged
+
+## V2.7 Step 2 — Top Bar Cleanup
+
+- [x] Remove the `dashboard` badge / label from the top bar
+- [x] Move the `Next To Consume` entry point into the top bar
+- [x] Keep search, theme switcher, add button, and avatar menu intact
+- [x] Preserve the existing next-to-consume dialog behavior while changing its placement
+
+## V2.7 Step 3 — Shared Internal Page Layout
+
+- [x] Flatten collection pages so they follow:
+  - title row
+  - filters row
+  - one main content container
+- [x] Remove stacked header containers where they were not needed
+- [x] Keep per-type next-to-consume inside the main content container instead of as a separate large page block
+
+## V2.7 Step 4 — Settings and Item Page Cleanup
+
+- [x] Remove the framed hero-style header from Settings
+- [x] Keep Settings as a flatter title + tabs + content layout
+- [x] Rework the item detail page into a title-first layout with one main surface
+- [x] Replace many stacked cards on the item page with clearer section dividers inside the main surface
+
+## V2.7 Step 5 — Internal Header Icon Cleanup
+
+- [x] Remove decorative emoji / icon treatment from collection page titles
+- [x] Remove decorative header icon treatment from the item detail hero area
+- [x] Keep content-type icons where they still serve item cards, lists, or previews
+
+## V2.7 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+apps/web/src/components/AppSidebar.tsx
+apps/web/src/components/AppTopbar.tsx
+apps/web/src/components/NextListPanel.tsx
+apps/web/src/components/views/TypePageLayout.tsx
+apps/web/src/routes/__root.tsx
+apps/web/src/routes/books.tsx
+apps/web/src/routes/movies.tsx
+apps/web/src/routes/tv.tsx
+apps/web/src/routes/podcasts.tsx
+apps/web/src/routes/videos.tsx
+apps/web/src/routes/articles.tsx
+apps/web/src/routes/tweets.tsx
+apps/web/src/routes/settings.tsx
+apps/web/src/routes/item.$id.tsx
+```
+
+## V2.7 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.7–1 — Sidebar | Simplify the sidebar header and footer chrome | ✅ Done |
+| V2.7–2 — Top Bar | Move next-to-consume into the top bar and remove extra label clutter | ✅ Done |
+| V2.7–3 — Shared Layout | Flatten collection pages into a simpler title / filters / content structure | ✅ Done |
+| V2.7–4 — Internal Pages | Simplify Settings and item detail page framing | ✅ Done |
+| V2.7–5 — Header Icons | Remove decorative header emojis/icons from internal pages | ✅ Done |

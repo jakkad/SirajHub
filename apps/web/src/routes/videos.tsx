@@ -12,7 +12,6 @@ function VideosPage() {
       contentType="youtube"
       title="Videos"
       color="var(--color-youtube)"
-      icon="▶️"
     >
       {(items) => <VideoGrid items={items} />}
     </TypePageLayout>

@@ -12,7 +12,6 @@ function PodcastsPage() {
       contentType="podcast"
       title="Podcasts"
       color="var(--color-podcast)"
-      icon="🎙️"
     >
       {(items) => <PodcastGrid items={items} />}
     </TypePageLayout>

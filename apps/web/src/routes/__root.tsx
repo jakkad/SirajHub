@@ -30,6 +30,7 @@ function RootLayout() {
   const isLoginPage = location.pathname === "/login";
 
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [nextListOpen, setNextListOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchSelectedItem, setSearchSelectedItem] = useState<Item | null>(null);
 
@@ -63,14 +64,12 @@ function RootLayout() {
               <AppTopbar
                 user={user}
                 onSearchOpen={() => setSearchOpen(true)}
+                onNextListOpen={() => setNextListOpen(true)}
                 onAddItem={() => setAddItemOpen(true)}
               />
 
               <main className="flex-1 overflow-y-auto px-4 pb-8 pt-4 md:px-6">
                 <div className="mx-auto max-w-[1400px]">
-                  <div className="mb-5 flex justify-end">
-                    <NextListPanel />
-                  </div>
                   <Outlet />
                 </div>
               </main>
@@ -81,6 +80,7 @@ function RootLayout() {
 
       {/* ── Global overlays ────────────────────────────────────────────────── */}
       <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />
+      <NextListPanel open={nextListOpen} onOpenChange={setNextListOpen} showTrigger={false} />
 
       <SearchCommand
         open={searchOpen}

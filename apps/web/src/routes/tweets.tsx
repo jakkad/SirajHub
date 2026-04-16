@@ -12,7 +12,6 @@ function TweetsPage() {
       contentType="tweet"
       title="Tweets"
       color="var(--color-tweet)"
-      icon="𝕏"
     >
       {(items) => <TweetFeed items={items} />}
     </TypePageLayout>

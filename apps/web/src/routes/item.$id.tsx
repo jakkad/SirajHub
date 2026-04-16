@@ -111,36 +111,37 @@ function ItemDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-card/90">
-          Back
-        </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-col gap-3">
+            <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-card/90">
+              Back
+            </Button>
+            <div className="flex flex-wrap items-end gap-3">
+              <h1 className="text-5xl font-semibold leading-none tracking-[-0.06em]">{currentItem.title}</h1>
+              {ct ? <Badge variant="outline">{ct.label}</Badge> : null}
+              {currentItem.releaseDate ? <Badge variant="secondary">{currentItem.releaseDate.slice(0, 4)}</Badge> : null}
+            </div>
+            {currentItem.subtitle ? <p className="text-sm italic text-muted-foreground">{currentItem.subtitle}</p> : null}
+            {currentItem.creator ? <p className="text-sm text-muted-foreground">{currentItem.creator}</p> : null}
+          </div>
 
-        <Button variant={editOpen ? "secondary" : "outline"} onClick={() => setEditOpen((prev) => !prev)}>
-          {editOpen ? "Close Editor" : "Edit Details"}
-        </Button>
+          <Button variant={editOpen ? "secondary" : "outline"} onClick={() => setEditOpen((prev) => !prev)}>
+            {editOpen ? "Close Editor" : "Edit Details"}
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
-        <Card>
-          <CardContent className="flex flex-col gap-5 p-5">
+      <Card>
+        <CardContent className="p-6">
+          <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
+            <div className="flex flex-col gap-5 xl:border-r xl:border-[hsl(var(--border))] xl:pr-6">
             <div className="cover-frame flex aspect-[2/3] items-center justify-center overflow-hidden rounded-[28px]">
               {currentItem.coverUrl ? (
                 <img src={currentItem.coverUrl} alt={currentItem.title} className="h-full w-full object-cover" />
               ) : (
                 <span className="text-6xl">{ct?.icon ?? "📄"}</span>
               )}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {ct ? <Badge variant="outline">{ct.label}</Badge> : null}
-              {currentItem.releaseDate ? <Badge variant="secondary">{currentItem.releaseDate.slice(0, 4)}</Badge> : null}
-            </div>
-
-            <div>
-              <h1 className="text-5xl font-semibold leading-none tracking-[-0.06em]">{currentItem.title}</h1>
-              {currentItem.subtitle ? <p className="mt-2 text-sm italic text-muted-foreground">{currentItem.subtitle}</p> : null}
-              {currentItem.creator ? <p className="mt-2 text-sm text-muted-foreground">{currentItem.creator}</p> : null}
             </div>
 
             <div className="flex flex-col gap-2 text-sm text-muted-foreground">
@@ -206,16 +207,15 @@ function ItemDetailPage() {
             <Button onClick={handleDelete} disabled={deleting} variant="outline">
               {deleting ? "Deleting…" : "Delete item"}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
 
-        <div className="flex flex-col gap-6">
-          {editOpen ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Edit Details</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4">
+          <div className="flex flex-col gap-6">
+            {editOpen ? (
+              <section className="flex flex-col gap-4 border-b border-[hsl(var(--border))] pb-6">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Edit Details</h2>
+                </div>
+                <div className="grid gap-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="flex flex-col gap-2">
                     <Label>Title</Label>
@@ -296,24 +296,19 @@ function ItemDetailPage() {
                     Save changes
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ) : null}
+              </div>
+            </section>
+            ) : null}
 
           {item.description ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Description</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm leading-7 text-muted-foreground">{item.description}</CardContent>
-            </Card>
+            <section className="flex flex-col gap-3 border-b border-[hsl(var(--border))] pb-6">
+              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Description</h2>
+              <div className="text-sm leading-7 text-muted-foreground">{item.description}</div>
+            </section>
           ) : null}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Suggest Metric</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
+          <section className="flex flex-col gap-4 border-b border-[hsl(var(--border))] pb-6">
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Suggest Metric</h2>
               <div className="grid gap-4 md:grid-cols-2">
                 <MetricStat label="Base score" value={currentItem.suggestMetricBase != null ? currentItem.suggestMetricBase : "Pending"} />
                 <MetricStat label="Final score" value={currentItem.suggestMetricFinal != null ? currentItem.suggestMetricFinal : "Pending"} />
@@ -339,37 +334,26 @@ function ItemDetailPage() {
                   ? `Last scored ${new Date(currentItem.suggestMetricUpdatedAt).toLocaleString()}`
                   : "Waiting for AI scoring."}
               </div>
-            </CardContent>
-          </Card>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Tags</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <section className="flex flex-col gap-3 border-b border-[hsl(var(--border))] pb-6">
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Tags</h2>
               <InlineTagManager itemId={item.id} suggestedTags={suggestedTags} onSuggestionsApplied={() => setSuggestedTags(null)} />
-            </CardContent>
-          </Card>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <section className="flex flex-col gap-3 border-b border-[hsl(var(--border))] pb-6">
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Notes</h2>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveNotes} placeholder="Private notes…" />
-            </CardContent>
-          </Card>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <section className="flex flex-col gap-3">
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">AI Analysis</h2>
               <AIPanel item={item} onSuggestTags={(tags) => setSuggestedTags(tags)} />
-            </CardContent>
-          </Card>
+          </section>
+          </div>
         </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

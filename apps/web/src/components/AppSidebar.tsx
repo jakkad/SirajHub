@@ -11,7 +11,6 @@ import {
   Tv,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -43,20 +42,13 @@ interface AppSidebarProps {
 
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const { location } = useRouterState();
+  const isSettings = location.pathname === "/settings";
 
   return (
     <Sidebar collapsible="offcanvas" className="border-none">
-      <SidebarHeader className="gap-3 p-4">
-        <div className="rounded-[24px] border border-sidebar-border bg-sidebar-accent/80 px-4 py-4 shadow-[var(--shadow-subtle)]">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-[14px] bg-sidebar text-sidebar-primary ring-1 ring-sidebar-border shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)]">
-              <span className="text-sm font-semibold">S</span>
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-[1.25rem] font-semibold tracking-[-0.05em] text-sidebar-foreground">SirajHub</p>
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-sidebar-foreground/40">Personal media dashboard</p>
-            </div>
-          </div>
+      <SidebarHeader className="px-4 pb-2 pt-5">
+        <div className="px-2">
+          <p className="truncate text-[1.45rem] font-semibold tracking-[-0.05em] text-sidebar-foreground">SirajHub</p>
         </div>
       </SidebarHeader>
 
@@ -91,23 +83,23 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
 
       <SidebarFooter className="p-4 pt-2">
         <SidebarSeparator />
-        <div className="flex flex-col gap-3 rounded-[22px] border border-sidebar-border bg-sidebar-accent/75 px-4 py-3.5 shadow-[var(--shadow-subtle)]">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-base font-semibold tracking-[-0.04em] text-sidebar-foreground">Workspace</p>
-            <Badge variant="secondary" className="bg-primary/12 text-primary">
-              live
-            </Badge>
-          </div>
+        <div className="flex items-center justify-between px-2 pt-3">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={location.pathname === "/settings"}>
-                <Link to="/settings" onClick={onNavigate}>
+              <SidebarMenuButton asChild isActive={isSettings} tooltip="Settings" className="size-11 justify-center p-0">
+                <Link to="/settings" onClick={onNavigate} aria-label="Settings">
                   <Settings />
-                  <span>Preferences</span>
+                  <span className="sr-only">Settings</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
+
+          <span
+            className="size-2.5 rounded-full border border-sidebar-border/70 bg-emerald-500 shadow-[0_0_0_4px_hsl(var(--sidebar-accent)/0.55)]"
+            aria-label="Live status"
+            title="Live"
+          />
         </div>
       </SidebarFooter>
     </Sidebar>
