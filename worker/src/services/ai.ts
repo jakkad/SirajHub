@@ -1,3 +1,10 @@
+import {
+  DEFAULT_ANALYZE_PROMPT,
+  DEFAULT_SCORE_PROMPT,
+  getAiModelMeta,
+  type AiModelCapabilityMode,
+} from "../lib/user-settings";
+
 export interface AnalysisResult {
   summary: string;
   contentAnalysis: string;
@@ -24,10 +31,37 @@ function toStringArray(value: unknown): string[] {
     .slice(0, 6);
 }
 
+function extractJsonCandidate(text: string): string {
+  const trimmed = text.trim();
+  const fenceStripped = trimmed
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  if (fenceStripped.startsWith("{") || fenceStripped.startsWith("[")) return fenceStripped;
+
+  const firstBrace = fenceStripped.indexOf("{");
+  const lastBrace = fenceStripped.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return fenceStripped.slice(firstBrace, lastBrace + 1);
+  }
+
+  const firstBracket = fenceStripped.indexOf("[");
+  const lastBracket = fenceStripped.lastIndexOf("]");
+  if (firstBracket >= 0 && lastBracket > firstBracket) {
+    return fenceStripped.slice(firstBracket, lastBracket + 1);
+  }
+
+  return fenceStripped;
+}
+
 async function callGemini(apiKey: string, model: string, prompt: string, schema: object): Promise<unknown> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  const isGemmaModel = model.startsWith("gemma-");
-  const effectivePrompt = isGemmaModel
+  const modelMeta = getAiModelMeta(model);
+  const mode: AiModelCapabilityMode = modelMeta.capabilities.analyze;
+  const isPromptJsonModel = mode === "prompt_json";
+  const effectivePrompt = isPromptJsonModel
     ? `${prompt}
 
 Return only a valid JSON object matching this schema exactly:
@@ -41,7 +75,7 @@ ${JSON.stringify(schema)}`
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: effectivePrompt }] }],
-        generationConfig: isGemmaModel
+        generationConfig: isPromptJsonModel
           ? {
               temperature: 0.25,
               maxOutputTokens: 1400,
@@ -67,7 +101,7 @@ ${JSON.stringify(schema)}`
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new Error("Empty Gemini response");
 
-    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "").trim();
+    const cleaned = extractJsonCandidate(text);
 
     try {
       return JSON.parse(cleaned);
@@ -226,6 +260,48 @@ Always return a score even if needsMoreInfo is true.`;
 }
 
 export async function testGeminiModel(apiKey: string, model: string): Promise<void> {
+  const analyzeResult = await analyzeItem(
+    apiKey,
+    model,
+    DEFAULT_ANALYZE_PROMPT,
+    {
+      title: "Smoke Test Item",
+      contentType: "book",
+      creator: "System",
+      description: "A concise test item used to verify analysis capability.",
+      releaseDate: "2026-01-01",
+      durationMins: 60,
+      sourceUrl: "https://example.com/smoke-test",
+      metadata: "{\"kind\":\"smoke-test\"}",
+      tags: ["test"],
+    }
+  );
+
+  const scoreResult = await scoreSuggestMetric(
+    apiKey,
+    model,
+    DEFAULT_SCORE_PROMPT,
+    {
+      title: "Smoke Test Item",
+      contentType: "book",
+      creator: "System",
+      description: "A concise test item used to verify scoring capability.",
+      sourceUrl: "https://example.com/smoke-test",
+      releaseDate: "2026-01-01",
+      metadata: "{\"kind\":\"smoke-test\"}",
+      analysisSummary: analyzeResult.summary,
+      analysisContent: analyzeResult.contentAnalysis,
+      analysisTags: analyzeResult.tagSuggestions,
+      analysisTopics: analyzeResult.topicSuggestions,
+    },
+    ["literary fiction (high)", "arabic literature (medium)"]
+  );
+
+  if (!analyzeResult.summary || !scoreResult.explanation) {
+    throw new Error("Model validation returned incomplete analyze/score smoke-test results");
+  }
+
+  // Keep the function void-based for callers; completion means both capabilities worked.
   await callGemini(
     apiKey,
     model,

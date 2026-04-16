@@ -13,6 +13,18 @@ export interface AiPrompts {
   score: string;
 }
 
+export interface AiModelDescriptor {
+  id: string;
+  label: string;
+  description: string;
+  family: "gemini" | "gemma";
+  supportLevel: "stable" | "experimental";
+  capabilities: {
+    analyze: "schema" | "prompt_json";
+    score: "schema" | "prompt_json";
+  };
+}
+
 // ── Item type (mirrors DB schema) ─────────────────────────────────────────────
 
 export interface Item {
@@ -184,6 +196,8 @@ export interface AiJobSummary {
   lastError: string | null;
   result: unknown | null;
   modelUsed: string | null;
+  modelFamily: "gemini" | "gemma" | null;
+  supportLevel: "stable" | "experimental" | null;
   attempts: number;
   createdAt: number;
   updatedAt: number;
@@ -335,6 +349,7 @@ export interface UserSettings {
   podcastIndexKey: "set" | null;
   podcastIndexSecret: "set" | null;
   aiModel: string | null;
+  aiModels: AiModelDescriptor[];
   aiQueueIntervalMinutes: number;
   interestProfiles: InterestProfiles;
   aiPrompts: AiPrompts;
@@ -343,6 +358,12 @@ export interface UserSettings {
 export interface UserSettingsModelTestResponse {
   ok: boolean;
   model: string;
+  family: "gemini" | "gemma";
+  supportLevel: "stable" | "experimental";
+  capabilities: {
+    analyze: boolean;
+    score: boolean;
+  };
   message: string;
 }
 

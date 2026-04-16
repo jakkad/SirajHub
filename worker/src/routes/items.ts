@@ -12,6 +12,18 @@ type Variables = { userId: string };
 const VALID_CONTENT_TYPES = new Set(["book", "movie", "tv", "podcast", "youtube", "article", "tweet"]);
 const VALID_STATUSES = new Set(["suggestions", "in_progress", "finished", "archived"]);
 
+function isValidContentType(value: unknown): value is string {
+  return typeof value === "string" && VALID_CONTENT_TYPES.has(value);
+}
+
+function isValidStatus(value: unknown): value is string {
+  return typeof value === "string" && VALID_STATUSES.has(value);
+}
+
+function isValidRating(value: number | null | undefined) {
+  return value == null || (Number.isInteger(value) && value >= 1 && value <= 5);
+}
+
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // GET /api/items — list items for current user
@@ -57,6 +69,18 @@ router.post("/", async (c) => {
 
   if (!body.title || !body.contentType) {
     return c.json({ error: "title and contentType are required" }, 400);
+  }
+
+  if (!isValidContentType(body.contentType)) {
+    return c.json({ error: "Unsupported content type" }, 400);
+  }
+
+  if (body.status !== undefined && !isValidStatus(body.status)) {
+    return c.json({ error: "Unsupported status" }, 400);
+  }
+
+  if (!isValidRating(body.rating ?? null)) {
+    return c.json({ error: "Rating must be an integer from 1 to 5." }, 400);
   }
 
   const db = createDb(c.env.DB);
@@ -131,18 +155,18 @@ router.post("/import/csv", async (c) => {
       continue;
     }
 
-    if (!contentType || !VALID_CONTENT_TYPES.has(contentType)) {
+    if (!isValidContentType(contentType)) {
       errors.push({ row: rowNumber, title, error: "Unsupported content type." });
       continue;
     }
 
-    if (!VALID_STATUSES.has(status)) {
+    if (!isValidStatus(status)) {
       errors.push({ row: rowNumber, title, error: "Unsupported status." });
       continue;
     }
 
     const rating = row.rating ?? null;
-    if (rating != null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+    if (!isValidRating(rating)) {
       errors.push({ row: rowNumber, title, error: "Rating must be an integer from 1 to 5." });
       continue;
     }
@@ -217,6 +241,18 @@ router.patch("/:id", async (c) => {
   >();
 
   const db = createDb(c.env.DB);
+
+  if (body.contentType !== undefined && !isValidContentType(body.contentType)) {
+    return c.json({ error: "Unsupported content type" }, 400);
+  }
+
+  if (body.status !== undefined && !isValidStatus(body.status)) {
+    return c.json({ error: "Unsupported status" }, 400);
+  }
+
+  if (!isValidRating(body.rating)) {
+    return c.json({ error: "Rating must be an integer from 1 to 5." }, 400);
+  }
 
   const [existing] = await db
     .select({ id: items.id, status: items.status, startedAt: items.startedAt, finishedAt: items.finishedAt })

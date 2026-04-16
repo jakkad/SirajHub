@@ -1,15 +1,16 @@
-import { createRootRoute, Outlet, redirect, useRouter, useRouterState } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { createRootRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { lazy, Suspense, useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
-import { AddItemDialog } from "@/components/AddItemDialog";
-import { NextListPanel } from "@/components/NextListPanel";
-import { SearchCommand } from "@/components/SearchCommand";
-import { ItemDetailPanel } from "@/components/ItemDetailPanel";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppTopbar } from "@/components/AppTopbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import type { Item } from "@/lib/api";
+
+const AddItemDialog = lazy(() => import("@/components/AddItemDialog").then((module) => ({ default: module.AddItemDialog })));
+const NextListPanel = lazy(() => import("@/components/NextListPanel").then((module) => ({ default: module.NextListPanel })));
+const SearchCommand = lazy(() => import("@/components/SearchCommand").then((module) => ({ default: module.SearchCommand })));
+const ItemDetailPanel = lazy(() => import("@/components/ItemDetailPanel").then((module) => ({ default: module.ItemDetailPanel })));
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
@@ -79,22 +80,24 @@ function RootLayout() {
       </SidebarProvider>
 
       {/* ── Global overlays ────────────────────────────────────────────────── */}
-      <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />
-      <NextListPanel open={nextListOpen} onOpenChange={setNextListOpen} showTrigger={false} />
+      <Suspense fallback={null}>
+        <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />
+        <NextListPanel open={nextListOpen} onOpenChange={setNextListOpen} showTrigger={false} />
 
-      <SearchCommand
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        onSelect={(item) => {
-          setSearchSelectedItem(item);
-          setSearchOpen(false);
-        }}
-      />
+        <SearchCommand
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onSelect={(item) => {
+            setSearchSelectedItem(item);
+            setSearchOpen(false);
+          }}
+        />
 
-      <ItemDetailPanel
-        item={searchSelectedItem}
-        onClose={() => setSearchSelectedItem(null)}
-      />
+        <ItemDetailPanel
+          item={searchSelectedItem}
+          onClose={() => setSearchSelectedItem(null)}
+        />
+      </Suspense>
     </TooltipProvider>
   );
 }

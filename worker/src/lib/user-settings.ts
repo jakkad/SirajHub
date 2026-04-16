@@ -3,11 +3,43 @@ import type { Db } from "../db/client";
 import { user } from "../db/schema";
 import type { Env } from "../types";
 
-export const AI_MODEL_OPTIONS = [
-  "gemini-3-flash-preview",
-  "gemini-2.5-flash-lite",
-  "gemma-3-27b-it",
+export const AI_MODELS = [
+  {
+    id: "gemini-2.5-flash-lite",
+    label: "Gemini 2.5 Flash-Lite",
+    description: "Best default free-tier choice for fast structured analysis and scoring.",
+    family: "gemini",
+    supportLevel: "stable",
+    capabilities: {
+      analyze: "schema",
+      score: "schema",
+    },
+  },
+  {
+    id: "gemini-3-flash-preview",
+    label: "Gemini 3 Flash",
+    description: "Preview Gemini option when you want the newer 3-series model.",
+    family: "gemini",
+    supportLevel: "stable",
+    capabilities: {
+      analyze: "schema",
+      score: "schema",
+    },
+  },
+  {
+    id: "gemma-3-27b-it",
+    label: "Gemma 3 27B",
+    description: "Experimental Gemma instruction model using prompt-guided JSON parsing.",
+    family: "gemma",
+    supportLevel: "experimental",
+    capabilities: {
+      analyze: "prompt_json",
+      score: "prompt_json",
+    },
+  },
 ] as const;
+
+export const AI_MODEL_OPTIONS = AI_MODELS.map((model) => model.id) as readonly string[];
 export const DEFAULT_AI_MODEL = "gemini-2.5-flash-lite";
 export const DEFAULT_AI_QUEUE_INTERVAL_MINUTES = 60;
 export const CONTENT_TYPE_IDS = ["book", "movie", "tv", "podcast", "youtube", "article", "tweet"] as const;
@@ -15,7 +47,10 @@ export const DEFAULT_ANALYZE_PROMPT = "Analyze this item for a personal media tr
 export const DEFAULT_SCORE_PROMPT = "Score how strongly this item matches the user's saved interests for this media type. Be consistent, practical, and explain the score clearly. If the metadata is too weak to score confidently, still return a score but explicitly ask for the missing info that would improve it.";
 
 export type ContentTypeId = typeof CONTENT_TYPE_IDS[number];
-export type AiModelId = typeof AI_MODEL_OPTIONS[number];
+export type AiModelId = typeof AI_MODELS[number]["id"];
+export type AiModelFamily = typeof AI_MODELS[number]["family"];
+export type AiModelSupportLevel = typeof AI_MODELS[number]["supportLevel"];
+export type AiModelCapabilityMode = typeof AI_MODELS[number]["capabilities"]["analyze"];
 export type InterestWeight = "low" | "medium" | "high";
 export type InterestChip = {
   id: string;
@@ -26,6 +61,18 @@ export type InterestProfiles = Partial<Record<ContentTypeId, InterestChip[]>>;
 export type AiPrompts = {
   analyze: string;
   score: string;
+};
+
+export type AiModelDescriptor = {
+  id: AiModelId;
+  label: string;
+  description: string;
+  family: AiModelFamily;
+  supportLevel: AiModelSupportLevel;
+  capabilities: {
+    analyze: AiModelCapabilityMode;
+    score: AiModelCapabilityMode;
+  };
 };
 
 export type ApiKeysBlob = {
@@ -88,6 +135,15 @@ export async function resolveGeminiKey(db: Db, userId: string, envKey: string): 
 export async function resolveAiModel(db: Db, userId: string): Promise<string> {
   const settings = await readUserSettings(db, userId);
   return normalizeAiModel(settings.aiModel);
+}
+
+export function getAiModelCatalog(): AiModelDescriptor[] {
+  return [...AI_MODELS];
+}
+
+export function getAiModelMeta(modelId: string | null | undefined): AiModelDescriptor {
+  const normalized = normalizeAiModel(modelId);
+  return AI_MODELS.find((model) => model.id === normalized) ?? AI_MODELS[0];
 }
 
 export async function resolveAiQueueIntervalMinutes(db: Db, userId: string): Promise<number> {
@@ -170,7 +226,7 @@ export async function resolveInterestProfiles(db: Db, userId: string): Promise<I
 export function normalizeAiModel(input: unknown): AiModelId {
   if (typeof input === "string") {
     const trimmed = input.trim();
-    if ((AI_MODEL_OPTIONS as readonly string[]).includes(trimmed)) {
+    if (AI_MODEL_OPTIONS.includes(trimmed)) {
       return trimmed as AiModelId;
     }
   }

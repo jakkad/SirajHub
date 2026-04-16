@@ -5,6 +5,7 @@ import { aiCache, aiJobs, itemTags, items, tags } from "../db/schema";
 import {
   CONTENT_TYPE_IDS,
   DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+  getAiModelMeta,
   resolveAiModel,
   resolveAiPrompts,
   resolveGeminiKey,
@@ -20,6 +21,14 @@ const RETRY_DELAY_MINUTES = 60;
 const IMMEDIATE_RUN_THRESHOLD = 5;
 
 export function serializeJob(job: typeof aiJobs.$inferSelect) {
+  const modelMeta = getAiModelMeta(job.modelUsed);
+  let result: unknown = null;
+  try {
+    result = job.result ? JSON.parse(job.result) : null;
+  } catch {
+    result = job.result ?? null;
+  }
+
   return {
     id: job.id,
     itemId: job.itemId,
@@ -28,8 +37,10 @@ export function serializeJob(job: typeof aiJobs.$inferSelect) {
     runAfter: job.runAfter,
     completedAt: job.completedAt,
     lastError: job.lastError,
-    result: job.result ? JSON.parse(job.result) : null,
+    result,
     modelUsed: job.modelUsed,
+    modelFamily: job.modelUsed ? modelMeta.family : null,
+    supportLevel: job.modelUsed ? modelMeta.supportLevel : null,
     attempts: job.attempts,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,

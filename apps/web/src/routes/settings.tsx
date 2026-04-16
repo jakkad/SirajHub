@@ -30,12 +30,6 @@ export const Route = createFileRoute("/settings")({
   component: SettingsPage,
 });
 
-const AI_MODELS = [
-  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite", description: "Best default free-tier choice for fast structured analysis and scoring." },
-  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash", description: "Free Gemini preview option when you want the newer 3-series model." },
-  { id: "gemma-3-27b-it", label: "Gemma 3 27B", description: "Verified Gemma 3 instruction model exposed through the Gemini API." },
-];
-
 const API_KEY_SERVICES = [
   { id: "gemini", label: "Gemini API Key", description: "Used for item analysis and scoring." },
   { id: "tmdb", label: "TMDB API Key", description: "Used for movie and TV metadata." },
@@ -515,11 +509,11 @@ function AiModelTab() {
       <Card>
         <CardHeader>
           <CardTitle>Model Selection</CardTitle>
-          <CardDescription>Choose the free Gemini or Gemma model used for item analysis and scoring jobs.</CardDescription>
+          <CardDescription>Choose the backend-supported model used for item analysis and scoring jobs.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">
-            {AI_MODELS.map((model) => (
+            {(settings?.aiModels ?? []).map((model) => (
               <Label
                 key={model.id}
                 htmlFor={model.id}
@@ -527,8 +521,17 @@ function AiModelTab() {
               >
                 <RadioGroupItem id={model.id} value={model.id} className="mt-1 size-5 border-[hsl(var(--border-strong))]" />
                 <div className="flex flex-col gap-1">
-                  <span className="font-semibold text-foreground">{model.label}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-foreground">{model.label}</span>
+                    <Badge variant={model.supportLevel === "experimental" ? "outline" : "secondary"}>
+                      {model.supportLevel}
+                    </Badge>
+                    <Badge variant="outline">{model.family}</Badge>
+                  </div>
                   <span className="text-sm text-muted-foreground">{model.description}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Analyze: {model.capabilities.analyze === "schema" ? "schema JSON" : "prompt JSON"} · Score: {model.capabilities.score === "schema" ? "schema JSON" : "prompt JSON"}
+                  </span>
                 </div>
               </Label>
             ))}
@@ -729,6 +732,8 @@ function QueueJobList({
     lastError: string | null;
     result: unknown | null;
     modelUsed: string | null;
+    modelFamily: "gemini" | "gemma" | null;
+    supportLevel: "stable" | "experimental" | null;
     attempts: number;
     createdAt: number;
     updatedAt: number;
@@ -806,7 +811,17 @@ function QueueJobList({
             ) : null}
             {job.modelUsed || job.result ? (
               <div className="mt-2 rounded-[14px] border border-[hsl(var(--border))] bg-card/70 px-3 py-2 text-xs text-muted-foreground">
-                {job.modelUsed ? <div>Model: {job.modelUsed}</div> : null}
+                {job.modelUsed ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>Model: {job.modelUsed}</span>
+                    {job.modelFamily ? <Badge variant="outline">{job.modelFamily}</Badge> : null}
+                    {job.supportLevel ? (
+                      <Badge variant={job.supportLevel === "experimental" ? "outline" : "secondary"}>
+                        {job.supportLevel}
+                      </Badge>
+                    ) : null}
+                  </div>
+                ) : null}
                 {job.result ? (
                   <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px]">
                     {JSON.stringify(job.result, null, 2)}

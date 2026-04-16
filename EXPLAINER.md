@@ -3867,3 +3867,191 @@ The most important updated areas are:
 | V2.8 Step 3 | Replace scoring output with structured score/explanation/info-needed fields | Complete |
 | V2.8 Step 4 | Make the queue the visible operational layer for all AI work | Complete |
 | V2.8 Step 5 | Validate selected models, add saved prompt templates, and harden per-model backend support | Complete |
+
+---
+
+# V2.9 — Full-System Stabilization Pass
+
+## What V2.9 Was About
+
+V2.9 was a reliability pass across the whole system.
+
+The app already had a broad feature set, but there were still too many rough edges in the foundations:
+
+- item creation was looser than CSV import
+- health checks were not truly public
+- the AI model list could drift between backend and frontend
+- queue rows did not expose enough model context
+- there was still no simple smoke-test path
+- the root shell was loading heavy overlays eagerly
+
+V2.9 tightened those areas so the product would be more trustworthy without changing its core direction.
+
+---
+
+## V2.9 Step 1 — Backend Validation Parity
+
+### What this step was about
+
+The normal create and update flows needed to stop being weaker than the bulk import path.
+
+### What changed
+
+The backend now validates item writes more consistently:
+
+- `contentType` is validated on create
+- `status` is validated on create
+- `contentType`, `status`, and `rating` are validated on update
+
+That brings the regular item flow much closer to the stricter CSV import behavior.
+
+### Why this matters
+
+This prevents bad values from being stored and then causing secondary failures in:
+
+- scoring
+- interest matching
+- next-to-consume ranking
+- collection filtering
+
+---
+
+## V2.9 Step 2 — Operational Endpoint Cleanup
+
+### What this step was about
+
+Some monitoring and cleanup behavior still reflected older architecture instead of the current system.
+
+### What changed
+
+The `/api/health` endpoint was moved above auth, which makes it publicly callable for real uptime checks.
+
+At the same time, stale `next_list:v1` cleanup behavior was removed from the maintenance path because it no longer matched the current AI and ranking model.
+
+### Why this matters
+
+Health checks now work as actual health checks, and the maintenance layer no longer suggests the app still depends on an older next-list cache design.
+
+---
+
+## V2.9 Step 3 — Backend-Owned AI Model Registry
+
+### What this step was about
+
+The app had been carrying two separate sources of truth for supported AI models:
+
+- one in the backend
+- one in the Settings UI
+
+That made drift almost inevitable.
+
+### What changed
+
+V2.9 introduced one backend-owned model registry.
+
+Each model now carries metadata like:
+
+- id
+- label
+- description
+- family
+- support level
+- capability mode
+
+The Settings UI now renders that backend-owned list instead of keeping a hardcoded copy.
+
+`gemma-3-27b-it` remains available, but it is explicitly labeled as `experimental`.
+
+### Why this matters
+
+This keeps the interface aligned with the backend’s actual support surface and makes model management much less fragile.
+
+---
+
+## V2.9 Step 4 — AI Execution and Validation Hardening
+
+### What this step was about
+
+Model validation needed to prove more than basic availability, and queue logs needed to expose enough detail to debug real issues.
+
+### What changed
+
+The model-test path was upgraded from a trivial JSON check into a real smoke-test flow that verifies both:
+
+- analysis capability
+- scoring capability
+
+The execution layer also became clearer by model family:
+
+- Gemini models continue to use schema-based structured output
+- Gemma 3 uses prompt-guided JSON output with stronger extraction/parsing
+
+Queue rows now report richer metadata, including:
+
+- model used
+- model family
+- support level
+- result payload
+- interest lines used by scoring
+
+### Why this matters
+
+This makes model behavior easier to understand and easier to debug when output style or capability differs across model families.
+
+---
+
+## V2.9 Step 5 — Maintainability and Smoke-Test Tooling
+
+### What this step was about
+
+The system still needed one simple repeatable verification path and a lighter root shell.
+
+### What changed
+
+V2.9 added a repeatable API smoke-test entry point:
+
+- `scripts/smoke-api.mjs`
+- runnable through `pnpm smoke:api`
+
+This is not a full automated test suite, but it creates a real lightweight verification tool for critical API behavior.
+
+V2.9 also lazy-loaded the heavy global overlays from the root route:
+
+- Add Item dialog
+- Next To Consume panel
+- Search command
+- Item detail panel
+
+### Why this matters
+
+This improves maintainability immediately, provides a better base for future regression checks, and trims unnecessary weight from the initial shell load.
+
+---
+
+## V2.9 Files Changed
+
+The most important updated areas are:
+
+- `worker/src/index.ts`
+- `worker/src/routes/items.ts`
+- `worker/src/routes/user.ts`
+- `worker/src/services/ai.ts`
+- `worker/src/services/ai-queue.ts`
+- `worker/src/lib/user-settings.ts`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/routes/__root.tsx`
+- `apps/web/src/routes/settings.tsx`
+- `scripts/smoke-api.mjs`
+- `package.json`
+
+---
+
+## V2.9 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.9 Step 1 | Align item create/update validation with CSV import rules | Complete |
+| V2.9 Step 2 | Make health public and remove stale operational leftovers | Complete |
+| V2.9 Step 3 | Move AI model definitions to a backend-owned source of truth | Complete |
+| V2.9 Step 4 | Improve model validation, Gemma handling, and queue metadata | Complete |
+| V2.9 Step 5 | Add smoke-test tooling and reduce root-shell bundle weight | Complete |

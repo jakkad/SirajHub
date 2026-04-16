@@ -35,13 +35,13 @@ app.all("/api/auth/*", async (c) => {
   return auth.handler(c.req.raw);
 });
 
-// ── Session middleware — all /api/* routes below this require auth ────────────
-app.use("/api/*", requireAuth);
-
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get("/api/health", (c) => {
   return c.json({ ok: true, timestamp: Date.now() });
 });
+
+// ── Session middleware — all /api/* routes below this require auth ────────────
+app.use("/api/*", requireAuth);
 
 // ── API routes ────────────────────────────────────────────────────────────────
 app.route("/api/items", itemsRouter);

@@ -1347,3 +1347,87 @@ worker/src/db/migrations/0005_ai_surface_tightening.sql
 | V2.8–3 — Scoring | Replace scoring output with structured score/explanation/info-needed fields | ✅ Done |
 | V2.8–4 — Queue | Make the queue the visible operational layer for all AI work | ✅ Done |
 | V2.8–5 — Model + Prompts | Validate selected models, add saved prompt templates, and tighten backend model support | ✅ Done |
+
+---
+
+# V2.9 — Full-System Stabilization Pass
+
+> **Motivation:** The product had grown broad and capable, but there were still too many reliability gaps across validation, monitoring, model support, queue visibility, and maintainability. V2.9 focused on tightening the whole system so the app would be safer and easier to trust before adding more surface area.
+
+## V2.9 Step 1 — Backend Validation Parity
+
+- [x] Add `contentType` validation to `POST /api/items`
+- [x] Add `status` validation to `POST /api/items`
+- [x] Add `contentType`, `status`, and `rating` validation to `PATCH /api/items/:id`
+- [x] Align single-item create/update rules with the existing CSV import validation behavior
+- [x] Return clear `400` responses for unsupported values instead of storing invalid state
+
+## V2.9 Step 2 — Operational Endpoint Cleanup
+
+- [x] Move `/api/health` above auth so it becomes publicly callable
+- [x] Remove stale `next_list:v1` cleanup behavior and outdated operational leftovers from the user maintenance path
+
+## V2.9 Step 3 — Backend-Owned AI Model Registry
+
+- [x] Replace ad-hoc model lists with one backend-owned model registry
+- [x] Store metadata for each supported model:
+  - `id`
+  - `label`
+  - `description`
+  - `family`
+  - `supportLevel`
+  - capability mode
+- [x] Return the model registry from `/api/user/settings`
+- [x] Update the frontend settings screen to render that backend-owned list instead of using a hardcoded copy
+- [x] Keep `gemma-3-27b-it` available but explicitly marked as `experimental`
+
+## V2.9 Step 4 — AI Execution and Validation Hardening
+
+- [x] Upgrade model validation from a trivial JSON check into a real analyze/score smoke test
+- [x] Keep Gemini models on schema-based structured output
+- [x] Keep Gemma 3 on prompt-guided JSON output
+- [x] Improve JSON extraction/parsing for prompt-only model output
+- [x] Expose richer queue metadata for:
+  - model used
+  - model family
+  - support level
+  - interest lines used
+
+## V2.9 Step 5 — Maintainability and Smoke-Test Tooling
+
+- [x] Add a repeatable API smoke-test script at `scripts/smoke-api.mjs`
+- [x] Wire the smoke test through `pnpm smoke:api`
+- [x] Lazy-load the large global overlay components from the root route to reduce initial shell weight
+- [x] Keep `pnpm typecheck` and `pnpm build` as the main repo-wide validation path while adding a lightweight operational smoke-test entry point
+
+## V2.9 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+package.json
+worker/src/index.ts
+worker/src/routes/items.ts
+worker/src/routes/user.ts
+worker/src/services/ai.ts
+worker/src/services/ai-queue.ts
+worker/src/lib/user-settings.ts
+apps/web/src/lib/api.ts
+apps/web/src/routes/__root.tsx
+apps/web/src/routes/settings.tsx
+```
+
+### Created
+```text
+scripts/smoke-api.mjs
+```
+
+## V2.9 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.9–1 — Validation | Align item create/update validation with CSV import rules | ✅ Done |
+| V2.9–2 — Operations | Make health public and remove stale operational leftovers | ✅ Done |
+| V2.9–3 — Model Registry | Move AI model definitions to a backend-owned source of truth | ✅ Done |
+| V2.9–4 — AI Hardening | Improve model validation, Gemma handling, and queue metadata | ✅ Done |
+| V2.9–5 — Maintainability | Add smoke-test tooling and reduce root-shell bundle weight | ✅ Done |

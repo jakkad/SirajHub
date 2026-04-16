@@ -5,6 +5,8 @@ import { aiCache, aiJobs, items, user } from "../db/schema";
 import {
   DEFAULT_AI_MODEL,
   DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+  getAiModelCatalog,
+  getAiModelMeta,
   normalizeAiModel,
   normalizeAiPrompts,
   normalizeInterestProfiles,
@@ -71,7 +73,7 @@ router.get("/export", async (c) => {
   });
 });
 
-// DELETE /api/user/ai-cache — clear all AI analysis cache for this user's items
+// DELETE /api/user/ai-cache — clear saved AI analysis cache and queued AI jobs for this user's items
 router.delete("/ai-cache", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
@@ -87,9 +89,6 @@ router.delete("/ai-cache", async (c) => {
   }
 
   await db.delete(aiJobs).where(eq(aiJobs.userId, userId));
-
-  // Also clear the "next list" KV cache
-  await c.env.SIRAJHUB_KV.delete(`next_list:v1:${userId}`);
 
   return c.json({ ok: true, cleared: userItems.length });
 });
@@ -117,6 +116,7 @@ router.get("/settings", async (c) => {
       typeof keys.aiQueueIntervalMinutes === "number"
         ? keys.aiQueueIntervalMinutes
         : DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+    aiModels: getAiModelCatalog(),
     interestProfiles: normalizeInterestProfiles(keys.interestProfiles),
     aiPrompts: normalizeAiPrompts(keys.aiPrompts),
   });
@@ -231,9 +231,17 @@ router.post("/settings/test-model", async (c) => {
   const keys = await readUserSettings(db, userId);
   const keyToTest = body.key?.trim() || keys.gemini || c.env.GEMINI_API_KEY;
   const model = normalizeAiModel(body.model?.trim() || keys.aiModel || DEFAULT_AI_MODEL);
+  const modelMeta = getAiModelMeta(model);
 
   if (!keyToTest) {
-    return c.json({ ok: false, message: "No Gemini API key found to test", model }, 400);
+    return c.json({
+      ok: false,
+      message: "No Gemini API key found to test",
+      model,
+      family: modelMeta.family,
+      supportLevel: modelMeta.supportLevel,
+      capabilities: { analyze: false, score: false },
+    }, 400);
   }
 
   try {
@@ -241,12 +249,18 @@ router.post("/settings/test-model", async (c) => {
     return c.json({
       ok: true,
       model,
+      family: modelMeta.family,
+      supportLevel: modelMeta.supportLevel,
+      capabilities: { analyze: true, score: true },
       message: `Model ${model} is available with the current Gemini key`,
     });
   } catch (err) {
     return c.json({
       ok: false,
       model,
+      family: modelMeta.family,
+      supportLevel: modelMeta.supportLevel,
+      capabilities: { analyze: false, score: false },
       message: err instanceof Error ? err.message : "Model test failed",
     }, 400);
   }
