@@ -11,6 +11,7 @@ import {
   getLatestJob,
   getRunAfterFromInterval,
   listJobs,
+  processAiQueue,
   queueAiJob,
   retryAiJob,
   serializeJob,
@@ -59,6 +60,8 @@ router.get("/analyze/:id", async (c) => {
   const userId = c.get("userId");
   const id = c.req.param("id");
   const db = createDb(c.env.DB);
+
+  await processAiQueue(c.env);
 
   const [item] = await db
     .select()
@@ -115,13 +118,16 @@ router.post("/analyze/:id", async (c) => {
     id
   );
 
+  await processAiQueue(c.env);
+  const latestJob = await getLatestJob(db, userId, "analyze_item", id);
+
   return c.json({
     queued: true,
     result: cached ? JSON.parse(cached.result) : null,
     savedAt: cached?.createdAt ?? null,
     modelUsed: cached?.modelUsed ?? null,
     intervalMinutes,
-    job: serializeJob(job),
+    job: serializeJob(latestJob ?? job),
   });
 });
 
@@ -129,6 +135,7 @@ router.get("/next", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
   const contentType = c.req.query("content_type");
+  await processAiQueue(c.env);
   const rankJob = await getLatestJob(db, userId, "rank_next");
   const scoreJobs = await db
     .select()
@@ -198,19 +205,23 @@ router.post("/next", async (c) => {
     getRunAfterFromInterval(intervalMinutes)
   );
 
+  await processAiQueue(c.env);
+  const latestRankJob = await getLatestJob(db, userId, "rank_next");
+
   return c.json({
     queued: true,
     intervalMinutes,
     result: [],
     savedAt: null,
     modelUsed: null,
-    job: serializeJob(job),
+    job: serializeJob(latestRankJob ?? job),
   });
 });
 
 router.get("/jobs", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
+  await processAiQueue(c.env);
   const jobs = await listJobs(db, userId);
   const itemIds = jobs.map((job) => job.itemId).filter((value): value is string => Boolean(value));
 
@@ -242,9 +253,13 @@ router.post("/jobs/:id/retry", async (c) => {
     return c.json({ error: "Job not found" }, 404);
   }
 
+  await processAiQueue(c.env);
+  const jobs = await listJobs(db, userId);
+  const latest = jobs.find((entry) => entry.id === id) ?? job;
+
   return c.json({
     ok: true,
-    job: serializeJob(job),
+    job: serializeJob(latest),
   });
 });
 

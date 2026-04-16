@@ -350,56 +350,65 @@ async function processRankNextJob(db: Db, _env: Env, job: typeof aiJobs.$inferSe
 
 export async function processAiQueue(env: Env) {
   const db = createDb(env.DB);
-  const dueJobs = await db
-    .select()
-    .from(aiJobs)
-    .where(and(eq(aiJobs.status, "queued"), lte(aiJobs.runAfter, Date.now())))
-    .limit(10);
+  let processed = 0;
 
-  for (const job of dueJobs) {
-    const attempt = job.attempts + 1;
-    await db
-      .update(aiJobs)
-      .set({
-        status: "processing",
-        attempts: attempt,
-        updatedAt: Date.now(),
-        lastError: null,
-      })
-      .where(eq(aiJobs.id, job.id));
+  while (processed < 25) {
+    const dueJobs = await db
+      .select()
+      .from(aiJobs)
+      .where(and(eq(aiJobs.status, "queued"), lte(aiJobs.runAfter, Date.now())))
+      .limit(10);
 
-    try {
-      const output =
-        job.jobType === "analyze_item"
-          ? await processAnalyzeJob(db, env, job)
-          : job.jobType === "score_item"
-            ? await processScoreJob(db, env, job)
-            : await processRankNextJob(db, env, job);
+    if (dueJobs.length === 0) break;
 
+    for (const job of dueJobs) {
+      const attempt = job.attempts + 1;
       await db
         .update(aiJobs)
         .set({
-          status: "completed",
-          result: JSON.stringify(output.result),
-          modelUsed: output.model,
-          completedAt: Date.now(),
+          status: "processing",
+          attempts: attempt,
           updatedAt: Date.now(),
           lastError: null,
         })
         .where(eq(aiJobs.id, job.id));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "AI job failed";
-      const exhausted = attempt >= job.maxAttempts;
 
-      await db
-        .update(aiJobs)
-        .set({
-          status: exhausted ? "failed" : "queued",
-          lastError: message,
-          runAfter: exhausted ? job.runAfter : Date.now() + RETRY_DELAY_MINUTES * 60 * 1000,
-          updatedAt: Date.now(),
-        })
-        .where(eq(aiJobs.id, job.id));
+      try {
+        const output =
+          job.jobType === "analyze_item"
+            ? await processAnalyzeJob(db, env, job)
+            : job.jobType === "score_item"
+              ? await processScoreJob(db, env, job)
+              : await processRankNextJob(db, env, job);
+
+        await db
+          .update(aiJobs)
+          .set({
+            status: "completed",
+            result: JSON.stringify(output.result),
+            modelUsed: output.model,
+            completedAt: Date.now(),
+            updatedAt: Date.now(),
+            lastError: null,
+          })
+          .where(eq(aiJobs.id, job.id));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "AI job failed";
+        const exhausted = attempt >= job.maxAttempts;
+
+        await db
+          .update(aiJobs)
+          .set({
+            status: exhausted ? "failed" : "queued",
+            lastError: message,
+            runAfter: exhausted ? job.runAfter : Date.now() + RETRY_DELAY_MINUTES * 60 * 1000,
+            updatedAt: Date.now(),
+          })
+          .where(eq(aiJobs.id, job.id));
+      }
+
+      processed += 1;
+      if (processed >= 25) break;
     }
   }
 }
