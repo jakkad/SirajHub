@@ -1,6 +1,7 @@
-import { LogOut, Plus, Search, Settings } from "lucide-react";
+import { LogOut, MoonStar, Plus, Search, Settings, SunMedium } from "lucide-react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
+import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ interface AppTopbarProps {
 
 export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
 
   async function handleLogout() {
     await authClient.signOut();
@@ -49,12 +51,24 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
             <Search data-icon="inline-start" />
             Search your library
           </span>
-          <kbd className="hidden rounded-full border border-[hsl(var(--border))] bg-white px-2 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline-flex">
+          <kbd className="hidden rounded-full border border-[hsl(var(--border))] bg-card px-2 py-0.5 text-[10px] font-mono text-muted-foreground sm:inline-flex">
             CMD K
           </kbd>
         </Button>
 
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            {theme === "dark" ? <SunMedium /> : <MoonStar />}
+          </Button>
+
           <Button
             onClick={onAddItem}
             variant="default"

@@ -24,7 +24,7 @@ export function NextListPanel() {
 
   return (
     <>
-      <Button onClick={handleOpen} variant="outline" className="gap-2 bg-white/90">
+      <Button onClick={handleOpen} variant="outline" className="gap-2 bg-card/90">
         <Sparkles data-icon="inline-start" />
         Next To Consume
         <Badge variant="secondary" className="ml-1">

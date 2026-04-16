@@ -64,7 +64,7 @@ export function ArticleList({ items }: ArticleListProps) {
             <div key={item.id} className="group relative">
               <div className="absolute top-8 -left-[1.18rem] z-10 size-3 rounded-full border-2 border-[hsl(var(--background))] bg-[hsl(var(--color-article))] shadow-[0_0_0_4px_hsl(var(--background))] sm:-left-[1.45rem]" />
 
-              <article className="rounded-[28px] border border-[hsl(var(--border))] bg-white/90 px-5 py-4 shadow-[var(--shadow-subtle)] transition-all duration-200 hover:border-[hsl(var(--border-strong))] hover:shadow-[0_18px_40px_hsl(225_35%_20%/0.08)] sm:px-6">
+              <article className="rounded-[28px] border border-[hsl(var(--border))] bg-card/90 px-5 py-4 shadow-[var(--shadow-subtle)] transition-all duration-200 hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-panel)] sm:px-6">
                 <div className="flex items-start gap-4">
                   <div className="shrink-0 pt-1">
                     <div className="flex size-14 items-center justify-center overflow-hidden rounded-[14px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.55)] shadow-[inset_0_1px_0_hsl(0_0%_100%/0.85)]">
@@ -99,7 +99,7 @@ export function ArticleList({ items }: ArticleListProps) {
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.45)] px-2.5 py-1 text-[12px] font-medium text-foreground">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-secondary/60 px-2.5 py-1 text-[12px] font-medium text-foreground">
                         {favicon ? <img src={favicon} alt="" className="size-3.5 rounded-sm" /> : <Globe2 className="size-3.5" />}
                         {domain || "article"}
                       </span>
@@ -124,7 +124,7 @@ export function ArticleList({ items }: ArticleListProps) {
 
                     <div className="mt-4 flex items-center justify-end gap-2 border-t border-[hsl(var(--border))] pt-3">
                       {item.sourceUrl ? (
-                        <Button asChild type="button" variant="outline" className="rounded-full bg-white/80">
+                        <Button asChild type="button" variant="outline" className="rounded-full bg-card/80">
                           <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">
                             <ExternalLink className="size-4" />
                             Source
@@ -132,7 +132,7 @@ export function ArticleList({ items }: ArticleListProps) {
                         </Button>
                       ) : null}
 
-                      <Button asChild type="button" variant="outline" className="rounded-full bg-white/80">
+                      <Button asChild type="button" variant="outline" className="rounded-full bg-card/80">
                         <Link to="/item/$id" params={{ id: item.id }} className="no-underline">
                           <FilePenLine className="size-4" />
                           Edit

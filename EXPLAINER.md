@@ -2984,3 +2984,140 @@ The most important updated areas are:
 | V2.4 Step 1 | Add a dedicated CSV import path inside the Add Item dialog | Complete |
 | V2.4 Step 2 | Preview rows, validate input, and support partial imports | Complete |
 | V2.4 Step 3 | Add a worker route that creates items in bulk and returns import results | Complete |
+
+---
+
+# V2.5 — Dark Theme System
+
+## What V2.5 Was About
+
+Until V2.5, SirajHub only had one fully designed theme.
+
+That meant:
+
+- the light mode looked intentional
+- dark mode was not a real product experience yet
+- there was no theme state, no persistence, and no proper switcher
+
+V2.5 fixes that by introducing a complete second theme instead of a few scattered dark overrides.
+
+The design direction follows the reference image:
+
+- charcoal and graphite surfaces
+- soft contrast instead of pure black
+- orange highlights instead of the light theme's blue/lilac emphasis
+- more technical, dashboard-like utility styling
+
+---
+
+## V2.5 Step 1 — Theme State and Switcher
+
+### What this step was about
+
+A second theme is only real if users can switch to it reliably and the app remembers that choice.
+
+### What changed
+
+A dedicated theme provider was added to the frontend.
+
+That provider now:
+
+- tracks whether the app is in `light` or `dark`
+- persists the selection in local storage
+- applies the theme on startup so the UI does not briefly render in the wrong mode
+
+Visible switchers were also added in two places:
+
+- the signed-in shell topbar
+- the login page
+
+### Why this matters
+
+This turns theme support into an actual system instead of a styling experiment.
+
+---
+
+## V2.5 Step 2 — Dark Design Tokens
+
+### What this step was about
+
+A good dark theme is not just the light theme with colors inverted.
+
+It needs its own token set and its own visual logic.
+
+### What changed
+
+The global CSS now includes a dedicated dark token layer for:
+
+- page background
+- foreground text
+- cards and popovers
+- borders and inputs
+- sidebar surfaces
+- shadows and depth
+
+The dark theme also changes the accent logic:
+
+- the light theme stays in the blue/lilac family
+- the dark theme shifts to a warmer orange accent inspired by the reference
+
+Small utility text like labels and metric metadata also leans more technical in dark mode, with a more mono-like tone.
+
+### Why this matters
+
+This is what makes the dark mode feel like a separate art-directed interface instead of a generic toggle.
+
+---
+
+## V2.5 Step 3 — Shell and Surface Adaptation
+
+### What this step was about
+
+Even with good global tokens, the app can still look broken if major surfaces keep hardcoded light backgrounds.
+
+### What changed
+
+The dark pass updated the most visible parts of the app:
+
+- app shell
+- sidebar
+- topbar
+- login screen
+- collection filter surfaces
+- article and tweet views
+- next-list trigger surface
+
+These updates remove the most obvious light-biased white cards and replace them with dark-safe surfaces that still match the app's overall layout system.
+
+### Why this matters
+
+Without this step, the app would technically support dark mode but visually feel unfinished.
+
+This step is what makes the new theme usable and believable.
+
+---
+
+## V2.5 Files Changed
+
+The most important updated areas are:
+
+- `apps/web/src/components/ThemeProvider.tsx`
+- `apps/web/src/main.tsx`
+- `apps/web/src/index.css`
+- `apps/web/src/components/AppSidebar.tsx`
+- `apps/web/src/components/AppTopbar.tsx`
+- `apps/web/src/routes/login.tsx`
+- `apps/web/src/components/views/TypePageLayout.tsx`
+- `apps/web/src/components/views/ArticleList.tsx`
+- `apps/web/src/components/views/TweetFeed.tsx`
+- `apps/web/src/components/NextListPanel.tsx`
+
+---
+
+## V2.5 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.5 Step 1 | Add persisted light/dark theme state and visible switchers | Complete |
+| V2.5 Step 2 | Create a distinct dark visual language inspired by the reference | Complete |
+| V2.5 Step 3 | Adapt the shell and major surfaces so dark mode feels intentional | Complete |

@@ -47,9 +47,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
   return (
     <Sidebar collapsible="offcanvas" className="border-none">
       <SidebarHeader className="gap-3 p-4">
-        <div className="rounded-[24px] border border-sidebar-border bg-white/90 px-4 py-4 shadow-[var(--shadow-subtle)]">
+        <div className="rounded-[24px] border border-sidebar-border bg-sidebar-accent/80 px-4 py-4 shadow-[var(--shadow-subtle)]">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-[14px] bg-white text-sidebar-foreground ring-1 ring-sidebar-border">
+            <div className="flex size-10 items-center justify-center rounded-[14px] bg-sidebar text-sidebar-primary ring-1 ring-sidebar-border shadow-[inset_0_1px_0_hsl(0_0%_100%/0.06)]">
               <span className="text-sm font-semibold">S</span>
             </div>
             <div className="min-w-0">
@@ -91,10 +91,10 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
 
       <SidebarFooter className="p-4 pt-2">
         <SidebarSeparator />
-        <div className="flex flex-col gap-3 rounded-[22px] border border-sidebar-border bg-white/90 px-4 py-3.5 shadow-[var(--shadow-subtle)]">
+        <div className="flex flex-col gap-3 rounded-[22px] border border-sidebar-border bg-sidebar-accent/75 px-4 py-3.5 shadow-[var(--shadow-subtle)]">
           <div className="flex items-center justify-between gap-2">
             <p className="text-base font-semibold tracking-[-0.04em] text-sidebar-foreground">Workspace</p>
-            <Badge variant="secondary" className="bg-primary/10 text-primary">
+            <Badge variant="secondary" className="bg-primary/12 text-primary">
               live
             </Badge>
           </div>

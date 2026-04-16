@@ -1008,3 +1008,65 @@ apps/web/src/lib/csv.ts
 | V2.4–1 — CSV Flow | Add a dedicated CSV import path inside the Add Item dialog | ✅ Done |
 | V2.4–2 — Preview + Validation | Preview rows, validate input, and support partial imports | ✅ Done |
 | V2.4–3 — Bulk Create API | Add a worker route that creates items in bulk and returns import results | ✅ Done |
+
+---
+
+# V2.5 — Dark Theme System
+
+> **Motivation:** The app had a polished light theme, but no true second visual mode. V2.5 adds a complete dark theme system with a persistent switcher and a darker visual language inspired by the attached reference: charcoal surfaces, softer contrast, orange accents, and more technical utility styling.
+
+## V2.5 Step 1 — Theme State and Switcher
+
+- [x] Add a client-side theme provider for `light` and `dark`
+- [x] Persist the selected theme in local storage
+- [x] Apply the chosen theme at app startup to avoid flash-of-wrong-theme behavior
+- [x] Add a theme switcher in the signed-in shell topbar
+- [x] Add a matching theme switcher on the login page
+
+## V2.5 Step 2 — Dark Design Tokens
+
+- [x] Add a dedicated dark token set in `apps/web/src/index.css`
+- [x] Retheme core surfaces for dark mode:
+  - background
+  - card / popover
+  - border / input
+  - sidebar
+  - shadows
+- [x] Shift the primary accent from blue to orange in dark mode
+- [x] Add more mono-like utility styling for small labels and dashboard metadata in dark mode
+
+## V2.5 Step 3 — Shell and Surface Adaptation
+
+- [x] Update the shell so dark mode feels designed rather than merely color-inverted
+- [x] Adjust sidebar and topbar surfaces to match the dark theme
+- [x] Update major content surfaces that still relied on light-biased background utilities
+- [x] Ensure collection pages and login use dark-safe cards, badges, and controls
+
+## V2.5 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+apps/web/src/main.tsx
+apps/web/src/index.css
+apps/web/src/components/AppSidebar.tsx
+apps/web/src/components/AppTopbar.tsx
+apps/web/src/components/NextListPanel.tsx
+apps/web/src/components/views/ArticleList.tsx
+apps/web/src/components/views/TweetFeed.tsx
+apps/web/src/components/views/TypePageLayout.tsx
+apps/web/src/routes/login.tsx
+```
+
+### Created
+```text
+apps/web/src/components/ThemeProvider.tsx
+```
+
+## V2.5 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.5–1 — Theme System | Add persisted light/dark theme state and visible switchers | ✅ Done |
+| V2.5–2 — Dark Tokens | Create a distinct dark visual language inspired by the reference | ✅ Done |
+| V2.5–3 — Surface Pass | Adapt the shell and major surfaces so dark mode feels intentional | ✅ Done |

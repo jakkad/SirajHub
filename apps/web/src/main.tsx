@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 
 import "./index.css";
+import { ThemeProvider, getInitialTheme } from "./components/ThemeProvider";
 
 // ── Router ────────────────────────────────────────────────────────────────────
 const router = createRouter({
@@ -35,10 +36,18 @@ const queryClient = new QueryClient({
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element #root not found");
 
+if (typeof window !== "undefined") {
+  const initialTheme = getInitialTheme();
+  document.documentElement.classList.toggle("dark", initialTheme === "dark");
+  document.documentElement.dataset.theme = initialTheme;
+}
+
 ReactDOM.createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ThemeProvider>
+        <RouterProvider router={router} />
+      </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>
 );

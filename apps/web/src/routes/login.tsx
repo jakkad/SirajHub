@@ -1,6 +1,8 @@
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
+import { MoonStar, SunMedium } from "lucide-react";
 import { authClient } from "../lib/auth-client";
+import { useTheme } from "@/components/ThemeProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,6 +18,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -77,7 +80,7 @@ function LoginPage() {
               { label: "Organize", value: "status + tags" },
               { label: "Decide", value: "AI ranking" },
             ].map((item) => (
-              <div key={item.label} className="rounded-[24px] border border-[hsl(var(--border))] bg-white/80 p-5">
+              <div key={item.label} className="rounded-[24px] border border-[hsl(var(--border))] bg-card/80 p-5">
                 <p className="metric-label">{item.label}</p>
                 <p className="mt-3 text-lg font-semibold tracking-[-0.04em]">{item.value}</p>
               </div>
@@ -87,12 +90,25 @@ function LoginPage() {
 
         <Card className="mx-auto w-full max-w-md rounded-[32px]">
           <CardContent className="p-8">
-            <div className="mb-8 flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-[16px] bg-primary text-sm font-semibold text-primary-foreground">S</div>
-              <div>
-                <p className="text-lg font-semibold tracking-[-0.04em]">SirajHub</p>
-                <p className="text-xs text-muted-foreground">Personal media dashboard</p>
+            <div className="mb-8 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-11 items-center justify-center rounded-[16px] bg-primary text-sm font-semibold text-primary-foreground">S</div>
+                <div>
+                  <p className="text-lg font-semibold tracking-[-0.04em]">SirajHub</p>
+                  <p className="text-xs text-muted-foreground">Personal media dashboard</p>
+                </div>
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="rounded-full"
+                onClick={toggleTheme}
+                aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              >
+                {theme === "dark" ? <SunMedium /> : <MoonStar />}
+              </Button>
             </div>
 
             <h1 className="text-[1.9rem] font-semibold tracking-[-0.05em]">
