@@ -263,4 +263,27 @@ router.post("/jobs/:id/retry", async (c) => {
   });
 });
 
+router.delete("/jobs/:id", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const db = createDb(c.env.DB);
+
+  const [job] = await db
+    .select()
+    .from(aiJobs)
+    .where(and(eq(aiJobs.id, id), eq(aiJobs.userId, userId)));
+
+  if (!job) {
+    return c.json({ error: "Job not found" }, 404);
+  }
+
+  if (job.status !== "queued" && job.status !== "failed") {
+    return c.json({ error: "Only queued or failed jobs can be deleted" }, 400);
+  }
+
+  await db.delete(aiJobs).where(eq(aiJobs.id, id));
+
+  return c.json({ ok: true });
+});
+
 export default router;

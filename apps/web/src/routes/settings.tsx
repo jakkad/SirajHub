@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { useAiJobs, useRetryAiJob } from "../hooks/useAI";
+import { useAiJobs, useDeleteAiJob, useRetryAiJob } from "../hooks/useAI";
 import { useTags, useDeleteTag } from "../hooks/useTags";
 import {
   useClearAiCache,
@@ -559,7 +559,11 @@ function AiModelTab() {
 function AiQueueSection() {
   const { data, isLoading, refetch } = useAiJobs();
   const { mutate: retryJob, isPending: retrying } = useRetryAiJob();
+  const { mutate: deleteJob, isPending: deleting } = useDeleteAiJob();
   const jobs = data?.jobs ?? [];
+  const queuedJobs = jobs.filter((job: (typeof jobs)[number]) => job.status === "queued");
+  const failedJobs = jobs.filter((job: (typeof jobs)[number]) => job.status === "failed");
+  const completedJobs = jobs.filter((job: (typeof jobs)[number]) => job.status === "completed");
 
   if (isLoading) {
     return <div className="text-sm text-muted-foreground">Loading AI queue…</div>;
@@ -573,60 +577,146 @@ function AiQueueSection() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm text-muted-foreground">
-          {jobs.filter((job: (typeof jobs)[number]) => job.status === "queued").length} queued,{" "}
+          {queuedJobs.length} queued,{" "}
           {jobs.filter((job: (typeof jobs)[number]) => job.status === "processing").length} processing,{" "}
-          {jobs.filter((job: (typeof jobs)[number]) => job.status === "failed").length} failed
+          {failedJobs.length} failed
         </div>
         <Button variant="outline" onClick={() => refetch()}>
           Refresh queue
         </Button>
       </div>
 
-      {jobs.map((job: (typeof jobs)[number]) => (
-        <div
-          key={job.id}
-          className="flex flex-col gap-3 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-foreground">
-                  {job.jobType === "analyze_item"
-                    ? "Item analysis"
-                    : job.jobType === "score_item"
-                      ? "Suggest score"
-                      : "Next to consume refresh"}
-                </span>
-                <Badge variant={job.status === "failed" ? "destructive" : job.status === "completed" ? "secondary" : "outline"}>
-                  {job.status.replace("_", " ")}
-                </Badge>
+      <Tabs defaultValue="queued" className="flex flex-col gap-4">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
+          <TabsTrigger value="queued" className="border border-[hsl(var(--border))] bg-card shadow-none">
+            Queued {queuedJobs.length}
+          </TabsTrigger>
+          <TabsTrigger value="failed" className="border border-[hsl(var(--border))] bg-card shadow-none">
+            Failed {failedJobs.length}
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="border border-[hsl(var(--border))] bg-card shadow-none">
+            Completed {completedJobs.length}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="queued" className="mt-0">
+          <QueueJobList
+            jobs={queuedJobs}
+            emptyLabel="No queued jobs."
+            onDelete={(jobId) => deleteJob(jobId)}
+            deleting={deleting}
+          />
+        </TabsContent>
+
+        <TabsContent value="failed" className="mt-0">
+          <QueueJobList
+            jobs={failedJobs}
+            emptyLabel="No failed jobs."
+            onRetry={(jobId) => retryJob(jobId)}
+            retrying={retrying}
+            onDelete={(jobId) => deleteJob(jobId)}
+            deleting={deleting}
+          />
+        </TabsContent>
+
+        <TabsContent value="completed" className="mt-0">
+          <QueueJobList jobs={completedJobs} emptyLabel="No completed jobs yet." />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function QueueJobList({
+  jobs,
+  emptyLabel,
+  onRetry,
+  retrying,
+  onDelete,
+  deleting,
+}: {
+  jobs: Array<{
+    id: string;
+    itemId?: string | null;
+    itemTitle?: string | null;
+    jobType: "analyze_item" | "rank_next" | "score_item";
+    status: "queued" | "processing" | "completed" | "failed";
+    runAfter: number;
+    completedAt: number | null;
+    lastError: string | null;
+    attempts: number;
+    createdAt: number;
+    updatedAt: number;
+  }>;
+  emptyLabel: string;
+  onRetry?: (jobId: string) => void;
+  retrying?: boolean;
+  onDelete?: (jobId: string) => void;
+  deleting?: boolean;
+}) {
+  if (jobs.length === 0) {
+    return <div className="text-sm text-muted-foreground">{emptyLabel}</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {jobs.map((job) => {
+        const title =
+          job.jobType === "analyze_item"
+            ? "Item analysis"
+            : job.jobType === "score_item"
+              ? "Suggest score"
+              : "Next to consume refresh";
+
+        const itemLabel = job.itemTitle ?? (job.jobType === "rank_next" ? "Global queue" : "Untitled item");
+        const metaLabel =
+          job.status === "completed" && job.completedAt
+            ? `Completed ${new Date(job.completedAt).toLocaleString()}`
+            : job.status === "queued"
+              ? `Runs ${new Date(job.runAfter).toLocaleString()}`
+              : `Updated ${new Date(job.updatedAt).toLocaleString()}`;
+
+        return (
+          <div
+            key={job.id}
+            className="rounded-[18px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] px-4 py-3"
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="font-semibold text-foreground">{title}</span>
+                  <Badge variant={job.status === "failed" ? "destructive" : job.status === "completed" ? "secondary" : "outline"}>
+                    {job.status.replace("_", " ")}
+                  </Badge>
+                  <span className="truncate text-sm text-muted-foreground">{itemLabel}</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Attempts {job.attempts} · {metaLabel}
+                </div>
               </div>
-              {job.itemTitle ? <div className="text-sm text-foreground">{job.itemTitle}</div> : null}
-              <div className="text-xs text-muted-foreground">
-                Created {new Date(job.createdAt).toLocaleString()}
+
+              <div className="flex items-center gap-2">
+                {job.status === "failed" && onRetry ? (
+                  <Button variant="outline" size="sm" onClick={() => onRetry(job.id)} disabled={retrying}>
+                    {retrying ? "Retrying…" : "Retry"}
+                  </Button>
+                ) : null}
+                {(job.status === "failed" || job.status === "queued") && onDelete ? (
+                  <Button variant="outline" size="sm" onClick={() => onDelete(job.id)} disabled={deleting}>
+                    {deleting ? "Deleting…" : "Delete"}
+                  </Button>
+                ) : null}
               </div>
             </div>
 
-            {job.status === "failed" ? (
-              <Button variant="outline" onClick={() => retryJob(job.id)} disabled={retrying}>
-                {retrying ? "Retrying…" : "Retry"}
-              </Button>
+            {job.lastError ? (
+              <div className="mt-2 rounded-[14px] bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {job.lastError}
+              </div>
             ) : null}
           </div>
-
-          <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-3">
-            <div>Attempts: {job.attempts}</div>
-            <div>Run after: {new Date(job.runAfter).toLocaleString()}</div>
-            <div>Updated: {new Date(job.updatedAt).toLocaleString()}</div>
-          </div>
-
-          {job.lastError ? (
-            <div className="rounded-[16px] bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {job.lastError}
-            </div>
-          ) : null}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -69,6 +69,18 @@ export function useRetryAiJob() {
   });
 }
 
+export function useDeleteAiJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => aiApi.deleteJob(jobId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ai-jobs"] });
+      qc.invalidateQueries({ queryKey: ["ai-next"] });
+      qc.invalidateQueries({ queryKey: ["ai-analysis"] });
+    },
+  });
+}
+
 export function useCategorizeItem() {
   return useMutation<
     CategorizeResult,

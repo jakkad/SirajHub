@@ -249,6 +249,10 @@ export const aiApi = {
     return request(`/api/ai/jobs/${jobId}/retry`, { method: "POST" });
   },
 
+  deleteJob(jobId: string): Promise<{ ok: true }> {
+    return request(`/api/ai/jobs/${jobId}`, { method: "DELETE" });
+  },
+
   categorize(input: {
     title: string;
     description?: string | null;
