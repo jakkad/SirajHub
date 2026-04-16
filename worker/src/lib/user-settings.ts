@@ -3,13 +3,19 @@ import type { Db } from "../db/client";
 import { user } from "../db/schema";
 import type { Env } from "../types";
 
-export const DEFAULT_AI_MODEL = "gemini-2.5-flash";
+export const AI_MODEL_OPTIONS = [
+  "gemini-3-flash-preview",
+  "gemini-2.5-flash-lite",
+  "gemma-3-27b-it",
+] as const;
+export const DEFAULT_AI_MODEL = "gemini-2.5-flash-lite";
 export const DEFAULT_AI_QUEUE_INTERVAL_MINUTES = 60;
 export const CONTENT_TYPE_IDS = ["book", "movie", "tv", "podcast", "youtube", "article", "tweet"] as const;
 export const DEFAULT_ANALYZE_PROMPT = "Analyze this item for a personal media tracker. Focus on what the content is about, why it may be valuable or worth consuming, and which tags/topics would help organize it. Be concise, practical, and specific.";
 export const DEFAULT_SCORE_PROMPT = "Score how strongly this item matches the user's saved interests for this media type. Be consistent, practical, and explain the score clearly. If the metadata is too weak to score confidently, still return a score but explicitly ask for the missing info that would improve it.";
 
 export type ContentTypeId = typeof CONTENT_TYPE_IDS[number];
+export type AiModelId = typeof AI_MODEL_OPTIONS[number];
 export type InterestWeight = "low" | "medium" | "high";
 export type InterestChip = {
   id: string;
@@ -33,6 +39,27 @@ export type ApiKeysBlob = {
   aiQueueIntervalMinutes?: number;
   interestProfiles?: InterestProfiles;
   aiPrompts?: Partial<AiPrompts>;
+};
+
+const CONTENT_TYPE_ALIASES: Record<string, ContentTypeId> = {
+  book: "book",
+  books: "book",
+  movie: "movie",
+  movies: "movie",
+  tv: "tv",
+  tvshow: "tv",
+  tvshows: "tv",
+  show: "tv",
+  shows: "tv",
+  podcast: "podcast",
+  podcasts: "podcast",
+  youtube: "youtube",
+  video: "youtube",
+  videos: "youtube",
+  article: "article",
+  articles: "article",
+  tweet: "tweet",
+  tweets: "tweet",
 };
 
 export async function readUserSettings(db: Db, userId: string): Promise<ApiKeysBlob> {
@@ -60,7 +87,7 @@ export async function resolveGeminiKey(db: Db, userId: string, envKey: string): 
 
 export async function resolveAiModel(db: Db, userId: string): Promise<string> {
   const settings = await readUserSettings(db, userId);
-  return settings.aiModel || DEFAULT_AI_MODEL;
+  return normalizeAiModel(settings.aiModel);
 }
 
 export async function resolveAiQueueIntervalMinutes(db: Db, userId: string): Promise<number> {
@@ -90,9 +117,11 @@ export function normalizeInterestProfiles(input: unknown): InterestProfiles {
 
   const output: InterestProfiles = {};
 
-  for (const contentType of CONTENT_TYPE_IDS) {
-    const rawEntries = (input as Record<string, unknown>)[contentType];
-    if (!Array.isArray(rawEntries)) continue;
+  const inputRecord = input as Record<string, unknown>;
+
+  for (const [rawKey, rawEntries] of Object.entries(inputRecord)) {
+    const contentType = CONTENT_TYPE_ALIASES[rawKey.trim().toLowerCase()];
+    if (!contentType || !Array.isArray(rawEntries)) continue;
 
     const normalized = rawEntries
       .map((entry) => {
@@ -113,8 +142,20 @@ export function normalizeInterestProfiles(input: unknown): InterestProfiles {
       })
       .filter((entry): entry is InterestChip => Boolean(entry));
 
-    if (normalized.length > 0) {
-      output[contentType] = normalized;
+    if (normalized.length === 0) continue;
+
+    const existing = output[contentType] ?? [];
+    const seen = new Set(existing.map((entry) => `${entry.label.toLowerCase()}::${entry.weight}`));
+
+    for (const entry of normalized) {
+      const key = `${entry.label.toLowerCase()}::${entry.weight}`;
+      if (seen.has(key)) continue;
+      existing.push(entry);
+      seen.add(key);
+    }
+
+    if (existing.length > 0) {
+      output[contentType] = existing;
     }
   }
 
@@ -124,6 +165,16 @@ export function normalizeInterestProfiles(input: unknown): InterestProfiles {
 export async function resolveInterestProfiles(db: Db, userId: string): Promise<InterestProfiles> {
   const settings = await readUserSettings(db, userId);
   return normalizeInterestProfiles(settings.interestProfiles);
+}
+
+export function normalizeAiModel(input: unknown): AiModelId {
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if ((AI_MODEL_OPTIONS as readonly string[]).includes(trimmed)) {
+      return trimmed as AiModelId;
+    }
+  }
+  return DEFAULT_AI_MODEL;
 }
 
 export function normalizeAiPrompts(input: unknown): AiPrompts {

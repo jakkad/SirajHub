@@ -1300,6 +1300,14 @@ apps/web/src/routes/item.$id.tsx
   - `Score`
 - [x] Pre-fill those fields with default prompt templates
 - [x] Make queue workers resolve those saved prompts and append item metadata / interest context automatically
+- [x] Tighten the model picker to verified supported options only:
+  - `gemini-2.5-flash-lite`
+  - `gemini-3-flash-preview`
+  - `gemma-3-27b-it`
+- [x] Remove unverified or unavailable options such as `gemini-3.1-flash-lite` and unsupported Gemma 4 entries
+- [x] Split backend handling by model family:
+  - Gemini uses `responseSchema` structured outputs
+  - Gemma 3 uses prompt-guided JSON output without JSON mode
 
 ## V2.8 Files Changed
 
@@ -1338,4 +1346,4 @@ worker/src/db/migrations/0005_ai_surface_tightening.sql
 | V2.8–2 — Analysis | Replace saved analysis with one structured per-item analysis result | ✅ Done |
 | V2.8–3 — Scoring | Replace scoring output with structured score/explanation/info-needed fields | ✅ Done |
 | V2.8–4 — Queue | Make the queue the visible operational layer for all AI work | ✅ Done |
-| V2.8–5 — Model + Prompts | Validate selected models and add saved prompt templates for both actions | ✅ Done |
+| V2.8–5 — Model + Prompts | Validate selected models, add saved prompt templates, and tighten backend model support | ✅ Done |

@@ -3,7 +3,9 @@ import { and, eq, inArray } from "drizzle-orm";
 import { createDb } from "../db/client";
 import { aiCache, aiJobs, items, user } from "../db/schema";
 import {
+  DEFAULT_AI_MODEL,
   DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+  normalizeAiModel,
   normalizeAiPrompts,
   normalizeInterestProfiles,
   readUserSettings,
@@ -110,7 +112,7 @@ router.get("/settings", async (c) => {
     googleBooks:      keys.googleBooks       ? "set" : null,
     podcastIndexKey:  keys.podcastIndexKey   ? "set" : null,
     podcastIndexSecret: keys.podcastIndexSecret ? "set" : null,
-    aiModel:          keys.aiModel           ?? null,
+    aiModel:          normalizeAiModel(keys.aiModel),
     aiQueueIntervalMinutes:
       typeof keys.aiQueueIntervalMinutes === "number"
         ? keys.aiQueueIntervalMinutes
@@ -154,6 +156,8 @@ router.patch("/settings", async (c) => {
       return c.json({ error: "Queue interval must be a positive number of minutes" }, 400);
     }
     current.aiQueueIntervalMinutes = Math.max(5, parsed);
+  } else if (body.service === "aiModel") {
+    current.aiModel = normalizeAiModel(body.key);
   } else if (body.service === "interestProfiles") {
     current.interestProfiles = normalizeInterestProfiles(body.interestProfiles);
   } else if ((body.key ?? "") === "") {
@@ -226,7 +230,7 @@ router.post("/settings/test-model", async (c) => {
   const db = createDb(c.env.DB);
   const keys = await readUserSettings(db, userId);
   const keyToTest = body.key?.trim() || keys.gemini || c.env.GEMINI_API_KEY;
-  const model = body.model?.trim() || keys.aiModel || "gemini-2.5-flash";
+  const model = normalizeAiModel(body.model?.trim() || keys.aiModel || DEFAULT_AI_MODEL);
 
   if (!keyToTest) {
     return c.json({ ok: false, message: "No Gemini API key found to test", model }, 400);

@@ -3801,6 +3801,30 @@ The worker uses those saved prompts as the instruction layer, then automatically
 - tags and stored metadata for analysis
 - interest profile context for scoring
 
+This step also got an additional hardening pass once real usage exposed model availability edge cases.
+
+The supported model list was tightened to the options that could be verified or made to work safely with SirajHub's backend:
+
+- `gemini-2.5-flash-lite`
+- `gemini-3-flash-preview`
+- `gemma-3-27b-it`
+
+Some candidates were removed again under the same V2.8 work because they did not hold up in practice:
+
+- `gemini-3.1-flash-lite` could not be verified with an official model id reference
+- Gemma 4 entries were removed because their exact hosted model ids were not confirmed
+
+The backend handling also had to split by model family.
+
+For Gemini models, SirajHub continues to use schema-based structured outputs.
+
+For Gemma 3, that same approach caused `400` errors because JSON mode is not enabled for `gemma-3-27b-it`. The worker now handles Gemma 3 differently:
+
+- Gemini models use `responseSchema`
+- Gemma 3 uses prompt-guided JSON output and local parsing instead
+
+That keeps Gemma 3 available as an option while preserving the stricter structured-output path for Gemini.
+
 ### Why this matters
 
 This makes AI output more consistent and more controllable.
@@ -3842,4 +3866,4 @@ The most important updated areas are:
 | V2.8 Step 2 | Replace saved analysis with one structured per-item analysis result | Complete |
 | V2.8 Step 3 | Replace scoring output with structured score/explanation/info-needed fields | Complete |
 | V2.8 Step 4 | Make the queue the visible operational layer for all AI work | Complete |
-| V2.8 Step 5 | Validate selected models and add saved prompt templates for both actions | Complete |
+| V2.8 Step 5 | Validate selected models, add saved prompt templates, and harden per-model backend support | Complete |

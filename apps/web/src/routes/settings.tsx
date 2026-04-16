@@ -31,9 +31,9 @@ export const Route = createFileRoute("/settings")({
 });
 
 const AI_MODELS = [
-  { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Recommended balance of speed and quality." },
-  { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite", description: "Fastest and lightest option." },
-  { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Most capable model for deeper reasoning." },
+  { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite", description: "Best default free-tier choice for fast structured analysis and scoring." },
+  { id: "gemini-3-flash-preview", label: "Gemini 3 Flash", description: "Free Gemini preview option when you want the newer 3-series model." },
+  { id: "gemma-3-27b-it", label: "Gemma 3 27B", description: "Verified Gemma 3 instruction model exposed through the Gemini API." },
 ];
 
 const API_KEY_SERVICES = [
@@ -449,7 +449,7 @@ function AiModelTab() {
   const { mutate: updateKey, isPending } = useUpdateApiKey();
   const { mutate: updateAiPrompts, isPending: savingPrompts } = useUpdateAiPrompts();
   const { mutate: testModel, isPending: testingModel } = useTestAiModel();
-  const [selected, setSelected] = useState("gemini-2.5-flash");
+  const [selected, setSelected] = useState("gemini-2.5-flash-lite");
   const [queueInterval, setQueueInterval] = useState("60");
   const [aiPrompts, setAiPrompts] = useState<AiPrompts>({ analyze: "", score: "" });
   const [saved, setSaved] = useState<"model" | "queue" | null>(null);
@@ -457,7 +457,7 @@ function AiModelTab() {
   const [modelTestMessage, setModelTestMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setSelected(settings?.aiModel ?? "gemini-2.5-flash");
+    setSelected(settings?.aiModel ?? "gemini-2.5-flash-lite");
     setQueueInterval(String(settings?.aiQueueIntervalMinutes ?? 60));
     setAiPrompts(
       settings?.aiPrompts ?? {
@@ -515,7 +515,7 @@ function AiModelTab() {
       <Card>
         <CardHeader>
           <CardTitle>Model Selection</CardTitle>
-          <CardDescription>Choose the Gemini model used for item analysis and scoring jobs.</CardDescription>
+          <CardDescription>Choose the free Gemini or Gemma model used for item analysis and scoring jobs.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">

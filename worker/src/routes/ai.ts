@@ -25,6 +25,20 @@ type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+function normalizeAnalysisResult(value: unknown) {
+  const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const toText = (entry: unknown) => (typeof entry === "string" ? entry : "");
+  const toList = (entry: unknown) =>
+    Array.isArray(entry) ? entry.filter((item): item is string => typeof item === "string") : [];
+
+  return {
+    summary: toText(record.summary),
+    contentAnalysis: toText(record.contentAnalysis),
+    tagSuggestions: toList(record.tagSuggestions),
+    topicSuggestions: toList(record.topicSuggestions),
+  };
+}
+
 router.get("/analyze/:id", async (c) => {
   const userId = c.get("userId");
   const id = c.req.param("id");
@@ -53,7 +67,7 @@ router.get("/analyze/:id", async (c) => {
 
   return c.json({
     cached: Boolean(isFresh),
-    result: cached ? JSON.parse(cached.result) : null,
+    result: cached ? normalizeAnalysisResult(JSON.parse(cached.result)) : null,
     savedAt: cached?.createdAt ?? null,
     modelUsed: cached?.modelUsed ?? null,
     job: latestJob ? serializeJob(latestJob) : null,
@@ -92,7 +106,7 @@ router.post("/analyze/:id", async (c) => {
 
   return c.json({
     queued: true,
-    result: cached ? JSON.parse(cached.result) : null,
+    result: cached ? normalizeAnalysisResult(JSON.parse(cached.result)) : null,
     savedAt: cached?.createdAt ?? null,
     modelUsed: cached?.modelUsed ?? null,
     intervalMinutes,

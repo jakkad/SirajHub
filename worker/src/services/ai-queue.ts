@@ -298,6 +298,31 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
 
   if (!item) throw new Error("Item not found");
 
+  const [cachedAnalysis] = await db
+    .select()
+    .from(aiCache)
+    .where(and(eq(aiCache.contentId, item.id), eq(aiCache.analysisType, "summary")));
+
+  const parsedAnalysis = cachedAnalysis
+    ? (() => {
+        try {
+          const result = JSON.parse(cachedAnalysis.result) as Record<string, unknown>;
+          return {
+            summary: typeof result.summary === "string" ? result.summary : null,
+            contentAnalysis: typeof result.contentAnalysis === "string" ? result.contentAnalysis : null,
+            tagSuggestions: Array.isArray(result.tagSuggestions)
+              ? result.tagSuggestions.filter((entry): entry is string => typeof entry === "string")
+              : [],
+            topicSuggestions: Array.isArray(result.topicSuggestions)
+              ? result.topicSuggestions.filter((entry): entry is string => typeof entry === "string")
+              : [],
+          };
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
   const [apiKey, model, interestProfiles, prompts] = await Promise.all([
     resolveGeminiKey(db, job.userId, env.GEMINI_API_KEY),
     resolveAiModel(db, job.userId),
@@ -308,6 +333,7 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
   const interests = CONTENT_TYPE_IDS.includes(item.contentType as (typeof CONTENT_TYPE_IDS)[number])
     ? interestProfiles[item.contentType as (typeof CONTENT_TYPE_IDS)[number]] ?? []
     : [];
+  const interestLines = interests.map((entry) => `${entry.label} (${entry.weight})`);
 
   const result = await scoreSuggestMetric(
     apiKey,
@@ -321,8 +347,12 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
       sourceUrl: item.sourceUrl,
       releaseDate: item.releaseDate,
       metadata: item.metadata,
+      analysisSummary: parsedAnalysis?.summary,
+      analysisContent: parsedAnalysis?.contentAnalysis,
+      analysisTags: parsedAnalysis?.tagSuggestions,
+      analysisTopics: parsedAnalysis?.topicSuggestions,
     },
-    interests.map((entry) => `${entry.label} (${entry.weight})`)
+    interestLines
   );
 
   const updatedAt = Date.now();
@@ -349,7 +379,7 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
     })
     .where(eq(items.id, item.id));
 
-  return { model, result: { ...result, finalScore } };
+  return { model, result: { ...result, finalScore, interestLinesUsed: interestLines } };
 }
 
 export async function processAiQueue(env: Env) {

@@ -12,35 +12,74 @@ export interface SuggestMetricResult {
   moreInfoRequest: string | null;
 }
 
+function toTrimmedString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value.trim() : fallback;
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
 async function callGemini(apiKey: string, model: string, prompt: string, schema: object): Promise<unknown> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-  const res = await fetch(`${url}?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-        temperature: 0.25,
-        maxOutputTokens: 1400,
-      },
-    }),
-  });
+  const isGemmaModel = model.startsWith("gemma-");
+  const effectivePrompt = isGemmaModel
+    ? `${prompt}
 
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 500)}`);
+Return only a valid JSON object matching this schema exactly:
+${JSON.stringify(schema)}`
+    : prompt;
+  let lastParseError: Error | null = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await fetch(`${url}?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: effectivePrompt }] }],
+        generationConfig: isGemmaModel
+          ? {
+              temperature: 0.25,
+              maxOutputTokens: 1400,
+            }
+          : {
+              responseMimeType: "application/json",
+              responseSchema: schema,
+              temperature: 0.25,
+              maxOutputTokens: 1400,
+            },
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Gemini ${res.status}: ${body.slice(0, 500)}`);
+    }
+
+    const data = (await res.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error("Empty Gemini response");
+
+    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/, "").trim();
+
+    try {
+      return JSON.parse(cleaned);
+    } catch (error) {
+      lastParseError = error instanceof Error ? error : new Error("Failed to parse Gemini JSON response");
+      if (attempt === 1) {
+        throw new Error(`${lastParseError.message}. Raw response: ${cleaned.slice(0, 300)}`);
+      }
+    }
   }
 
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Empty Gemini response");
-
-  return JSON.parse(text);
+  throw lastParseError ?? new Error("Failed to parse Gemini response");
 }
 
 export async function analyzeItem(
@@ -92,13 +131,13 @@ Stay practical and avoid filler.`;
       topicSuggestions: { type: "array", items: { type: "string" } },
     },
     required: ["summary", "contentAnalysis", "tagSuggestions", "topicSuggestions"],
-  }) as AnalysisResult;
+  }) as Partial<AnalysisResult>;
 
   return {
-    summary: result.summary.trim(),
-    contentAnalysis: result.contentAnalysis.trim(),
-    tagSuggestions: result.tagSuggestions.map((entry) => entry.trim()).filter(Boolean).slice(0, 6),
-    topicSuggestions: result.topicSuggestions.map((entry) => entry.trim()).filter(Boolean).slice(0, 6),
+    summary: toTrimmedString(result.summary),
+    contentAnalysis: toTrimmedString(result.contentAnalysis),
+    tagSuggestions: toStringArray(result.tagSuggestions),
+    topicSuggestions: toStringArray(result.topicSuggestions),
   };
 }
 
@@ -114,6 +153,10 @@ export async function scoreSuggestMetric(
     sourceUrl?: string | null;
     releaseDate?: string | null;
     metadata?: string | null;
+    analysisSummary?: string | null;
+    analysisContent?: string | null;
+    analysisTags?: string[];
+    analysisTopics?: string[];
   },
   interestLines: string[]
 ): Promise<SuggestMetricResult> {
@@ -124,12 +167,18 @@ export async function scoreSuggestMetric(
     // ignore invalid URLs
   }
 
+  const safeInterestLines = Array.isArray(interestLines) ? interestLines : [];
+
   const interestBlock =
-    interestLines.length > 0
-      ? interestLines.map((entry) => `- ${entry}`).join("\n")
+    safeInterestLines.length > 0
+      ? safeInterestLines.map((entry) => `- ${entry}`).join("\n")
       : "- No custom interests configured for this media type.";
 
   const metadataBlock = item.metadata?.trim() ? item.metadata.slice(0, 2000) : "none";
+  const analysisSummary = item.analysisSummary?.trim() || "none";
+  const analysisContent = item.analysisContent?.trim() || "none";
+  const analysisTags = Array.isArray(item.analysisTags) && item.analysisTags.length > 0 ? item.analysisTags.join(", ") : "none";
+  const analysisTopics = Array.isArray(item.analysisTopics) && item.analysisTopics.length > 0 ? item.analysisTopics.join(", ") : "none";
 
   const prompt = `${promptTemplate}
 
@@ -141,6 +190,10 @@ Description: ${item.description ?? "none"}
 Release date: ${item.releaseDate ?? "unknown"}
 Source domain: ${domain}
 Stored metadata: ${metadataBlock}
+Saved analysis summary: ${analysisSummary}
+Saved analysis content: ${analysisContent}
+Saved analysis tag suggestions: ${analysisTags}
+Saved analysis topic suggestions: ${analysisTopics}
 
 Interest profile for this media type:
 ${interestBlock}
@@ -159,16 +212,16 @@ Always return a score even if needsMoreInfo is true.`;
       score: { type: "integer" },
       explanation: { type: "string" },
       needsMoreInfo: { type: "boolean" },
-      moreInfoRequest: { type: ["string", "null"] },
+      moreInfoRequest: { type: "string", nullable: true },
     },
     required: ["score", "explanation", "needsMoreInfo", "moreInfoRequest"],
-  }) as SuggestMetricResult;
+  }) as Partial<SuggestMetricResult>;
 
   return {
-    score: Math.max(0, Math.min(1000, Math.round(result.score))),
-    explanation: result.explanation.trim(),
+    score: Math.max(0, Math.min(1000, Math.round(typeof result.score === "number" ? result.score : 0))),
+    explanation: toTrimmedString(result.explanation),
     needsMoreInfo: Boolean(result.needsMoreInfo),
-    moreInfoRequest: result.moreInfoRequest?.trim() || null,
+    moreInfoRequest: toTrimmedString(result.moreInfoRequest, "") || null,
   };
 }
 
