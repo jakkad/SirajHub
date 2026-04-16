@@ -125,16 +125,15 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
             ) : null}
             {analysis ? (
               <div className="flex flex-col gap-2">
-                {analysis.mood ? <Badge variant="secondary" className="w-fit">{analysis.mood}</Badge> : null}
                 <p className="text-xs leading-5 text-foreground">{analysis.summary}</p>
-                {analysis.key_points.length > 0 ? (
-                  <ul className="list-disc pl-4 text-xs text-muted-foreground">
-                    {analysis.key_points.map((point, index) => (
-                      <li key={index}>{point}</li>
+                <p className="text-xs text-muted-foreground">{analysis.contentAnalysis}</p>
+                {analysis.topicSuggestions.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {analysis.topicSuggestions.slice(0, 3).map((topic) => (
+                      <Badge key={topic} variant="outline">{topic}</Badge>
                     ))}
-                  </ul>
+                  </div>
                 ) : null}
-                <p className="text-xs italic text-muted-foreground">{analysis.recommendation}</p>
               </div>
             ) : !analysisState?.job ? (
               <Button size="sm" variant="outline" onClick={() => queueAnalysis(item.id)}>

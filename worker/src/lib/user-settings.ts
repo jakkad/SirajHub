@@ -6,6 +6,8 @@ import type { Env } from "../types";
 export const DEFAULT_AI_MODEL = "gemini-2.5-flash";
 export const DEFAULT_AI_QUEUE_INTERVAL_MINUTES = 60;
 export const CONTENT_TYPE_IDS = ["book", "movie", "tv", "podcast", "youtube", "article", "tweet"] as const;
+export const DEFAULT_ANALYZE_PROMPT = "Analyze this item for a personal media tracker. Focus on what the content is about, why it may be valuable or worth consuming, and which tags/topics would help organize it. Be concise, practical, and specific.";
+export const DEFAULT_SCORE_PROMPT = "Score how strongly this item matches the user's saved interests for this media type. Be consistent, practical, and explain the score clearly. If the metadata is too weak to score confidently, still return a score but explicitly ask for the missing info that would improve it.";
 
 export type ContentTypeId = typeof CONTENT_TYPE_IDS[number];
 export type InterestWeight = "low" | "medium" | "high";
@@ -15,6 +17,10 @@ export type InterestChip = {
   weight: InterestWeight;
 };
 export type InterestProfiles = Partial<Record<ContentTypeId, InterestChip[]>>;
+export type AiPrompts = {
+  analyze: string;
+  score: string;
+};
 
 export type ApiKeysBlob = {
   gemini?: string;
@@ -26,6 +32,7 @@ export type ApiKeysBlob = {
   aiModel?: string;
   aiQueueIntervalMinutes?: number;
   interestProfiles?: InterestProfiles;
+  aiPrompts?: Partial<AiPrompts>;
 };
 
 export async function readUserSettings(db: Db, userId: string): Promise<ApiKeysBlob> {
@@ -117,4 +124,23 @@ export function normalizeInterestProfiles(input: unknown): InterestProfiles {
 export async function resolveInterestProfiles(db: Db, userId: string): Promise<InterestProfiles> {
   const settings = await readUserSettings(db, userId);
   return normalizeInterestProfiles(settings.interestProfiles);
+}
+
+export function normalizeAiPrompts(input: unknown): AiPrompts {
+  const record = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  return {
+    analyze:
+      typeof record.analyze === "string" && record.analyze.trim()
+        ? record.analyze.trim()
+        : DEFAULT_ANALYZE_PROMPT,
+    score:
+      typeof record.score === "string" && record.score.trim()
+        ? record.score.trim()
+        : DEFAULT_SCORE_PROMPT,
+  };
+}
+
+export async function resolveAiPrompts(db: Db, userId: string): Promise<AiPrompts> {
+  const settings = await readUserSettings(db, userId);
+  return normalizeAiPrompts(settings.aiPrompts);
 }

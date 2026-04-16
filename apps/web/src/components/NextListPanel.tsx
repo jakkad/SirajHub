@@ -2,7 +2,7 @@ import { Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { useItems } from "../hooks/useItems";
-import { useNextList, useRefreshNextList } from "../hooks/useAI";
+import { useNextList } from "../hooks/useAI";
 import { CONTENT_TYPES } from "../lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ export function NextListPanel({ open: controlledOpen, onOpenChange, showTrigger 
   const { data: items = [] } = useItems();
   const suggestionsCount = items.filter((i) => i.status === "suggestions").length;
   const { data, isFetching, error } = useNextList();
-  const { mutate: refresh, isPending: refreshing } = useRefreshNextList();
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
 
@@ -42,14 +41,11 @@ export function NextListPanel({ open: controlledOpen, onOpenChange, showTrigger 
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Next To Consume</DialogTitle>
-            <DialogDescription>Scored from your interest profiles, then boosted by freshness and trending.</DialogDescription>
+            <DialogDescription>Read-only ranking from stored suggestion scores, interest profiles, and active boosts.</DialogDescription>
           </DialogHeader>
 
           <div className="flex items-center justify-between gap-3">
             <Badge variant="outline">{suggestionsCount} queued</Badge>
-            <Button variant="outline" onClick={() => refresh()} disabled={refreshing || isFetching}>
-              {refreshing || isFetching ? "Queueing…" : ranked.length > 0 ? "Refresh scores" : "Queue scoring"}
-            </Button>
           </div>
 
           {data?.job ? (
@@ -88,14 +84,16 @@ export function NextListPanel({ open: controlledOpen, onOpenChange, showTrigger 
                           <span className="text-2xl">{ct?.icon ?? "📄"}</span>
                         )}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-base font-semibold text-foreground">{item.title}</div>
-                        {item.creator ? <div className="text-sm text-muted-foreground">{item.creator}</div> : null}
-                        <p className="mt-2 text-sm italic text-muted-foreground">{entry.reason ?? "Waiting for AI score."}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-base font-semibold text-foreground">{item.title}</div>
+                          {item.creator ? <div className="text-sm text-muted-foreground">{item.creator}</div> : null}
+                        <p className="mt-2 text-sm italic text-muted-foreground">{entry.explanation ?? "Waiting for AI score."}</p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {entry.boosts.recent > 0 ? <Badge variant="secondary">Recent +50</Badge> : null}
                           {entry.boosts.trending > 0 ? <Badge variant="secondary">Trending +100</Badge> : null}
+                          {entry.needsMoreInfo ? <Badge variant="outline">Needs more info</Badge> : null}
                         </div>
+                        {entry.moreInfoRequest ? <p className="mt-2 text-xs text-muted-foreground">{entry.moreInfoRequest}</p> : null}
                       </div>
                     </li>
                   );
@@ -104,7 +102,7 @@ export function NextListPanel({ open: controlledOpen, onOpenChange, showTrigger 
           ) : null}
           {ranked.length === 0 && suggestionsCount > 0 && !data?.job ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
-              No stored scores yet. Queue a refresh and the scorer will run automatically after your configured interval.
+              No stored scores yet. New items are scored automatically and manual re-scores can be triggered from the item page.
             </div>
           ) : null}
         </DialogContent>

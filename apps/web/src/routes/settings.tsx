@@ -1,18 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-import { useAiJobs, useDeleteAiJob, useRetryAiJob } from "../hooks/useAI";
+import { useAiJobs, useDeleteAiJob, useRepeatAiJob, useRetryAiJob } from "../hooks/useAI";
 import { useTags, useDeleteTag } from "../hooks/useTags";
 import {
   useClearAiCache,
+  useUpdateAiPrompts,
   useUpdateInterestProfiles,
+  useTestAiModel,
   useTestApiKey,
   useUpdateApiKey,
   useUpdateProfile,
   useUserProfile,
   useUserSettings,
 } from "../hooks/useUser";
-import { userApi, type InterestProfiles, type InterestWeight } from "../lib/api";
+import { userApi, type AiPrompts, type InterestProfiles, type InterestWeight } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +37,7 @@ const AI_MODELS = [
 ];
 
 const API_KEY_SERVICES = [
-  { id: "gemini", label: "Gemini API Key", description: "Used for categorization, analysis, and ranking." },
+  { id: "gemini", label: "Gemini API Key", description: "Used for item analysis and scoring." },
   { id: "tmdb", label: "TMDB API Key", description: "Used for movie and TV metadata." },
   { id: "youtube", label: "YouTube API Key", description: "Used for YouTube metadata." },
   { id: "googleBooks", label: "Google Books API Key", description: "Used for fallback book metadata." },
@@ -445,13 +447,24 @@ function ApiKeysTab() {
 function AiModelTab() {
   const { data: settings } = useUserSettings();
   const { mutate: updateKey, isPending } = useUpdateApiKey();
+  const { mutate: updateAiPrompts, isPending: savingPrompts } = useUpdateAiPrompts();
+  const { mutate: testModel, isPending: testingModel } = useTestAiModel();
   const [selected, setSelected] = useState("gemini-2.5-flash");
   const [queueInterval, setQueueInterval] = useState("60");
+  const [aiPrompts, setAiPrompts] = useState<AiPrompts>({ analyze: "", score: "" });
   const [saved, setSaved] = useState<"model" | "queue" | null>(null);
+  const [promptsSaved, setPromptsSaved] = useState(false);
+  const [modelTestMessage, setModelTestMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setSelected(settings?.aiModel ?? "gemini-2.5-flash");
     setQueueInterval(String(settings?.aiQueueIntervalMinutes ?? 60));
+    setAiPrompts(
+      settings?.aiPrompts ?? {
+        analyze: "",
+        score: "",
+      }
+    );
   }, [settings]);
 
   function handleSaveModel() {
@@ -478,12 +491,31 @@ function AiModelTab() {
     );
   }
 
+  function handleTestModel() {
+    testModel(
+      { model: selected },
+      {
+        onSuccess: (result) => setModelTestMessage(result.message),
+        onError: (error) => setModelTestMessage(error.message),
+      }
+    );
+  }
+
+  function handleSavePrompts() {
+    updateAiPrompts(aiPrompts, {
+      onSuccess: () => {
+        setPromptsSaved(true);
+        setTimeout(() => setPromptsSaved(false), 1800);
+      },
+    });
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle>Model Selection</CardTitle>
-          <CardDescription>Choose the Gemini model used for categorization, suggest scoring, and analysis.</CardDescription>
+          <CardDescription>Choose the Gemini model used for item analysis and scoring jobs.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">
@@ -505,8 +537,12 @@ function AiModelTab() {
             <Button onClick={handleSaveModel} disabled={isPending}>
               Save model
             </Button>
+            <Button onClick={handleTestModel} disabled={testingModel} variant="outline">
+              {testingModel ? "Testing…" : "Test selected model"}
+            </Button>
             {saved === "model" ? <span className="text-xs text-muted-foreground">Saved</span> : null}
           </div>
+          {modelTestMessage ? <div className="text-xs text-muted-foreground">{modelTestMessage}</div> : null}
         </CardContent>
       </Card>
 
@@ -530,13 +566,52 @@ function AiModelTab() {
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            Analysis refreshes, suggest scoring, and next-to-consume score refreshes are saved as jobs, then processed automatically after this delay. The default is 60 minutes.
+            Analysis and scoring jobs are saved in the queue, then processed automatically after this delay. The default is 60 minutes.
           </p>
           <div className="flex items-center gap-3">
             <Button onClick={handleSaveQueue} disabled={isPending}>
               Save queue interval
             </Button>
             {saved === "queue" ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>AI Prompt Templates</CardTitle>
+          <CardDescription>
+            These prompt templates are used for the two supported AI actions. The system automatically appends the item metadata and interest profile context before sending the request.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="analyze-prompt">Analyze prompt</Label>
+              <Textarea
+                id="analyze-prompt"
+                value={aiPrompts.analyze}
+                onChange={(e) => setAiPrompts((prev) => ({ ...prev, analyze: e.target.value }))}
+                className="min-h-44"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="score-prompt">Score prompt</Label>
+              <Textarea
+                id="score-prompt"
+                value={aiPrompts.score}
+                onChange={(e) => setAiPrompts((prev) => ({ ...prev, score: e.target.value }))}
+                className="min-h-44"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSavePrompts} disabled={savingPrompts}>
+              Save prompts
+            </Button>
+            {promptsSaved ? <span className="text-xs text-muted-foreground">Saved</span> : null}
           </div>
         </CardContent>
       </Card>
@@ -559,6 +634,7 @@ function AiModelTab() {
 function AiQueueSection() {
   const { data, isLoading, refetch } = useAiJobs();
   const { mutate: retryJob, isPending: retrying } = useRetryAiJob();
+  const { mutate: repeatJob, isPending: repeating } = useRepeatAiJob();
   const { mutate: deleteJob, isPending: deleting } = useDeleteAiJob();
   const jobs = data?.jobs ?? [];
   const queuedJobs = jobs.filter((job: (typeof jobs)[number]) => job.status === "queued");
@@ -620,7 +696,12 @@ function AiQueueSection() {
         </TabsContent>
 
         <TabsContent value="completed" className="mt-0">
-          <QueueJobList jobs={completedJobs} emptyLabel="No completed jobs yet." />
+          <QueueJobList
+            jobs={completedJobs}
+            emptyLabel="No completed jobs yet."
+            onRepeat={(jobId) => repeatJob(jobId)}
+            repeating={repeating}
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -632,6 +713,8 @@ function QueueJobList({
   emptyLabel,
   onRetry,
   retrying,
+  onRepeat,
+  repeating,
   onDelete,
   deleting,
 }: {
@@ -639,11 +722,13 @@ function QueueJobList({
     id: string;
     itemId?: string | null;
     itemTitle?: string | null;
-    jobType: "analyze_item" | "rank_next" | "score_item";
+    jobType: "analyze_item" | "score_item";
     status: "queued" | "processing" | "completed" | "failed";
     runAfter: number;
     completedAt: number | null;
     lastError: string | null;
+    result: unknown | null;
+    modelUsed: string | null;
     attempts: number;
     createdAt: number;
     updatedAt: number;
@@ -651,6 +736,8 @@ function QueueJobList({
   emptyLabel: string;
   onRetry?: (jobId: string) => void;
   retrying?: boolean;
+  onRepeat?: (jobId: string) => void;
+  repeating?: boolean;
   onDelete?: (jobId: string) => void;
   deleting?: boolean;
 }) {
@@ -664,11 +751,9 @@ function QueueJobList({
         const title =
           job.jobType === "analyze_item"
             ? "Item analysis"
-            : job.jobType === "score_item"
-              ? "Suggest score"
-              : "Next to consume refresh";
+            : "Suggest score";
 
-        const itemLabel = job.itemTitle ?? (job.jobType === "rank_next" ? "Global queue" : "Untitled item");
+        const itemLabel = job.itemTitle ?? "Untitled item";
         const metaLabel =
           job.status === "completed" && job.completedAt
             ? `Completed ${new Date(job.completedAt).toLocaleString()}`
@@ -701,6 +786,11 @@ function QueueJobList({
                     {retrying ? "Retrying…" : "Retry"}
                   </Button>
                 ) : null}
+                {job.status === "completed" && onRepeat ? (
+                  <Button variant="outline" size="sm" onClick={() => onRepeat(job.id)} disabled={repeating}>
+                    {repeating ? "Repeating…" : "Repeat"}
+                  </Button>
+                ) : null}
                 {(job.status === "failed" || job.status === "queued") && onDelete ? (
                   <Button variant="outline" size="sm" onClick={() => onDelete(job.id)} disabled={deleting}>
                     {deleting ? "Deleting…" : "Delete"}
@@ -712,6 +802,16 @@ function QueueJobList({
             {job.lastError ? (
               <div className="mt-2 rounded-[14px] bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {job.lastError}
+              </div>
+            ) : null}
+            {job.modelUsed || job.result ? (
+              <div className="mt-2 rounded-[14px] border border-[hsl(var(--border))] bg-card/70 px-3 py-2 text-xs text-muted-foreground">
+                {job.modelUsed ? <div>Model: {job.modelUsed}</div> : null}
+                {job.result ? (
+                  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px]">
+                    {JSON.stringify(job.result, null, 2)}
+                  </pre>
+                ) : null}
               </div>
             ) : null}
           </div>

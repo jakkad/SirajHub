@@ -11,7 +11,6 @@ import {
   useRemoveTagFromItem,
   useTags,
 } from "../hooks/useTags";
-import { useCategorizeItem } from "../hooks/useAI";
 import { useUpdateItem } from "../hooks/useItems";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ export function ItemDetailPanel({ item, onClose }: Props) {
   const [notes, setNotes] = useState(item?.notes ?? "");
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]?.value ?? "#6366f1");
-  const [aiTagSuggestions, setAiTagSuggestions] = useState<string[] | null>(null);
 
   const { mutate: updateItem } = useUpdateItem();
   const { data: allTags = [] } = useTags();
@@ -47,11 +45,9 @@ export function ItemDetailPanel({ item, onClose }: Props) {
   const { mutate: addTag } = useAddTagToItem(item?.id ?? "");
   const { mutate: removeTag } = useRemoveTagFromItem(item?.id ?? "");
   const { mutate: createTag, isPending: creatingTag } = useCreateTag();
-  const { mutate: categorize, isPending: suggestingTags } = useCategorizeItem();
 
   useEffect(() => {
     setNotes(item?.notes ?? "");
-    setAiTagSuggestions(null);
     setNewTagName("");
   }, [item?.id]);
 
@@ -77,40 +73,6 @@ export function ItemDetailPanel({ item, onClose }: Props) {
         },
       }
     );
-  }
-
-  function handleSuggestTags() {
-    categorize(
-      {
-        title: currentItem.title,
-        description: currentItem.description,
-        sourceUrl: currentItem.sourceUrl,
-        contentType: currentItem.contentType,
-      },
-      {
-        onSuccess(result) {
-          const existing = new Set(itemTags.map((t) => t.name.toLowerCase()));
-          const fresh = result.suggested_tags.filter((name) => !existing.has(name.toLowerCase()));
-          setAiTagSuggestions(fresh.length > 0 ? fresh : []);
-        },
-      }
-    );
-  }
-
-  function handleApplySuggestedTag(name: string) {
-    const existing = allTags.find((tag) => tag.name.toLowerCase() === name.toLowerCase());
-    if (existing) {
-      addTag(existing.id);
-    } else {
-      createTag(
-        {
-          name,
-          color: TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)]?.value ?? "#6366f1",
-        },
-        { onSuccess: (tag) => addTag(tag.id) }
-      );
-    }
-    setAiTagSuggestions((prev) => prev?.filter((tag) => tag !== name) ?? null);
   }
 
   return (
@@ -218,17 +180,6 @@ export function ItemDetailPanel({ item, onClose }: Props) {
                 <Button type="button" onClick={handleCreateTag} disabled={creatingTag}>
                   Add tag
                 </Button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={handleSuggestTags} disabled={suggestingTags}>
-                  {suggestingTags ? "Thinking…" : "Suggest tags"}
-                </Button>
-                {aiTagSuggestions?.map((tag) => (
-                  <Button key={tag} type="button" variant="secondary" onClick={() => handleApplySuggestedTag(tag)}>
-                    + {tag}
-                  </Button>
-                ))}
               </div>
             </CardContent>
           </Card>

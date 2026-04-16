@@ -1,4 +1,4 @@
-import { useAnalyzeItem, useCategorizeItem, useSavedAnalysis } from "../hooks/useAI";
+import { useAnalyzeItem, useSavedAnalysis } from "../hooks/useAI";
 import type { Item } from "../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ interface AIPanelProps {
 export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
   const { data: analysisState, error: analysisError } = useSavedAnalysis(item.id);
   const { mutate: queueAnalysis, isPending: queueing } = useAnalyzeItem(item.id);
-  const { mutate: categorize, isPending: categorizing } = useCategorizeItem();
 
   const analysis = analysisState?.result;
   const job = analysisState?.job;
@@ -20,34 +19,17 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
     queueAnalysis(item.id);
   }
 
-  function handleSuggestTags() {
-    categorize(
-      {
-        title: item.title,
-        description: item.description,
-        sourceUrl: item.sourceUrl,
-        contentType: item.contentType,
-      },
-      {
-        onSuccess: (result) => {
-          if (onSuggestTags) onSuggestTags(result.suggested_tags);
-        },
-      }
-    );
-  }
-
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
         <Button onClick={handleAnalyze} disabled={queueing} variant="outline" size="sm">
           {queueing ? "Queueing…" : analysis ? "Refresh Analysis" : "Queue Analysis"}
         </Button>
-
-        {onSuggestTags && (
-          <Button onClick={handleSuggestTags} disabled={categorizing} variant="secondary" size="sm">
-            {categorizing ? "…" : "Suggest Tags"}
+        {onSuggestTags && analysis?.tagSuggestions.length ? (
+          <Button onClick={() => onSuggestTags(analysis.tagSuggestions)} variant="secondary" size="sm">
+            Use Suggested Tags
           </Button>
-        )}
+        ) : null}
       </div>
 
       {job ? (
@@ -68,7 +50,6 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
       {analysis ? (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            {analysis.mood ? <Badge variant="secondary" className="w-fit">{analysis.mood}</Badge> : null}
             {analysisState?.modelUsed ? <Badge variant="outline">{analysisState.modelUsed}</Badge> : null}
           </div>
           <div>
@@ -77,19 +58,36 @@ export function AIPanel({ item, onSuggestTags }: AIPanelProps) {
           </div>
 
           <div>
-            <AiLabel>Key Points</AiLabel>
-            <ul className="flex list-disc flex-col gap-1 pl-4">
-              {analysis.key_points.map((pt, i) => (
-                <li key={i} className="text-sm leading-6 text-foreground">
-                  {pt}
-                </li>
-              ))}
-            </ul>
+            <AiLabel>Content Analysis</AiLabel>
+            <p className="m-0 text-sm leading-7 text-foreground">{analysis.contentAnalysis}</p>
           </div>
 
-          <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.45)] px-4 py-3">
-            <AiLabel>Recommendation</AiLabel>
-            <p className="m-0 text-sm leading-6">{analysis.recommendation}</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.45)] px-4 py-3">
+              <AiLabel>Tag Suggestions</AiLabel>
+              {analysis.tagSuggestions.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {analysis.tagSuggestions.map((tag) => (
+                    <Badge key={tag} variant="secondary">{tag}</Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="m-0 text-sm leading-6 text-muted-foreground">No suggested tags.</p>
+              )}
+            </div>
+
+            <div className="rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.45)] px-4 py-3">
+              <AiLabel>Topic Suggestions</AiLabel>
+              {analysis.topicSuggestions.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {analysis.topicSuggestions.map((topic) => (
+                    <Badge key={topic} variant="outline">{topic}</Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="m-0 text-sm leading-6 text-muted-foreground">No suggested topics.</p>
+              )}
+            </div>
           </div>
         </div>
       ) : (

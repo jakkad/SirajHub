@@ -8,6 +8,10 @@ export interface InterestChip {
 }
 
 export type InterestProfiles = Partial<Record<ContentTypeId, InterestChip[]>>;
+export interface AiPrompts {
+  analyze: string;
+  score: string;
+}
 
 // ── Item type (mirrors DB schema) ─────────────────────────────────────────────
 
@@ -33,6 +37,9 @@ export interface Item {
   suggestMetricFinal: number | null;
   suggestMetricUpdatedAt: number | null;
   suggestMetricReason: string | null;
+  suggestMetricNeedsMoreInfo: boolean;
+  suggestMetricMoreInfoRequest: string | null;
+  suggestMetricModelUsed: string | null;
   trendingBoostEnabled: boolean;
   startedAt: number | null;
   finishedAt: number | null;
@@ -146,32 +153,37 @@ export const ingestApi = {
 
 export interface AiAnalysis {
   summary: string;
-  key_points: string[];
-  recommendation: string;
-  mood?: string;
+  contentAnalysis: string;
+  tagSuggestions: string[];
+  topicSuggestions: string[];
 }
 
 export interface RankedSuggestion {
   id: string;
   score: number | null;
   baseScore: number | null;
-  reason: string | null;
+  explanation: string | null;
   boosts: {
     recent: number;
     trending: number;
   };
   pending: boolean;
   updatedAt: number | null;
+  needsMoreInfo: boolean;
+  moreInfoRequest: string | null;
+  modelUsed: string | null;
 }
 
 export interface AiJobSummary {
   id: string;
   itemId?: string | null;
-  jobType: "analyze_item" | "rank_next" | "score_item";
+  jobType: "analyze_item" | "score_item";
   status: "queued" | "processing" | "completed" | "failed";
   runAfter: number;
   completedAt: number | null;
   lastError: string | null;
+  result: unknown | null;
+  modelUsed: string | null;
   attempts: number;
   createdAt: number;
   updatedAt: number;
@@ -198,24 +210,17 @@ export interface QueuedAnalysisResponse {
   job: AiJobSummary;
 }
 
-export interface NextListResponse {
-  result: RankedSuggestion[];
-  savedAt: number | null;
-  modelUsed: string | null;
-  job: AiJobSummary | null;
-}
-
-export interface QueuedNextListResponse extends NextListResponse {
+export interface QueuedScoreResponse {
   queued: boolean;
   intervalMinutes: number;
   job: AiJobSummary;
 }
 
-export interface CategorizeResult {
-  content_type: string;
-  confidence: number;
-  suggested_tags: string[];
-  suggested_status: string;
+export interface NextListResponse {
+  result: RankedSuggestion[];
+  savedAt: number | null;
+  modelUsed: string | null;
+  job: AiJobSummary | null;
 }
 
 export const aiApi = {
@@ -227,18 +232,15 @@ export const aiApi = {
     return request(`/api/ai/analyze/${itemId}`, { method: "POST" });
   },
 
+  score(itemId: string): Promise<QueuedScoreResponse> {
+    return request(`/api/ai/score/${itemId}`, { method: "POST" });
+  },
+
   getNextList(contentType?: string): Promise<NextListResponse> {
     const params = new URLSearchParams();
     if (contentType) params.set("content_type", contentType);
     const qs = params.toString();
     return request(`/api/ai/next${qs ? `?${qs}` : ""}`);
-  },
-
-  queueNextList(contentType?: string): Promise<QueuedNextListResponse> {
-    const params = new URLSearchParams();
-    if (contentType) params.set("content_type", contentType);
-    const qs = params.toString();
-    return request(`/api/ai/next${qs ? `?${qs}` : ""}`, { method: "POST" });
   },
 
   listJobs(): Promise<{ jobs: AiQueueJob[] }> {
@@ -249,20 +251,12 @@ export const aiApi = {
     return request(`/api/ai/jobs/${jobId}/retry`, { method: "POST" });
   },
 
-  deleteJob(jobId: string): Promise<{ ok: true }> {
-    return request(`/api/ai/jobs/${jobId}`, { method: "DELETE" });
+  repeatJob(jobId: string): Promise<{ ok: true; job: AiJobSummary }> {
+    return request(`/api/ai/jobs/${jobId}/repeat`, { method: "POST" });
   },
 
-  categorize(input: {
-    title: string;
-    description?: string | null;
-    sourceUrl?: string | null;
-    contentType: string;
-  }): Promise<CategorizeResult> {
-    return request<CategorizeResult>("/api/ai/categorize", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+  deleteJob(jobId: string): Promise<{ ok: true }> {
+    return request(`/api/ai/jobs/${jobId}`, { method: "DELETE" });
   },
 };
 
@@ -343,6 +337,13 @@ export interface UserSettings {
   aiModel: string | null;
   aiQueueIntervalMinutes: number;
   interestProfiles: InterestProfiles;
+  aiPrompts: AiPrompts;
+}
+
+export interface UserSettingsModelTestResponse {
+  ok: boolean;
+  model: string;
+  message: string;
 }
 
 export const userSettingsApi = {
@@ -364,10 +365,24 @@ export const userSettingsApi = {
     });
   },
 
+  testModel(model: string, key?: string): Promise<UserSettingsModelTestResponse> {
+    return request<UserSettingsModelTestResponse>("/api/user/settings/test-model", {
+      method: "POST",
+      body: JSON.stringify({ model, key }),
+    });
+  },
+
   updateInterestProfiles(interestProfiles: InterestProfiles): Promise<{ ok: boolean; interestProfiles: InterestProfiles }> {
     return request<{ ok: boolean; interestProfiles: InterestProfiles }>("/api/user/settings", {
       method: "PATCH",
       body: JSON.stringify({ interestProfiles }),
+    });
+  },
+
+  updateAiPrompts(aiPrompts: AiPrompts): Promise<{ ok: boolean; aiPrompts: AiPrompts }> {
+    return request<{ ok: boolean; aiPrompts: AiPrompts }>("/api/user/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ aiPrompts }),
     });
   },
 };

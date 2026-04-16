@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useScoreItem } from "../hooks/useAI";
 import { useItems, useUpdateItem, useDeleteItem } from "../hooks/useItems";
 import { CONTENT_TYPES, STATUSES } from "../lib/constants";
 import type { StatusId } from "../lib/constants";
@@ -30,6 +31,7 @@ function ItemDetailPage() {
   const { data: allItems = [], isLoading } = useItems();
   const { mutate: updateItem } = useUpdateItem();
   const { mutate: deleteItem, isPending: deleting } = useDeleteItem();
+  const { mutate: queueScore, isPending: queueingScore } = useScoreItem(id);
 
   const item = allItems.find((i) => i.id === id);
 
@@ -309,6 +311,12 @@ function ItemDetailPage() {
 
           <section className="flex flex-col gap-4 border-b border-[hsl(var(--border))] pb-6">
             <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Suggest Metric</h2>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => queueScore(currentItem.id)} disabled={queueingScore}>
+                  {queueingScore ? "Queueing Re-score…" : currentItem.suggestMetricNeedsMoreInfo ? "Re-score With More Info" : "Re-score"}
+                </Button>
+                {currentItem.suggestMetricModelUsed ? <Badge variant="outline">{currentItem.suggestMetricModelUsed}</Badge> : null}
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <MetricStat label="Base score" value={currentItem.suggestMetricBase != null ? currentItem.suggestMetricBase : "Pending"} />
                 <MetricStat label="Final score" value={currentItem.suggestMetricFinal != null ? currentItem.suggestMetricFinal : "Pending"} />
@@ -328,6 +336,15 @@ function ItemDetailPage() {
                   {currentItem.suggestMetricReason ?? "No suggest metric has been generated for this item yet."}
                 </p>
               </div>
+
+              {currentItem.suggestMetricNeedsMoreInfo ? (
+                <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">More Info Requested</p>
+                  <p className="mt-2 text-sm leading-7 text-foreground">
+                    {currentItem.suggestMetricMoreInfoRequest ?? "The scorer needs more metadata before it can score this item confidently."}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="text-xs text-muted-foreground">
                 {currentItem.suggestMetricUpdatedAt

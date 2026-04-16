@@ -1239,3 +1239,103 @@ apps/web/src/routes/item.$id.tsx
 | V2.7–3 — Shared Layout | Flatten collection pages into a simpler title / filters / content structure | ✅ Done |
 | V2.7–4 — Internal Pages | Simplify Settings and item detail page framing | ✅ Done |
 | V2.7–5 — Header Icons | Remove decorative header emojis/icons from internal pages | ✅ Done |
+
+---
+
+# V2.8 — AI Surface Tightening
+
+> **Motivation:** The AI layer had grown too broad, with overlapping behaviors for categorization, ranking, analysis, and queue refreshes. V2.8 reduces that system to two clear product features only: per-item Analyze and per-item Scoring.
+
+## V2.8 Step 1 — Reduce AI to Two Features
+
+- [x] Keep only these AI job types:
+  - `analyze_item`
+  - `score_item`
+- [x] Remove `rank_next` from backend, frontend, queue UI, and shared types
+- [x] Remove standalone categorization as a user-facing AI path
+- [x] Keep `Next To Consume` as a read-only score-derived product view rather than a queue-triggered AI action
+
+## V2.8 Step 2 — Structured Item Analysis
+
+- [x] Redefine Analyze to send full item metadata
+- [x] Replace the old saved analysis shape with:
+  - `summary`
+  - `contentAnalysis`
+  - `tagSuggestions`
+  - `topicSuggestions`
+- [x] Save analysis results through the queue as the latest structured item analysis
+- [x] Update analysis UIs to show the structured response and allow tag application from the saved result
+
+## V2.8 Step 3 — Structured Scoring
+
+- [x] Keep automatic `score_item` queueing on item creation
+- [x] Add manual per-item re-scoring through `POST /api/ai/score/:id`
+- [x] Redefine scoring output as:
+  - `score`
+  - `explanation`
+  - `needsMoreInfo`
+  - `moreInfoRequest`
+- [x] Store score-specific fields on items, including:
+  - needs-more-info flag
+  - more-info request
+  - model used
+- [x] Add a manual per-item `Re-score` action
+- [x] Keep `Recent +50` and `Trending +100` as deterministic product boosts
+
+## V2.8 Step 4 — Queue as the Operational Source of Truth
+
+- [x] Keep all remaining AI work queue-driven
+- [x] Allow queued and failed jobs to be deleted
+- [x] Allow failed jobs to be retried
+- [x] Allow completed jobs to be repeated
+- [x] Surface queue result payloads, concise AI response summaries, and `modelUsed` in the queue log instead of showing status only
+- [x] Keep foreground queue processing so local/manual usage still advances without waiting on cron alone
+
+## V2.8 Step 5 — Model Validation and Prompt Templates
+
+- [x] Add selected-model validation in Settings
+- [x] Test the exact saved model against the current Gemini key
+- [x] Add per-user prompt templates for:
+  - `Analyze`
+  - `Score`
+- [x] Pre-fill those fields with default prompt templates
+- [x] Make queue workers resolve those saved prompts and append item metadata / interest context automatically
+
+## V2.8 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+worker/src/db/schema.ts
+worker/src/routes/ai.ts
+worker/src/routes/user.ts
+worker/src/services/ai.ts
+worker/src/services/ai-queue.ts
+worker/src/lib/user-settings.ts
+apps/web/src/lib/api.ts
+apps/web/src/hooks/useAI.ts
+apps/web/src/hooks/useUser.ts
+apps/web/src/routes/settings.tsx
+apps/web/src/routes/item.$id.tsx
+apps/web/src/components/AIPanel.tsx
+apps/web/src/components/ItemCard.tsx
+apps/web/src/components/ItemDetailPanel.tsx
+apps/web/src/components/AddItemDialog.tsx
+apps/web/src/components/dashboard/NextToConsume.tsx
+apps/web/src/components/NextListPanel.tsx
+```
+
+### Created
+```text
+worker/src/db/migrations/0005_ai_surface_tightening.sql
+```
+
+## V2.8 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.8–1 — Feature Reduction | Reduce AI to Analyze and Scoring only | ✅ Done |
+| V2.8–2 — Analysis | Replace saved analysis with one structured per-item analysis result | ✅ Done |
+| V2.8–3 — Scoring | Replace scoring output with structured score/explanation/info-needed fields | ✅ Done |
+| V2.8–4 — Queue | Make the queue the visible operational layer for all AI work | ✅ Done |
+| V2.8–5 — Model + Prompts | Validate selected models and add saved prompt templates for both actions | ✅ Done |

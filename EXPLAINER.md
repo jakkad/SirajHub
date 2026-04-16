@@ -3585,3 +3585,261 @@ The most important updated areas are:
 | V2.7 Step 3 | Flatten collection pages into a simpler title / filters / content structure | Complete |
 | V2.7 Step 4 | Simplify Settings and item detail page framing | Complete |
 | V2.7 Step 5 | Remove decorative header emojis/icons from internal pages | Complete |
+
+---
+
+# V2.8 — AI Surface Tightening
+
+## What V2.8 Was About
+
+Before V2.8, SirajHub’s AI layer had started to sprawl.
+
+There were multiple different AI behaviors in the product:
+
+- item analysis
+- tag suggestion / categorization
+- score generation
+- bulk next-to-consume refresh logic
+
+That made the system harder to understand and harder to trust.
+
+V2.8 simplifies the entire AI surface into two clear product actions only:
+
+1. `Analyze`
+2. `Scoring`
+
+Everything else was either removed or turned into a read-only derived view.
+
+---
+
+## V2.8 Step 1 — Reduce AI to Two Features
+
+### What this step was about
+
+The first goal was to stop AI from showing up in too many overlapping ways.
+
+### What changed
+
+After V2.8, SirajHub keeps only two AI job types:
+
+- `analyze_item`
+- `score_item`
+
+The old `rank_next` queue job was removed.
+
+The separate categorization/tag-suggestion feature was also removed as a standalone AI path.
+
+`Next To Consume` still exists as a product feature, but it no longer behaves like an AI action.
+
+It is now a read-only ranking built from stored score data.
+
+### Why this matters
+
+This gives the app a smaller, more predictable AI surface.
+
+Users now have a much clearer mental model:
+
+- Analyze is a manual insight tool
+- Scoring is a recommendation tool
+
+---
+
+## V2.8 Step 2 — Structured Item Analysis
+
+### What this step was about
+
+The old analysis shape was narrower and split some useful output into separate AI paths.
+
+V2.8 brings that back together.
+
+### What changed
+
+Analyze now sends fuller item context, including:
+
+- title
+- content type
+- creator
+- description
+- release date
+- duration
+- source URL
+- stored metadata
+- current tags
+
+The saved result shape was replaced with a structured analysis format:
+
+- `summary`
+- `contentAnalysis`
+- `tagSuggestions`
+- `topicSuggestions`
+
+That result is stored as the item’s latest analysis through the queue.
+
+The item-facing analysis UI now reads directly from that saved result and can apply tag suggestions from it.
+
+### Why this matters
+
+This makes analysis more useful and also removes the need for a second “AI suggest tags” feature path.
+
+Analysis is now the one place where item-level interpretation and organizational suggestions live.
+
+---
+
+## V2.8 Step 3 — Structured Scoring
+
+### What this step was about
+
+Scoring was already central to recommendations, but it still only returned a score and a short reason.
+
+That was not enough when metadata was weak.
+
+### What changed
+
+Scoring now returns a richer structured result:
+
+- `score`
+- `explanation`
+- `needsMoreInfo`
+- `moreInfoRequest`
+
+Those values are saved directly onto the item alongside:
+
+- base score
+- final boosted score
+- last updated time
+- scoring model used
+
+The product keeps its deterministic boosts:
+
+- `Recent +50`
+- `Trending +100`
+
+There is now also a manual `Re-score` action on the item page.
+
+Under the hood, that manual rerun now goes through its own dedicated score route and still enters the queue like every other AI task, so scoring stays operationally consistent instead of bypassing the queue.
+
+That is especially important when scoring says more metadata is needed.
+
+### Why this matters
+
+This turns scoring from a single number into something more operational and transparent.
+
+Users can now see:
+
+- why something scored the way it did
+- whether the scorer is uncertain
+- what extra metadata would improve the recommendation
+
+---
+
+## V2.8 Step 4 — Queue as the Operational Source of Truth
+
+### What this step was about
+
+Once AI was reduced to two features, the queue needed to become the real visible execution layer for both.
+
+### What changed
+
+The queue now only shows:
+
+- analysis jobs
+- scoring jobs
+
+It also exposes more than status.
+
+Queue entries now surface:
+
+- job type
+- item title
+- attempts
+- timestamps
+- model used
+- actual AI response payload or a concise saved result summary
+- last error when relevant
+
+The allowed actions are now clearer:
+
+- queued jobs can be deleted
+- failed jobs can be retried or deleted
+- completed jobs can be repeated
+
+Foreground queue processing was kept as well, so local/manual use still causes due jobs to advance without relying only on cron timing.
+
+### Why this matters
+
+The queue is no longer just a background implementation detail.
+
+It is now the operational dashboard for AI work.
+
+---
+
+## V2.8 Step 5 — Model Validation and Prompt Templates
+
+### What this step was about
+
+Two usability gaps still remained after the feature reduction:
+
+1. model selection needed a real end-to-end test
+2. prompt consistency needed to be user-configurable
+
+### What changed
+
+Settings now includes a real selected-model test flow.
+
+Instead of only testing whether a Gemini key exists, the app now tests whether the chosen model can actually be used with the current key.
+
+V2.8 also adds saved prompt templates for the two remaining AI actions:
+
+- `Analyze`
+- `Score`
+
+These templates are stored per user in settings and are prefilled with default prompts.
+
+The worker uses those saved prompts as the instruction layer, then automatically appends:
+
+- item metadata
+- tags and stored metadata for analysis
+- interest profile context for scoring
+
+### Why this matters
+
+This makes AI output more consistent and more controllable.
+
+Instead of hardcoding one system prompt forever, the app now gives the user a place to tune the behavior while still keeping the item data injection automatic and structured.
+
+---
+
+## V2.8 Files Changed
+
+The most important updated areas are:
+
+- `worker/src/services/ai.ts`
+- `worker/src/services/ai-queue.ts`
+- `worker/src/routes/ai.ts`
+- `worker/src/routes/user.ts`
+- `worker/src/lib/user-settings.ts`
+- `worker/src/db/schema.ts`
+- `worker/src/db/migrations/0005_ai_surface_tightening.sql`
+- `apps/web/src/routes/settings.tsx`
+- `apps/web/src/routes/item.$id.tsx`
+- `apps/web/src/components/AIPanel.tsx`
+- `apps/web/src/components/dashboard/NextToConsume.tsx`
+- `apps/web/src/components/NextListPanel.tsx`
+- `apps/web/src/components/AddItemDialog.tsx`
+- `apps/web/src/components/ItemDetailPanel.tsx`
+- `apps/web/src/components/ItemCard.tsx`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/hooks/useAI.ts`
+- `apps/web/src/hooks/useUser.ts`
+
+---
+
+## V2.8 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.8 Step 1 | Reduce AI to Analyze and Scoring only | Complete |
+| V2.8 Step 2 | Replace saved analysis with one structured per-item analysis result | Complete |
+| V2.8 Step 3 | Replace scoring output with structured score/explanation/info-needed fields | Complete |
+| V2.8 Step 4 | Make the queue the visible operational layer for all AI work | Complete |
+| V2.8 Step 5 | Validate selected models and add saved prompt templates for both actions | Complete |

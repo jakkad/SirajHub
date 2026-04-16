@@ -1,18 +1,19 @@
 import { and, desc, eq, inArray, lte } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb, type Db } from "../db/client";
-import { aiCache, aiJobs, items } from "../db/schema";
+import { aiCache, aiJobs, itemTags, items, tags } from "../db/schema";
 import {
   CONTENT_TYPE_IDS,
   DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
   resolveAiModel,
+  resolveAiPrompts,
   resolveGeminiKey,
   resolveInterestProfiles,
 } from "../lib/user-settings";
 import { analyzeItem, scoreSuggestMetric } from "./ai";
 import type { Env } from "../types";
 
-export type AiJobType = "analyze_item" | "rank_next" | "score_item";
+export type AiJobType = "analyze_item" | "score_item";
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 60;
@@ -27,6 +28,8 @@ export function serializeJob(job: typeof aiJobs.$inferSelect) {
     runAfter: job.runAfter,
     completedAt: job.completedAt,
     lastError: job.lastError,
+    result: job.result ? JSON.parse(job.result) : null,
+    modelUsed: job.modelUsed,
     attempts: job.attempts,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
@@ -190,6 +193,26 @@ export async function retryAiJob(db: Db, userId: string, jobId: string) {
   return updated ?? null;
 }
 
+export async function repeatAiJob(db: Db, userId: string, jobId: string) {
+  const [job] = await db
+    .select()
+    .from(aiJobs)
+    .where(and(eq(aiJobs.id, jobId), eq(aiJobs.userId, userId)));
+
+  if (!job || job.status !== "completed") return null;
+
+  const repeated = await queueAiJob(
+    db,
+    userId,
+    job.jobType as AiJobType,
+    JSON.parse(job.payload) as Record<string, unknown>,
+    Date.now(),
+    job.itemId ?? undefined
+  );
+
+  return repeated;
+}
+
 async function saveAnalysisResult(db: Db, itemId: string, model: string, result: unknown, updatedAtHint: number) {
   const [cached] = await db
     .select()
@@ -235,18 +258,28 @@ async function processAnalyzeJob(db: Db, env: Env, job: typeof aiJobs.$inferSele
 
   if (!item) throw new Error("Item not found");
 
-  const [apiKey, model] = await Promise.all([
+  const currentTags = await db
+    .select({ name: tags.name })
+    .from(itemTags)
+    .innerJoin(tags, eq(itemTags.tagId, tags.id))
+    .where(eq(itemTags.itemId, item.id));
+
+  const [apiKey, model, prompts] = await Promise.all([
     resolveGeminiKey(db, job.userId, env.GEMINI_API_KEY),
     resolveAiModel(db, job.userId),
+    resolveAiPrompts(db, job.userId),
   ]);
 
-  const result = await analyzeItem(apiKey, model, {
+  const result = await analyzeItem(apiKey, model, prompts.analyze, {
     title: item.title,
     contentType: item.contentType,
     creator: item.creator,
     description: item.description,
     releaseDate: item.releaseDate,
     durationMins: item.durationMins,
+    sourceUrl: item.sourceUrl,
+    metadata: item.metadata,
+    tags: currentTags.map((entry) => entry.name),
   });
 
   await saveAnalysisResult(db, item.id, model, result, item.updatedAt);
@@ -265,10 +298,11 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
 
   if (!item) throw new Error("Item not found");
 
-  const [apiKey, model, interestProfiles] = await Promise.all([
+  const [apiKey, model, interestProfiles, prompts] = await Promise.all([
     resolveGeminiKey(db, job.userId, env.GEMINI_API_KEY),
     resolveAiModel(db, job.userId),
     resolveInterestProfiles(db, job.userId),
+    resolveAiPrompts(db, job.userId),
   ]);
 
   const interests = CONTENT_TYPE_IDS.includes(item.contentType as (typeof CONTENT_TYPE_IDS)[number])
@@ -278,6 +312,7 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
   const result = await scoreSuggestMetric(
     apiKey,
     model,
+    prompts.score,
     {
       title: item.title,
       contentType: item.contentType,
@@ -285,6 +320,7 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
       description: item.description,
       sourceUrl: item.sourceUrl,
       releaseDate: item.releaseDate,
+      metadata: item.metadata,
     },
     interests.map((entry) => `${entry.label} (${entry.weight})`)
   );
@@ -306,46 +342,14 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
       suggestMetricBase: result.score,
       suggestMetricFinal: finalScore,
       suggestMetricUpdatedAt: updatedAt,
-      suggestMetricReason: result.reason,
+      suggestMetricReason: result.explanation,
+      suggestMetricNeedsMoreInfo: result.needsMoreInfo,
+      suggestMetricMoreInfoRequest: result.moreInfoRequest,
+      suggestMetricModelUsed: model,
     })
     .where(eq(items.id, item.id));
 
   return { model, result: { ...result, finalScore } };
-}
-
-async function processRankNextJob(db: Db, _env: Env, job: typeof aiJobs.$inferSelect) {
-  const payload = JSON.parse(job.payload) as { contentType?: string | null };
-  const conditions = [eq(items.userId, job.userId), eq(items.status, "suggestions")];
-  if (payload.contentType) {
-    conditions.push(eq(items.contentType, payload.contentType));
-  }
-
-  const suggestions = await db
-    .select()
-    .from(items)
-    .where(and(...conditions));
-
-  const queuedJobs = await Promise.all(
-    suggestions.map((item) =>
-      queueAiJob(
-        db,
-        job.userId,
-        "score_item",
-        { itemId: item.id },
-        Date.now(),
-        item.id
-      )
-    )
-  );
-
-  return {
-    model: null,
-    result: {
-      refreshedCount: suggestions.length,
-      queuedScoreJobs: queuedJobs.length,
-      contentType: payload.contentType ?? null,
-    },
-  };
 }
 
 export async function processAiQueue(env: Env) {
@@ -377,9 +381,7 @@ export async function processAiQueue(env: Env) {
         const output =
           job.jobType === "analyze_item"
             ? await processAnalyzeJob(db, env, job)
-            : job.jobType === "score_item"
-              ? await processScoreJob(db, env, job)
-              : await processRankNextJob(db, env, job);
+            : await processScoreJob(db, env, job);
 
         await db
           .update(aiJobs)

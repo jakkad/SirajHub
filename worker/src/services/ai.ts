@@ -1,34 +1,16 @@
-// Gemini API service for SirajHub AI features.
-// Model: gemini-2.5-flash (free tier: 20 req/day, 250K TPM)
-
-// Model is now resolved per-user in ai.ts route handler (falls back to "gemini-2.5-flash")
-
-export interface CategorizeResult {
-  content_type: string;
-  confidence: number;
-  suggested_tags: string[];
-  suggested_status: string;
-}
-
 export interface AnalysisResult {
   summary: string;
-  key_points: string[];
-  recommendation: string;
-  mood?: string;
-}
-
-export interface RankedItem {
-  id: string;
-  rank: number;
-  reason: string;
+  contentAnalysis: string;
+  tagSuggestions: string[];
+  topicSuggestions: string[];
 }
 
 export interface SuggestMetricResult {
   score: number;
-  reason: string;
+  explanation: string;
+  needsMoreInfo: boolean;
+  moreInfoRequest: string | null;
 }
-
-// ── Core Gemini fetch ─────────────────────────────────────────────────────────
 
 async function callGemini(apiKey: string, model: string, prompt: string, schema: object): Promise<unknown> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -40,8 +22,8 @@ async function callGemini(apiKey: string, model: string, prompt: string, schema:
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: schema,
-        temperature: 0.3,
-        maxOutputTokens: 1024,
+        temperature: 0.25,
+        maxOutputTokens: 1400,
       },
     }),
   });
@@ -61,63 +43,10 @@ async function callGemini(apiKey: string, model: string, prompt: string, schema:
   return JSON.parse(text);
 }
 
-// ── Auto-categorize (lightweight) ────────────────────────────────────────────
-// Called on new item creation to confirm/correct content_type and suggest tags.
-
-export async function categorizeItem(
-  apiKey: string,
-  model: string,
-  item: {
-    title: string;
-    description?: string | null;
-    sourceUrl?: string | null;
-    contentType: string;
-  }
-): Promise<CategorizeResult> {
-  let domain = "unknown";
-  try {
-    if (item.sourceUrl) domain = new URL(item.sourceUrl).hostname.replace("www.", "");
-  } catch {
-    // ignore invalid URLs
-  }
-
-  const prompt = `Classify this content item for a personal media tracker.
-Title: ${item.title}
-Description: ${item.description ?? "none"}
-URL domain: ${domain}
-Current type assigned by user: ${item.contentType}
-
-Valid content types: book, movie, tv, podcast, youtube, article, tweet
-Return the best matching type, your confidence (0-1), 1-4 short lowercase tags, and suggested status.`;
-
-  return callGemini(apiKey, model, prompt, {
-    type: "object",
-    properties: {
-      content_type: { type: "string" },
-      confidence: { type: "number" },
-      suggested_tags: { type: "array", items: { type: "string" } },
-      suggested_status: { type: "string" },
-    },
-    required: ["content_type", "confidence", "suggested_tags", "suggested_status"],
-  }) as Promise<CategorizeResult>;
-}
-
-// ── On-demand item analysis ───────────────────────────────────────────────────
-// Generates a summary, key points, recommendation, and mood for any content item.
-
-const TYPE_GUIDE: Record<string, string> = {
-  book: "Focus on: main themes, writing style, key insights, and who would most enjoy it.",
-  movie: "Focus on: premise, tone, cinematography, themes, and emotional impact (no spoilers).",
-  tv: "Focus on: premise, pacing, season count/commitment, and what makes it worth watching.",
-  podcast: "Focus on: topics covered, host style, episode quality, and target audience.",
-  youtube: "Focus on: content type, production quality, creator style, and educational/entertainment value.",
-  article: "Focus on: main argument, key takeaways, source credibility, and time investment.",
-  tweet: "Focus on: the core idea, significance, and context of the observation.",
-};
-
 export async function analyzeItem(
   apiKey: string,
   model: string,
+  promptTemplate: string,
   item: {
     title: string;
     contentType: string;
@@ -125,37 +54,58 @@ export async function analyzeItem(
     description?: string | null;
     releaseDate?: string | null;
     durationMins?: number | null;
+    sourceUrl?: string | null;
+    metadata?: string | null;
+    tags?: string[];
   }
 ): Promise<AnalysisResult> {
-  const guide = TYPE_GUIDE[item.contentType] ?? "Provide a general analysis.";
+  const metadataBlock = item.metadata?.trim() ? item.metadata.slice(0, 2500) : "none";
+  const tagBlock = item.tags && item.tags.length > 0 ? item.tags.join(", ") : "none";
 
-  const prompt = `Analyze this ${item.contentType} for a personal content tracker.
+  const prompt = `${promptTemplate}
+
+Item metadata:
 Title: ${item.title}
-Creator/Author/Director/Channel: ${item.creator ?? "unknown"}
+Content type: ${item.contentType}
+Creator: ${item.creator ?? "unknown"}
 Release date: ${item.releaseDate ?? "unknown"}
 Duration: ${item.durationMins != null ? `${item.durationMins} mins` : "unknown"}
+Source URL: ${item.sourceUrl ?? "unknown"}
+Current tags: ${tagBlock}
 Description: ${item.description ?? "none"}
+Stored metadata: ${metadataBlock}
 
-${guide}
+Return:
+- summary: a short plain-English overview
+- contentAnalysis: a more detailed paragraph on the content itself, value, tone, or themes
+- tagSuggestions: 3-6 concise tags for organizing this item
+- topicSuggestions: 3-6 concise topics/themes discussed or represented by this item
 
-Be concise. Key points should be 2-4 bullets. Recommendation should be one sentence.
-Mood is optional — include only for movies, TV, or books (e.g. "dark thriller", "feel-good comedy").`;
+Stay practical and avoid filler.`;
 
-  return callGemini(apiKey, model, prompt, {
+  const result = await callGemini(apiKey, model, prompt, {
     type: "object",
     properties: {
       summary: { type: "string" },
-      key_points: { type: "array", items: { type: "string" } },
-      recommendation: { type: "string" },
-      mood: { type: "string" },
+      contentAnalysis: { type: "string" },
+      tagSuggestions: { type: "array", items: { type: "string" } },
+      topicSuggestions: { type: "array", items: { type: "string" } },
     },
-    required: ["summary", "key_points", "recommendation"],
-  }) as Promise<AnalysisResult>;
+    required: ["summary", "contentAnalysis", "tagSuggestions", "topicSuggestions"],
+  }) as AnalysisResult;
+
+  return {
+    summary: result.summary.trim(),
+    contentAnalysis: result.contentAnalysis.trim(),
+    tagSuggestions: result.tagSuggestions.map((entry) => entry.trim()).filter(Boolean).slice(0, 6),
+    topicSuggestions: result.topicSuggestions.map((entry) => entry.trim()).filter(Boolean).slice(0, 6),
+  };
 }
 
 export async function scoreSuggestMetric(
   apiKey: string,
   model: string,
+  promptTemplate: string,
   item: {
     title: string;
     contentType: string;
@@ -163,6 +113,7 @@ export async function scoreSuggestMetric(
     description?: string | null;
     sourceUrl?: string | null;
     releaseDate?: string | null;
+    metadata?: string | null;
   },
   interestLines: string[]
 ): Promise<SuggestMetricResult> {
@@ -170,7 +121,7 @@ export async function scoreSuggestMetric(
   try {
     if (item.sourceUrl) domain = new URL(item.sourceUrl).hostname.replace("www.", "");
   } catch {
-    // ignore invalid URL
+    // ignore invalid URLs
   }
 
   const interestBlock =
@@ -178,81 +129,60 @@ export async function scoreSuggestMetric(
       ? interestLines.map((entry) => `- ${entry}`).join("\n")
       : "- No custom interests configured for this media type.";
 
-  const prompt = `Score how strongly this ${item.contentType} matches the user's interests for future consumption.
+  const metadataBlock = item.metadata?.trim() ? item.metadata.slice(0, 2000) : "none";
 
+  const prompt = `${promptTemplate}
+
+Item metadata:
 Title: ${item.title}
+Content type: ${item.contentType}
 Creator: ${item.creator ?? "unknown"}
 Description: ${item.description ?? "none"}
 Release date: ${item.releaseDate ?? "unknown"}
 Source domain: ${domain}
+Stored metadata: ${metadataBlock}
 
 Interest profile for this media type:
 ${interestBlock}
 
 Return:
 - score: integer from 0 to 1000
-- reason: one short sentence explaining the score
+- explanation: one short explanation for the score
+- needsMoreInfo: true if the item is too under-described to score confidently
+- moreInfoRequest: one short sentence describing what extra info would improve the score, otherwise null
 
-Higher score means more promising to consume next for this user's taste.`;
+Always return a score even if needsMoreInfo is true.`;
 
   const result = await callGemini(apiKey, model, prompt, {
     type: "object",
     properties: {
       score: { type: "integer" },
-      reason: { type: "string" },
+      explanation: { type: "string" },
+      needsMoreInfo: { type: "boolean" },
+      moreInfoRequest: { type: ["string", "null"] },
     },
-    required: ["score", "reason"],
+    required: ["score", "explanation", "needsMoreInfo", "moreInfoRequest"],
   }) as SuggestMetricResult;
 
   return {
     score: Math.max(0, Math.min(1000, Math.round(result.score))),
-    reason: result.reason,
+    explanation: result.explanation.trim(),
+    needsMoreInfo: Boolean(result.needsMoreInfo),
+    moreInfoRequest: result.moreInfoRequest?.trim() || null,
   };
 }
 
-// ── "Next to Consume" ranking ─────────────────────────────────────────────────
-// Takes all suggestion-status items and returns them ranked best-first with reasoning.
-
-export async function rankNextList(
-  apiKey: string,
-  model: string,
-  suggestions: Array<{
-    id: string;
-    title: string;
-    contentType: string;
-    creator?: string | null;
-    description?: string | null;
-  }>,
-  preferences: string | null
-): Promise<RankedItem[]> {
-  if (suggestions.length === 0) return [];
-
-  const itemLines = suggestions
-    .map((s) => `- [${s.id}] "${s.title}" (${s.contentType}${s.creator ? ` by ${s.creator}` : ""})`)
-    .join("\n");
-
-  const prefLine = preferences
-    ? `User taste preferences: ${preferences}`
-    : "No specific preferences provided — use general quality signals.";
-
-  const prompt = `Rank these ${suggestions.length} content items from best to consume next (#1) to last.
-${prefLine}
-
-Items:
-${itemLines}
-
-Return all ${suggestions.length} items ranked. Each item needs its exact id, rank number (1 = best), and a brief 1-sentence reason.`;
-
-  return callGemini(apiKey, model, prompt, {
-    type: "array",
-    items: {
+export async function testGeminiModel(apiKey: string, model: string): Promise<void> {
+  await callGemini(
+    apiKey,
+    model,
+    "Return a JSON object with {\"ok\": true}.",
+    {
       type: "object",
       properties: {
-        id: { type: "string" },
-        rank: { type: "integer" },
-        reason: { type: "string" },
+        ok: { type: "boolean" },
       },
-      required: ["id", "rank", "reason"],
-    },
-  }) as Promise<RankedItem[]>;
+      required: ["ok"],
+    }
+  );
 }

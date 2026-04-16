@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { aiApi } from "../lib/api";
-import type { CategorizeResult } from "../lib/api";
 
 export function useSavedAnalysis(itemId: string, enabled = true) {
   return useQuery({
@@ -24,6 +23,18 @@ export function useAnalyzeItem(itemId?: string) {
   });
 }
 
+export function useScoreItem(itemId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (targetItemId: string) => aiApi.score(targetItemId),
+    onSuccess: (_, targetItemId) => {
+      qc.invalidateQueries({ queryKey: ["ai-jobs"] });
+      qc.invalidateQueries({ queryKey: ["ai-next"] });
+      qc.invalidateQueries({ queryKey: ["items"] });
+    },
+  });
+}
+
 export function useNextList(contentType?: string) {
   return useQuery({
     queryKey: ["ai-next", contentType ?? "all"],
@@ -31,17 +42,6 @@ export function useNextList(contentType?: string) {
     refetchInterval: (query) => {
       const state = query.state.data;
       return state?.job && ["queued", "processing"].includes(state.job.status) ? 30000 : false;
-    },
-  });
-}
-
-export function useRefreshNextList(contentType?: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => aiApi.queueNextList(contentType),
-    onSuccess: (data) => {
-      qc.setQueryData(["ai-next", contentType ?? "all"], data);
-      qc.invalidateQueries({ queryKey: ["ai-next"] });
     },
   });
 }
@@ -69,6 +69,18 @@ export function useRetryAiJob() {
   });
 }
 
+export function useRepeatAiJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (jobId: string) => aiApi.repeatJob(jobId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ai-jobs"] });
+      qc.invalidateQueries({ queryKey: ["ai-next"] });
+      qc.invalidateQueries({ queryKey: ["ai-analysis"] });
+    },
+  });
+}
+
 export function useDeleteAiJob() {
   const qc = useQueryClient();
   return useMutation({
@@ -78,15 +90,5 @@ export function useDeleteAiJob() {
       qc.invalidateQueries({ queryKey: ["ai-next"] });
       qc.invalidateQueries({ queryKey: ["ai-analysis"] });
     },
-  });
-}
-
-export function useCategorizeItem() {
-  return useMutation<
-    CategorizeResult,
-    Error,
-    { title: string; description?: string | null; sourceUrl?: string | null; contentType: string }
-  >({
-    mutationFn: (input) => aiApi.categorize(input),
   });
 }

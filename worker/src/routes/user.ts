@@ -4,11 +4,13 @@ import { createDb } from "../db/client";
 import { aiCache, aiJobs, items, user } from "../db/schema";
 import {
   DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+  normalizeAiPrompts,
   normalizeInterestProfiles,
   readUserSettings,
   writeUserSettings,
   type ApiKeysBlob,
 } from "../lib/user-settings";
+import { testGeminiModel } from "../services/ai";
 import type { Env } from "../types";
 
 type Variables = { userId: string };
@@ -92,7 +94,7 @@ router.delete("/ai-cache", async (c) => {
 
 const VALID_SERVICES = [
   "gemini", "tmdb", "youtube", "googleBooks",
-  "podcastIndexKey", "podcastIndexSecret", "aiModel", "aiQueueIntervalMinutes", "interestProfiles",
+  "podcastIndexKey", "podcastIndexSecret", "aiModel", "aiQueueIntervalMinutes", "interestProfiles", "aiPrompts",
 ] as const;
 
 // GET /api/user/settings — returns which keys are set (never returns raw values)
@@ -114,13 +116,14 @@ router.get("/settings", async (c) => {
         ? keys.aiQueueIntervalMinutes
         : DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
     interestProfiles: normalizeInterestProfiles(keys.interestProfiles),
+    aiPrompts: normalizeAiPrompts(keys.aiPrompts),
   });
 });
 
 // PATCH /api/user/settings — store or clear a single API key / model selection
 router.patch("/settings", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{ service?: string; key?: string; interestProfiles?: unknown }>();
+  const body = await c.req.json<{ service?: string; key?: string; interestProfiles?: unknown; aiPrompts?: unknown }>();
 
   if (body.interestProfiles !== undefined) {
     const db = createDb(c.env.DB);
@@ -128,6 +131,14 @@ router.patch("/settings", async (c) => {
     current.interestProfiles = normalizeInterestProfiles(body.interestProfiles);
     await writeUserSettings(db, userId, current);
     return c.json({ ok: true, interestProfiles: current.interestProfiles });
+  }
+
+  if (body.aiPrompts !== undefined) {
+    const db = createDb(c.env.DB);
+    const current = await readUserSettings(db, userId);
+    current.aiPrompts = normalizeAiPrompts(body.aiPrompts);
+    await writeUserSettings(db, userId, current);
+    return c.json({ ok: true, aiPrompts: current.aiPrompts });
   }
 
   if (!body.service || !VALID_SERVICES.includes(body.service as typeof VALID_SERVICES[number])) {
@@ -158,6 +169,10 @@ router.patch("/settings", async (c) => {
     interestProfiles:
       body.service === "interestProfiles"
         ? current.interestProfiles ?? {}
+        : undefined,
+    aiPrompts:
+      body.service === "aiPrompts"
+        ? normalizeAiPrompts(current.aiPrompts)
         : undefined,
   });
 });
@@ -202,6 +217,34 @@ router.post("/settings/test", async (c) => {
       ok: false,
       message: err instanceof Error ? err.message : "Gemini key test failed",
     }, 502);
+  }
+});
+
+router.post("/settings/test-model", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{ model?: string; key?: string }>();
+  const db = createDb(c.env.DB);
+  const keys = await readUserSettings(db, userId);
+  const keyToTest = body.key?.trim() || keys.gemini || c.env.GEMINI_API_KEY;
+  const model = body.model?.trim() || keys.aiModel || "gemini-2.5-flash";
+
+  if (!keyToTest) {
+    return c.json({ ok: false, message: "No Gemini API key found to test", model }, 400);
+  }
+
+  try {
+    await testGeminiModel(keyToTest, model);
+    return c.json({
+      ok: true,
+      model,
+      message: `Model ${model} is available with the current Gemini key`,
+    });
+  } catch (err) {
+    return c.json({
+      ok: false,
+      model,
+      message: err instanceof Error ? err.message : "Model test failed",
+    }, 400);
   }
 });
 

@@ -75,6 +75,9 @@ export const items = sqliteTable(
     suggestMetricFinal: integer("suggest_metric_final"),
     suggestMetricUpdatedAt: integer("suggest_metric_updated_at"),
     suggestMetricReason: text("suggest_metric_reason"),
+    suggestMetricNeedsMoreInfo: integer("suggest_metric_needs_more_info", { mode: "boolean" }).notNull().default(false),
+    suggestMetricMoreInfoRequest: text("suggest_metric_more_info_request"),
+    suggestMetricModelUsed: text("suggest_metric_model_used"),
     trendingBoostEnabled: integer("trending_boost_enabled", { mode: "boolean" }).notNull().default(false),
 
     // Timestamps (Unix ms integers for fast sorting/filtering)
@@ -148,7 +151,7 @@ export const aiCache = sqliteTable("ai_cache", {
   contentId: text("content_id")
     .notNull()
     .references(() => items.id, { onDelete: "cascade" }),
-  analysisType: text("analysis_type").notNull(), // 'summary'|'tags'|'categorize'|'next_rank'
+  analysisType: text("analysis_type").notNull(), // 'summary'
   modelUsed: text("model_used").notNull(), // e.g. 'gemini-2.5-flash-lite'
   promptHash: text("prompt_hash").notNull(), // SHA-256 of the prompt — detect stale cache
   result: text("result").notNull(), // JSON string from Gemini
@@ -164,7 +167,7 @@ export const aiJobs = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     itemId: text("item_id").references(() => items.id, { onDelete: "cascade" }),
-    jobType: text("job_type").notNull(), // 'analyze_item' | 'rank_next'
+    jobType: text("job_type").notNull(), // 'analyze_item' | 'score_item'
     status: text("status").notNull().default("queued"), // 'queued' | 'processing' | 'completed' | 'failed'
     payload: text("payload").notNull(), // JSON blob
     result: text("result"), // JSON blob

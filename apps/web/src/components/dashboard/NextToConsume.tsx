@@ -1,4 +1,4 @@
-import { useNextList, useRefreshNextList } from "../../hooks/useAI";
+import { useNextList } from "../../hooks/useAI";
 import { useItems } from "../../hooks/useItems";
 import { CONTENT_TYPES, type ContentTypeId } from "../../lib/constants";
 import { Link } from "@tanstack/react-router";
@@ -10,18 +10,15 @@ interface NextToConsumeProps {
   contentType?: ContentTypeId;
   title?: string;
   description?: string;
-  showRefresh?: boolean;
 }
 
 export function NextToConsume({
   contentType,
   title = "Next To Consume",
   description = "Stored suggestion scores based on your interest profiles and active boosts.",
-  showRefresh = true,
 }: NextToConsumeProps) {
   const { data: aiData, isLoading } = useNextList(contentType);
   const { data: allItems = [] } = useItems();
-  const { mutate: refresh, isPending: refreshing } = useRefreshNextList(contentType);
 
   const ranked = aiData?.result ?? [];
   const itemMap = Object.fromEntries(allItems.map((i) => [i.id, i]));
@@ -29,25 +26,20 @@ export function NextToConsume({
     item.status === "suggestions" && (!contentType || item.contentType === contentType)
   ).length;
 
-  function handleLoad() {
-    refresh();
-  }
-
   return (
     <div className="flex flex-col gap-3">
       {!aiData && !isLoading && (
         <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
-          <div className="flex items-center justify-between gap-3">
+          <div>
             <div>
               <p className="text-sm font-semibold text-foreground">{title}</p>
               <p className="mt-1 text-sm text-muted-foreground">{description}</p>
             </div>
-            {showRefresh ? <Button onClick={handleLoad} size="sm">Queue refresh</Button> : null}
           </div>
         </div>
       )}
 
-      {(isLoading || refreshing) && (
+      {isLoading && (
         <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 text-sm text-muted-foreground">
           Updating queue state…
         </div>
@@ -95,12 +87,14 @@ export function NextToConsume({
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold text-foreground">{item.title}</div>
                         <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                          {r.reason ?? "Waiting for AI score."}
+                          {r.explanation ?? "Waiting for AI score."}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
                           {r.boosts.recent > 0 ? <Badge variant="secondary">Recent +50</Badge> : null}
                           {r.boosts.trending > 0 ? <Badge variant="secondary">Trending +100</Badge> : null}
+                          {r.needsMoreInfo ? <Badge variant="outline">Needs more info</Badge> : null}
                         </div>
+                        {r.moreInfoRequest ? <div className="mt-2 text-xs text-muted-foreground">{r.moreInfoRequest}</div> : null}
                       </div>
                       {ct ? <Badge variant="outline">{ct.label}</Badge> : null}
                     </CardContent>
@@ -109,11 +103,6 @@ export function NextToConsume({
               );
             })}
           </div>
-          {showRefresh ? (
-            <Button onClick={() => refresh()} disabled={refreshing} variant="outline" className="w-fit">
-              {refreshing ? "Queueing…" : "Refresh scores"}
-            </Button>
-          ) : null}
         </>
       )}
     </div>

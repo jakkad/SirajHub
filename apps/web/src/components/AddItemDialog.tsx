@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 
-import { useCategorizeItem } from "../hooks/useAI";
 import { useCreateItem, useImportItems, useIngest, useIngestSearch, useResolveIngestSuggestion } from "../hooks/useItems";
 import { parseCsv, prepareCsvImport } from "../lib/csv";
 import { AUTO_DETECT_SOURCES, CONTENT_TYPES, SEARCHABLE_EXTERNAL_TYPES, STATUSES } from "../lib/constants";
@@ -47,7 +46,6 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [searchType, setSearchType] = useState<ContentTypeId>("book");
   const [mode, setMode] = useState<"url" | "search" | "manual" | "csv">("url");
   const [form, setForm] = useState(DEFAULT_FORM);
-  const [aiTypeHint, setAiTypeHint] = useState<{ type: ContentTypeId; label: string } | null>(null);
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvText, setCsvText] = useState("");
@@ -58,11 +56,9 @@ export function AddItemDialog({ open, onClose }: Props) {
   const { mutate: fetchMeta, isPending: fetching, error: fetchError } = useIngest();
   const { mutate: searchMeta, isPending: searching, error: searchError } = useIngestSearch();
   const { mutate: resolveSuggestion, isPending: resolving, error: resolveError } = useResolveIngestSuggestion();
-  const { mutate: categorize } = useCategorizeItem();
   const csvPreparation = useMemo(() => prepareCsvImport(parseCsv(csvText)), [csvText]);
 
   function setField(field: keyof typeof DEFAULT_FORM, value: string) {
-    if (field === "contentType") setAiTypeHint(null);
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -81,27 +77,6 @@ export function AddItemDialog({ open, onClose }: Props) {
     };
 
     setForm(filled);
-    setAiTypeHint(null);
-    categorize(
-      {
-        title: filled.title,
-        description: filled.description || null,
-        sourceUrl: filled.sourceUrl || null,
-        contentType: filled.contentType,
-      },
-      {
-        onSuccess(cat) {
-          if (
-            cat.confidence > 0.7 &&
-            cat.content_type !== filled.contentType &&
-            CONTENT_TYPES.some((t) => t.id === cat.content_type)
-          ) {
-            const ct = CONTENT_TYPES.find((t) => t.id === cat.content_type);
-            setAiTypeHint({ type: cat.content_type as ContentTypeId, label: ct?.label ?? cat.content_type });
-          }
-        },
-      }
-    );
   }
 
   function reset() {
@@ -110,7 +85,6 @@ export function AddItemDialog({ open, onClose }: Props) {
     setSearchType("book");
     setMode("url");
     setForm(DEFAULT_FORM);
-    setAiTypeHint(null);
     setSearchSuggestions([]);
     setCsvFileName("");
     setCsvText("");
@@ -458,17 +432,6 @@ export function AddItemDialog({ open, onClose }: Props) {
                       ) : null}
                     </div>
                   ) : null}
-
-                  {aiTypeHint ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Badge variant="secondary">AI hint</Badge>
-                      <p className="text-sm text-muted-foreground">Suggested type: {aiTypeHint.label}</p>
-                      <Button type="button" variant="outline" onClick={() => setField("contentType", aiTypeHint.type)}>
-                        Use suggestion
-                      </Button>
-                    </div>
-                  ) : null}
-
                   {error ? <p className="text-sm text-destructive">{(error as Error).message}</p> : null}
                 </CardContent>
               </Card>

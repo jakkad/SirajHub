@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { userApi, userSettingsApi, type InterestProfiles } from "../lib/api";
+import { userApi, userSettingsApi, type AiPrompts, type InterestProfiles } from "../lib/api";
 
 export function useUserProfile() {
   return useQuery({
@@ -49,6 +49,13 @@ export function useTestApiKey() {
   });
 }
 
+export function useTestAiModel() {
+  return useMutation({
+    mutationFn: ({ model, key }: { model: string; key?: string }) =>
+      userSettingsApi.testModel(model, key),
+  });
+}
+
 export function useUpdateInterestProfiles() {
   const qc = useQueryClient();
   return useMutation({
@@ -58,6 +65,21 @@ export function useUpdateInterestProfiles() {
       qc.setQueryData(["user-settings"], (current: Awaited<ReturnType<typeof userSettingsApi.getSettings>> | undefined) =>
         current
           ? { ...current, interestProfiles: result.interestProfiles }
+          : current
+      );
+      qc.invalidateQueries({ queryKey: ["user-settings"] });
+    },
+  });
+}
+
+export function useUpdateAiPrompts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (aiPrompts: AiPrompts) => userSettingsApi.updateAiPrompts(aiPrompts),
+    onSuccess: (result) => {
+      qc.setQueryData(["user-settings"], (current: Awaited<ReturnType<typeof userSettingsApi.getSettings>> | undefined) =>
+        current
+          ? { ...current, aiPrompts: result.aiPrompts }
           : current
       );
       qc.invalidateQueries({ queryKey: ["user-settings"] });
