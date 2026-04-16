@@ -3,6 +3,8 @@ import { and, asc, eq, like, or } from "drizzle-orm";
 import { createDb } from "../db/client";
 import { items } from "../db/schema";
 import { ulid } from "ulidx";
+import { resolveAiQueueIntervalMinutes } from "../lib/user-settings";
+import { getRunAfterFromInterval, queueAiJob, syncSuggestMetrics } from "../services/ai-queue";
 import type { Env } from "../types";
 
 type Variables = { userId: string };
@@ -33,7 +35,8 @@ router.get("/", async (c) => {
     .where(and(...conditions))
     .orderBy(asc(items.position), asc(items.createdAt));
 
-  return c.json(result);
+  const synced = await syncSuggestMetrics(db, result);
+  return c.json(synced);
 });
 
 // POST /api/items — create item
@@ -77,6 +80,16 @@ router.post("/", async (c) => {
     createdAt: now,
     updatedAt: now,
   });
+
+  const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
+  await queueAiJob(
+    db,
+    userId,
+    "score_item",
+    { itemId: id },
+    getRunAfterFromInterval(intervalMinutes),
+    id
+  );
 
   const [newItem] = await db.select().from(items).where(eq(items.id, id));
   return c.json(newItem, 201);
@@ -156,6 +169,16 @@ router.post("/import/csv", async (c) => {
     });
 
     createdIds.push(id);
+
+    const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
+    await queueAiJob(
+      db,
+      userId,
+      "score_item",
+      { itemId: id },
+      getRunAfterFromInterval(intervalMinutes),
+      id
+    );
   }
 
   const created = createdIds.length > 0
@@ -183,11 +206,13 @@ router.patch("/:id", async (c) => {
       description: string | null;
       coverUrl: string | null;
       releaseDate: string | null;
+      sourceUrl: string | null;
       rating: number | null;
       notes: string | null;
       position: number;
       startedAt: number | null;
       finishedAt: number | null;
+      trendingBoostEnabled: boolean | null;
     }>
   >();
 
@@ -205,8 +230,8 @@ router.patch("/:id", async (c) => {
   const update: Record<string, unknown> = { updatedAt: now };
   const allowed = [
     "title", "contentType", "status", "creator", "description",
-    "coverUrl", "releaseDate", "rating", "notes", "position",
-    "startedAt", "finishedAt",
+    "coverUrl", "releaseDate", "sourceUrl", "rating", "notes", "position",
+    "startedAt", "finishedAt", "trendingBoostEnabled",
   ] as const;
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
@@ -227,7 +252,28 @@ router.patch("/:id", async (c) => {
     .set(update)
     .where(and(eq(items.id, id), eq(items.userId, userId)));
 
-  const [updated] = await db.select().from(items).where(eq(items.id, id));
+  let [updated] = await db.select().from(items).where(eq(items.id, id));
+
+  const scoringRelevantKeys = ["title", "contentType", "creator", "description", "releaseDate", "sourceUrl"] as const;
+  const shouldQueueRescore = scoringRelevantKeys.some((key) => key in body);
+
+  if (updated) {
+    const [synced] = await syncSuggestMetrics(db, [updated]);
+    updated = synced ?? updated;
+  }
+
+  if (updated && shouldQueueRescore) {
+    const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
+    await queueAiJob(
+      db,
+      userId,
+      "score_item",
+      { itemId: id },
+      getRunAfterFromInterval(intervalMinutes),
+      id
+    );
+  }
+
   return c.json(updated);
 });
 

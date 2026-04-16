@@ -23,6 +23,11 @@ export interface RankedItem {
   reason: string;
 }
 
+export interface SuggestMetricResult {
+  score: number;
+  reason: string;
+}
+
 // ── Core Gemini fetch ─────────────────────────────────────────────────────────
 
 async function callGemini(apiKey: string, model: string, prompt: string, schema: object): Promise<unknown> {
@@ -146,6 +151,63 @@ Mood is optional — include only for movies, TV, or books (e.g. "dark thriller"
     },
     required: ["summary", "key_points", "recommendation"],
   }) as Promise<AnalysisResult>;
+}
+
+export async function scoreSuggestMetric(
+  apiKey: string,
+  model: string,
+  item: {
+    title: string;
+    contentType: string;
+    creator?: string | null;
+    description?: string | null;
+    sourceUrl?: string | null;
+    releaseDate?: string | null;
+  },
+  interestLines: string[]
+): Promise<SuggestMetricResult> {
+  let domain = "unknown";
+  try {
+    if (item.sourceUrl) domain = new URL(item.sourceUrl).hostname.replace("www.", "");
+  } catch {
+    // ignore invalid URL
+  }
+
+  const interestBlock =
+    interestLines.length > 0
+      ? interestLines.map((entry) => `- ${entry}`).join("\n")
+      : "- No custom interests configured for this media type.";
+
+  const prompt = `Score how strongly this ${item.contentType} matches the user's interests for future consumption.
+
+Title: ${item.title}
+Creator: ${item.creator ?? "unknown"}
+Description: ${item.description ?? "none"}
+Release date: ${item.releaseDate ?? "unknown"}
+Source domain: ${domain}
+
+Interest profile for this media type:
+${interestBlock}
+
+Return:
+- score: integer from 0 to 1000
+- reason: one short sentence explaining the score
+
+Higher score means more promising to consume next for this user's taste.`;
+
+  const result = await callGemini(apiKey, model, prompt, {
+    type: "object",
+    properties: {
+      score: { type: "integer" },
+      reason: { type: "string" },
+    },
+    required: ["score", "reason"],
+  }) as SuggestMetricResult;
+
+  return {
+    score: Math.max(0, Math.min(1000, Math.round(result.score))),
+    reason: result.reason,
+  };
 }
 
 // ── "Next to Consume" ranking ─────────────────────────────────────────────────

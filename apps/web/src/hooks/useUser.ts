@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { userApi, userSettingsApi } from "../lib/api";
+import { userApi, userSettingsApi, type InterestProfiles } from "../lib/api";
 
 export function useUserProfile() {
   return useQuery({
@@ -46,5 +46,16 @@ export function useTestApiKey() {
   return useMutation({
     mutationFn: ({ service, key }: { service: string; key?: string }) =>
       userSettingsApi.testKey(service, key),
+  });
+}
+
+export function useUpdateInterestProfiles() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (interestProfiles: InterestProfiles) =>
+      userSettingsApi.updateInterestProfiles(interestProfiles),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-settings"] });
+    },
   });
 }

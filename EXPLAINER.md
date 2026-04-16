@@ -3121,3 +3121,253 @@ The most important updated areas are:
 | V2.5 Step 1 | Add persisted light/dark theme state and visible switchers | Complete |
 | V2.5 Step 2 | Create a distinct dark visual language inspired by the reference | Complete |
 | V2.5 Step 3 | Adapt the shell and major surfaces so dark mode feels intentional | Complete |
+
+---
+
+# V2.6 — Interest-Based Suggest Metric and Next-To-Consume Ranking
+
+## What V2.6 Was About
+
+Before V2.6, Next To Consume still worked like a one-shot AI ranking feature:
+
+- take the current suggestion items
+- ask AI to rank them
+- save the returned ordering
+
+That is useful, but it is not a great long-term recommendation system.
+
+It has a few limits:
+
+- it does not store a reusable recommendation score on each item
+- it cannot explain boosts cleanly
+- it cannot personalize differently per media type
+- it makes global and per-type ranking harder to reuse across the product
+
+V2.6 changes that model completely.
+
+Instead of storing only a ranked list, the app now stores recommendation signals directly on each item.
+
+That gives SirajHub a more durable recommendation layer.
+
+---
+
+## V2.6 Step 1 — Interest Profiles in Settings
+
+### What this step was about
+
+The old system had one free-text taste profile.
+
+That is still useful for general preferences, but it is too broad for a recommendation system that should treat books, movies, podcasts, and articles differently.
+
+### What changed
+
+Settings now includes per-media-type interest profiles.
+
+Each content type can have its own set of free-form interest chips, and each chip has a weight:
+
+- `low`
+- `medium`
+- `high`
+
+These chips are:
+
+- separate from tags
+- stored in the user settings blob
+- intended specifically for recommendation scoring
+
+So instead of saying only “I like sci-fi,” the user can now express more targeted interest signals such as:
+
+- books: “literary fiction” high
+- movies: “slow-burn thrillers” medium
+- podcasts: “founder interviews” high
+
+### Why this matters
+
+This is the personalization layer the old next-list system was missing.
+
+---
+
+## V2.6 Step 2 — Stored Suggest Metric on Items
+
+### What this step was about
+
+A recommendation system becomes much more useful once each item carries its own score.
+
+### What changed
+
+Items now store recommendation-specific fields:
+
+- base suggest metric
+- final suggest metric
+- last updated timestamp
+- AI explanation
+- manual trending flag
+
+The score model has two layers:
+
+1. AI returns a base score from `0` to `1000`
+2. the system adds deterministic boosts
+
+The two current boosts are:
+
+- `Recent` = `+50`
+  - applies only during the first 7 days
+  - applies only while the item is still in `suggestions`
+- `Trending` = `+100`
+  - controlled manually per item
+
+That means the visible recommendation number is no longer a black box.
+
+It is:
+
+- partly learned by AI
+- partly controlled by explicit product rules
+
+### Why this matters
+
+This makes recommendation quality easier to reason about, debug, and expand later.
+
+---
+
+## V2.6 Step 3 — Score Queue Jobs
+
+### What this step was about
+
+If suggest metrics are stored per item, the system needs a durable way to generate and refresh them.
+
+### What changed
+
+A new AI queue job type was added:
+
+- `score_item`
+
+This job is now queued automatically when:
+
+- a new item is created
+- recommendation-relevant item fields are changed
+
+When the job runs, AI receives:
+
+- item title
+- creator
+- description
+- content type
+- source context
+- that media type’s weighted interest profile
+
+It returns:
+
+- a base score from `0–1000`
+- a short explanation
+
+The worker then stores:
+
+- base score
+- final boosted score
+- explanation
+- updated timestamp
+
+### Why this matters
+
+This turns scoring into an operational system instead of something that only happens when the user explicitly asks for a ranking.
+
+---
+
+## V2.6 Step 4 — Score-Driven Next To Consume
+
+### What this step was about
+
+Once items have stored suggest metrics, the app no longer needs AI to rank the whole queue every time.
+
+### What changed
+
+Next To Consume is now built from stored item scores.
+
+The ranking rules are:
+
+- only items in `suggestions` appear in the recommendation pool
+- sort by final suggest score descending
+- break ties by:
+  - latest suggest update
+  - newest creation date
+  - alphabetical title
+
+This now works in two places:
+
+- global next-to-consume
+- per-type next-to-consume on collection pages
+
+The old queue refresh action still exists, but its job has changed.
+
+It now acts as a score refresh trigger rather than asking AI to directly rank the queue as a single prompt.
+
+### Why this matters
+
+The recommendation system becomes more reusable, more stable, and easier to expose in multiple views.
+
+---
+
+## V2.6 Step 5 — Item and Queue Visibility
+
+### What this step was about
+
+A scoring system is only useful if users can see what is happening.
+
+### What changed
+
+The item detail page now shows recommendation information directly:
+
+- base score
+- final score
+- active boost badges
+- AI explanation
+- last scored timestamp
+
+It also includes a manual `Trending` control, which adds the `+100` boost.
+
+The AI Queue view now includes `score_item` jobs alongside analysis and next-list refresh jobs, so failures can be seen and retried.
+
+### Why this matters
+
+This gives the recommendation system transparency.
+
+Users can now understand:
+
+- why an item is ranked well
+- which manual boosts are active
+- whether scoring is queued, running, or failed
+
+---
+
+## V2.6 Files Changed
+
+The most important updated areas are:
+
+- `worker/src/db/schema.ts`
+- `worker/src/db/migrations/0004_suggest_metric.sql`
+- `worker/src/services/ai.ts`
+- `worker/src/services/ai-queue.ts`
+- `worker/src/routes/items.ts`
+- `worker/src/routes/ai.ts`
+- `worker/src/routes/user.ts`
+- `worker/src/lib/user-settings.ts`
+- `apps/web/src/routes/settings.tsx`
+- `apps/web/src/routes/item.$id.tsx`
+- `apps/web/src/components/dashboard/NextToConsume.tsx`
+- `apps/web/src/components/NextListPanel.tsx`
+- `apps/web/src/components/views/TypePageLayout.tsx`
+- `apps/web/src/lib/api.ts`
+- `apps/web/src/hooks/useAI.ts`
+- `apps/web/src/hooks/useUser.ts`
+
+---
+
+## V2.6 Summary Table
+
+| Step | Goal | Status |
+|---|---|---|
+| V2.6 Step 1 | Add per-type weighted interest chips in settings | Complete |
+| V2.6 Step 2 | Persist base and final suggest scores on items | Complete |
+| V2.6 Step 3 | Queue AI scoring for new and refreshed items | Complete |
+| V2.6 Step 4 | Rebuild next-to-consume around stored scores globally and per type | Complete |
+| V2.6 Step 5 | Show trending, score details, and score jobs in the UI | Complete |

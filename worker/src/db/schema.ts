@@ -71,6 +71,11 @@ export const items = sqliteTable(
     position: integer("position").default(0), // for manual ordering within a status column
     rating: integer("rating"), // user's personal 1–5 rating
     notes: text("notes"), // user's private notes
+    suggestMetricBase: integer("suggest_metric_base"),
+    suggestMetricFinal: integer("suggest_metric_final"),
+    suggestMetricUpdatedAt: integer("suggest_metric_updated_at"),
+    suggestMetricReason: text("suggest_metric_reason"),
+    trendingBoostEnabled: integer("trending_boost_enabled", { mode: "boolean" }).notNull().default(false),
 
     // Timestamps (Unix ms integers for fast sorting/filtering)
     startedAt: integer("started_at"),

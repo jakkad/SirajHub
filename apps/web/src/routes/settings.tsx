@@ -5,19 +5,22 @@ import { useAiJobs, useRetryAiJob } from "../hooks/useAI";
 import { useTags, useDeleteTag } from "../hooks/useTags";
 import {
   useClearAiCache,
+  useUpdateInterestProfiles,
   useTestApiKey,
   useUpdateApiKey,
   useUpdateProfile,
   useUserProfile,
   useUserSettings,
 } from "../hooks/useUser";
-import { userApi } from "../lib/api";
+import { userApi, type InterestProfiles, type InterestWeight } from "../lib/api";
+import { CONTENT_TYPES } from "../lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -67,6 +70,7 @@ function SettingsPage() {
           <TabsTrigger value="profile" className="border border-[hsl(var(--border))] bg-card shadow-none">Profile</TabsTrigger>
           <TabsTrigger value="apikeys" className="border border-[hsl(var(--border))] bg-card shadow-none">API Keys</TabsTrigger>
           <TabsTrigger value="aimodel" className="border border-[hsl(var(--border))] bg-card shadow-none">AI Model</TabsTrigger>
+          <TabsTrigger value="interests" className="border border-[hsl(var(--border))] bg-card shadow-none">Interests</TabsTrigger>
           <TabsTrigger value="tags" className="border border-[hsl(var(--border))] bg-card shadow-none">Tags</TabsTrigger>
           <TabsTrigger value="data" className="border border-[hsl(var(--border))] bg-card shadow-none">Data</TabsTrigger>
         </TabsList>
@@ -80,6 +84,9 @@ function SettingsPage() {
         <TabsContent value="aimodel">
           <AiModelTab />
         </TabsContent>
+        <TabsContent value="interests">
+          <InterestProfilesTab />
+        </TabsContent>
         <TabsContent value="tags">
           <TagsTab />
         </TabsContent>
@@ -87,6 +94,185 @@ function SettingsPage() {
           <DataTab />
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+const INTEREST_WEIGHTS: Array<{ id: InterestWeight; label: string }> = [
+  { id: "low", label: "Low" },
+  { id: "medium", label: "Medium" },
+  { id: "high", label: "High" },
+];
+
+function InterestProfilesTab() {
+  const { data: settings } = useUserSettings();
+  const { mutate: saveProfiles, isPending } = useUpdateInterestProfiles();
+  const [profiles, setProfiles] = useState<InterestProfiles>({});
+  const [drafts, setDrafts] = useState<Record<string, { label: string; weight: InterestWeight }>>({});
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setProfiles(settings?.interestProfiles ?? {});
+  }, [settings?.interestProfiles]);
+
+  function updateDraft(contentType: string, key: "label" | "weight", value: string) {
+    setDrafts((prev) => ({
+      ...prev,
+      [contentType]: {
+        label: prev[contentType]?.label ?? "",
+        weight: (prev[contentType]?.weight ?? "medium") as InterestWeight,
+        [key]: value,
+      },
+    }));
+  }
+
+  function addChip(contentType: string) {
+    const draft = drafts[contentType];
+    const label = draft?.label?.trim();
+    if (!label) return;
+
+    setProfiles((prev) => {
+      const current = prev[contentType as keyof InterestProfiles] ?? [];
+      return {
+        ...prev,
+        [contentType]: [
+          ...current,
+          {
+            id: crypto.randomUUID(),
+            label,
+            weight: (draft?.weight ?? "medium") as InterestWeight,
+          },
+        ],
+      };
+    });
+
+    setDrafts((prev) => ({
+      ...prev,
+      [contentType]: { label: "", weight: (draft?.weight ?? "medium") as InterestWeight },
+    }));
+  }
+
+  function removeChip(contentType: string, id: string) {
+    setProfiles((prev) => ({
+      ...prev,
+      [contentType]: (prev[contentType as keyof InterestProfiles] ?? []).filter((chip) => chip.id !== id),
+    }));
+  }
+
+  function updateChipWeight(contentType: string, id: string, weight: InterestWeight) {
+    setProfiles((prev) => ({
+      ...prev,
+      [contentType]: (prev[contentType as keyof InterestProfiles] ?? []).map((chip) =>
+        chip.id === id ? { ...chip, weight } : chip
+      ),
+    }));
+  }
+
+  function handleSave() {
+    saveProfiles(profiles, {
+      onSuccess: () => {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1800);
+      },
+    });
+  }
+
+  return (
+    <div className="grid gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Interest Profiles</CardTitle>
+          <CardDescription>
+            Define what each media type should optimize for. These weighted chips are used when the AI scores new items for next-to-consume.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          {CONTENT_TYPES.map((type) => {
+            const chips = profiles[type.id] ?? [];
+            const draft = drafts[type.id] ?? { label: "", weight: "medium" as InterestWeight };
+
+            return (
+              <div key={type.id} className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="text-2xl">{type.icon}</div>
+                  <div>
+                    <div className="font-semibold text-foreground">{type.label}</div>
+                    <div className="text-sm text-muted-foreground">Used only for {type.label.toLowerCase()} suggestions.</div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {chips.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No interests added yet for this media type.</div>
+                  ) : (
+                    chips.map((chip) => (
+                      <div
+                        key={chip.id}
+                        className="flex flex-col gap-3 rounded-[18px] border border-[hsl(var(--border))] bg-card/80 px-4 py-3 md:flex-row md:items-center"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-foreground">{chip.label}</div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <Select value={chip.weight} onValueChange={(value) => updateChipWeight(type.id, chip.id, value as InterestWeight)}>
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {INTEREST_WEIGHTS.map((weight) => (
+                                  <SelectItem key={weight.id} value={weight.id}>
+                                    {weight.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+
+                          <Button variant="outline" onClick={() => removeChip(type.id, chip.id)}>
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+                    <Input
+                      value={draft.label}
+                      onChange={(e) => updateDraft(type.id, "label", e.target.value)}
+                      placeholder={`Add ${type.label.toLowerCase()} interest`}
+                    />
+                    <Select value={draft.weight} onValueChange={(value) => updateDraft(type.id, "weight", value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {INTEREST_WEIGHTS.map((weight) => (
+                            <SelectItem key={weight.id} value={weight.id}>
+                              {weight.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={() => addChip(type.id)}>Add</Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="flex items-center gap-3">
+            <Button onClick={handleSave} disabled={isPending}>
+              Save interest profiles
+            </Button>
+            {saved ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -289,7 +475,7 @@ function AiModelTab() {
       <Card>
         <CardHeader>
           <CardTitle>Model Selection</CardTitle>
-          <CardDescription>Choose the Gemini model used for categorization, ranking, and analysis.</CardDescription>
+          <CardDescription>Choose the Gemini model used for categorization, suggest scoring, and analysis.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">
@@ -336,7 +522,7 @@ function AiModelTab() {
             />
           </div>
           <p className="text-sm text-muted-foreground">
-            Analysis refreshes and next-to-consume rankings are saved as jobs, then processed automatically after this delay. The default is 60 minutes.
+            Analysis refreshes, suggest scoring, and next-to-consume score refreshes are saved as jobs, then processed automatically after this delay. The default is 60 minutes.
           </p>
           <div className="flex items-center gap-3">
             <Button onClick={handleSaveQueue} disabled={isPending}>
@@ -397,7 +583,11 @@ function AiQueueSection() {
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-foreground">
-                  {job.jobType === "analyze_item" ? "Item analysis" : "Next to consume"}
+                  {job.jobType === "analyze_item"
+                    ? "Item analysis"
+                    : job.jobType === "score_item"
+                      ? "Suggest score"
+                      : "Next to consume refresh"}
                 </span>
                 <Badge variant={job.status === "failed" ? "destructive" : job.status === "completed" ? "secondary" : "outline"}>
                   {job.status.replace("_", " ")}

@@ -3,6 +3,7 @@ import { useItems } from "../../hooks/useItems";
 import type { ContentTypeId, StatusId } from "../../lib/constants";
 import { STATUSES } from "../../lib/constants";
 import type { Item } from "../../lib/api";
+import { NextToConsume } from "../dashboard/NextToConsume";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -82,6 +83,18 @@ export function TypePageLayout({ contentType, title, color, icon, children }: Ty
           </Tabs>
         </CardContent>
       </Card>
+
+      {!isLoading && (
+        <Card>
+          <CardContent className="p-6">
+            <NextToConsume
+              contentType={contentType}
+              title={`${title} Next To Consume`}
+              description={`Top suggestion scores for your ${title.toLowerCase()} queue.`}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {isLoading ? <Skeleton className="h-48 w-full" /> : children(filtered)}
     </div>

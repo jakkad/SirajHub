@@ -1,15 +1,19 @@
 import { and, desc, eq, inArray, lte } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb, type Db } from "../db/client";
-import { aiCache, aiJobs, items, user } from "../db/schema";
-import { DEFAULT_AI_QUEUE_INTERVAL_MINUTES, resolveAiModel, resolveGeminiKey } from "../lib/user-settings";
-import { analyzeItem, rankNextList } from "./ai";
+import { aiCache, aiJobs, items } from "../db/schema";
+import {
+  CONTENT_TYPE_IDS,
+  DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+  resolveAiModel,
+  resolveGeminiKey,
+  resolveInterestProfiles,
+} from "../lib/user-settings";
+import { analyzeItem, scoreSuggestMetric } from "./ai";
 import type { Env } from "../types";
 
-export type AiJobType = "analyze_item" | "rank_next";
+export type AiJobType = "analyze_item" | "rank_next" | "score_item";
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
-
-const NEXT_LIST_KV_TTL_SECONDS = 6 * 60 * 60;
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 60;
 const IMMEDIATE_RUN_THRESHOLD = 5;
@@ -111,6 +115,53 @@ export async function queueAiJob(
   return job;
 }
 
+export function getRecentBoost(createdAt: number, status: string, now = Date.now()) {
+  return status === "suggestions" && now - createdAt < 7 * 24 * 60 * 60 * 1000 ? 50 : 0;
+}
+
+export function getTrendingBoost(enabled: boolean) {
+  return enabled ? 100 : 0;
+}
+
+export function computeFinalSuggestMetric(item: {
+  suggestMetricBase: number | null;
+  trendingBoostEnabled: boolean;
+  createdAt: number;
+  status: string;
+}, now = Date.now()) {
+  if (item.suggestMetricBase == null) return null;
+
+  return item.suggestMetricBase
+    + getRecentBoost(item.createdAt, item.status, now)
+    + getTrendingBoost(item.trendingBoostEnabled);
+}
+
+export async function syncSuggestMetric(db: Db, item: typeof items.$inferSelect, now = Date.now()) {
+  const finalScore = computeFinalSuggestMetric(item, now);
+
+  if (
+    item.suggestMetricFinal === finalScore &&
+    (finalScore == null || item.suggestMetricUpdatedAt != null)
+  ) {
+    return item;
+  }
+
+  await db
+    .update(items)
+    .set({
+      suggestMetricFinal: finalScore,
+      suggestMetricUpdatedAt: item.suggestMetricUpdatedAt ?? now,
+    })
+    .where(eq(items.id, item.id));
+
+  const [updated] = await db.select().from(items).where(eq(items.id, item.id));
+  return updated ?? item;
+}
+
+export async function syncSuggestMetrics(db: Db, itemList: Array<typeof items.$inferSelect>, now = Date.now()) {
+  return Promise.all(itemList.map((item) => syncSuggestMetric(db, item, now)));
+}
+
 export async function retryAiJob(db: Db, userId: string, jobId: string) {
   const [job] = await db
     .select()
@@ -202,43 +253,99 @@ async function processAnalyzeJob(db: Db, env: Env, job: typeof aiJobs.$inferSele
   return { model, result };
 }
 
-async function processRankNextJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect) {
+async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect) {
+  const payload = JSON.parse(job.payload) as { itemId?: string };
+  const itemId = payload.itemId ?? job.itemId ?? undefined;
+  if (!itemId) throw new Error("Missing item id");
+
+  const [item] = await db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, itemId), eq(items.userId, job.userId)));
+
+  if (!item) throw new Error("Item not found");
+
+  const [apiKey, model, interestProfiles] = await Promise.all([
+    resolveGeminiKey(db, job.userId, env.GEMINI_API_KEY),
+    resolveAiModel(db, job.userId),
+    resolveInterestProfiles(db, job.userId),
+  ]);
+
+  const interests = CONTENT_TYPE_IDS.includes(item.contentType as (typeof CONTENT_TYPE_IDS)[number])
+    ? interestProfiles[item.contentType as (typeof CONTENT_TYPE_IDS)[number]] ?? []
+    : [];
+
+  const result = await scoreSuggestMetric(
+    apiKey,
+    model,
+    {
+      title: item.title,
+      contentType: item.contentType,
+      creator: item.creator,
+      description: item.description,
+      sourceUrl: item.sourceUrl,
+      releaseDate: item.releaseDate,
+    },
+    interests.map((entry) => `${entry.label} (${entry.weight})`)
+  );
+
+  const updatedAt = Date.now();
+  const finalScore = computeFinalSuggestMetric(
+    {
+      suggestMetricBase: result.score,
+      trendingBoostEnabled: item.trendingBoostEnabled,
+      createdAt: item.createdAt,
+      status: item.status,
+    },
+    updatedAt
+  );
+
+  await db
+    .update(items)
+    .set({
+      suggestMetricBase: result.score,
+      suggestMetricFinal: finalScore,
+      suggestMetricUpdatedAt: updatedAt,
+      suggestMetricReason: result.reason,
+    })
+    .where(eq(items.id, item.id));
+
+  return { model, result: { ...result, finalScore } };
+}
+
+async function processRankNextJob(db: Db, _env: Env, job: typeof aiJobs.$inferSelect) {
+  const payload = JSON.parse(job.payload) as { contentType?: string | null };
+  const conditions = [eq(items.userId, job.userId), eq(items.status, "suggestions")];
+  if (payload.contentType) {
+    conditions.push(eq(items.contentType, payload.contentType));
+  }
+
   const suggestions = await db
     .select()
     .from(items)
-    .where(and(eq(items.userId, job.userId), eq(items.status, "suggestions")));
+    .where(and(...conditions));
 
-  const [profile] = await db
-    .select({ preferences: user.preferences })
-    .from(user)
-    .where(eq(user.id, job.userId));
+  const queuedJobs = await Promise.all(
+    suggestions.map((item) =>
+      queueAiJob(
+        db,
+        job.userId,
+        "score_item",
+        { itemId: item.id },
+        Date.now(),
+        item.id
+      )
+    )
+  );
 
-  const [apiKey, model] = await Promise.all([
-    resolveGeminiKey(db, job.userId, env.GEMINI_API_KEY),
-    resolveAiModel(db, job.userId),
-  ]);
-
-  const result =
-    suggestions.length === 0
-      ? []
-      : await rankNextList(
-          apiKey,
-          model,
-          suggestions.map((item) => ({
-            id: item.id,
-            title: item.title,
-            contentType: item.contentType,
-            creator: item.creator,
-            description: item.description,
-          })),
-          profile?.preferences ?? null
-        );
-
-  await env.SIRAJHUB_KV.put(`next_list:v1:${job.userId}`, JSON.stringify(result), {
-    expirationTtl: NEXT_LIST_KV_TTL_SECONDS,
-  });
-
-  return { model, result };
+  return {
+    model: null,
+    result: {
+      refreshedCount: suggestions.length,
+      queuedScoreJobs: queuedJobs.length,
+      contentType: payload.contentType ?? null,
+    },
+  };
 }
 
 export async function processAiQueue(env: Env) {
@@ -265,7 +372,9 @@ export async function processAiQueue(env: Env) {
       const output =
         job.jobType === "analyze_item"
           ? await processAnalyzeJob(db, env, job)
-          : await processRankNextJob(db, env, job);
+          : job.jobType === "score_item"
+            ? await processScoreJob(db, env, job)
+            : await processRankNextJob(db, env, job);
 
       await db
         .update(aiJobs)

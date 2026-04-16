@@ -1,5 +1,14 @@
 import type { ContentTypeId, StatusId } from "./constants";
 
+export type InterestWeight = "low" | "medium" | "high";
+export interface InterestChip {
+  id: string;
+  label: string;
+  weight: InterestWeight;
+}
+
+export type InterestProfiles = Partial<Record<ContentTypeId, InterestChip[]>>;
+
 // ── Item type (mirrors DB schema) ─────────────────────────────────────────────
 
 export interface Item {
@@ -20,6 +29,11 @@ export interface Item {
   position: number | null;
   rating: number | null;
   notes: string | null;
+  suggestMetricBase: number | null;
+  suggestMetricFinal: number | null;
+  suggestMetricUpdatedAt: number | null;
+  suggestMetricReason: string | null;
+  trendingBoostEnabled: boolean;
   startedAt: number | null;
   finishedAt: number | null;
   createdAt: number;
@@ -49,7 +63,8 @@ export interface BulkImportResult {
 export type UpdateItemInput = Partial<
   Pick<Item,
     | "title" | "contentType" | "status" | "creator" | "description"
-    | "coverUrl" | "releaseDate" | "rating" | "notes" | "position"
+    | "coverUrl" | "releaseDate" | "sourceUrl" | "rating" | "notes" | "position"
+    | "trendingBoostEnabled"
     | "startedAt" | "finishedAt"
   >
 >;
@@ -138,14 +153,21 @@ export interface AiAnalysis {
 
 export interface RankedSuggestion {
   id: string;
-  rank: number;
-  reason: string;
+  score: number | null;
+  baseScore: number | null;
+  reason: string | null;
+  boosts: {
+    recent: number;
+    trending: number;
+  };
+  pending: boolean;
+  updatedAt: number | null;
 }
 
 export interface AiJobSummary {
   id: string;
   itemId?: string | null;
-  jobType: "analyze_item" | "rank_next";
+  jobType: "analyze_item" | "rank_next" | "score_item";
   status: "queued" | "processing" | "completed" | "failed";
   runAfter: number;
   completedAt: number | null;
@@ -205,12 +227,18 @@ export const aiApi = {
     return request(`/api/ai/analyze/${itemId}`, { method: "POST" });
   },
 
-  getNextList(): Promise<NextListResponse> {
-    return request(`/api/ai/next`);
+  getNextList(contentType?: string): Promise<NextListResponse> {
+    const params = new URLSearchParams();
+    if (contentType) params.set("content_type", contentType);
+    const qs = params.toString();
+    return request(`/api/ai/next${qs ? `?${qs}` : ""}`);
   },
 
-  queueNextList(): Promise<QueuedNextListResponse> {
-    return request(`/api/ai/next`, { method: "POST" });
+  queueNextList(contentType?: string): Promise<QueuedNextListResponse> {
+    const params = new URLSearchParams();
+    if (contentType) params.set("content_type", contentType);
+    const qs = params.toString();
+    return request(`/api/ai/next${qs ? `?${qs}` : ""}`, { method: "POST" });
   },
 
   listJobs(): Promise<{ jobs: AiQueueJob[] }> {
@@ -310,6 +338,7 @@ export interface UserSettings {
   podcastIndexSecret: "set" | null;
   aiModel: string | null;
   aiQueueIntervalMinutes: number;
+  interestProfiles: InterestProfiles;
 }
 
 export const userSettingsApi = {
@@ -328,6 +357,13 @@ export const userSettingsApi = {
     return request<{ ok: boolean; message: string }>("/api/user/settings/test", {
       method: "POST",
       body: JSON.stringify({ service, key }),
+    });
+  },
+
+  updateInterestProfiles(interestProfiles: InterestProfiles): Promise<{ ok: boolean }> {
+    return request<{ ok: boolean }>("/api/user/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ interestProfiles }),
     });
   },
 };

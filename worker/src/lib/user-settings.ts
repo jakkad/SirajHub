@@ -5,6 +5,16 @@ import type { Env } from "../types";
 
 export const DEFAULT_AI_MODEL = "gemini-2.5-flash";
 export const DEFAULT_AI_QUEUE_INTERVAL_MINUTES = 60;
+export const CONTENT_TYPE_IDS = ["book", "movie", "tv", "podcast", "youtube", "article", "tweet"] as const;
+
+export type ContentTypeId = typeof CONTENT_TYPE_IDS[number];
+export type InterestWeight = "low" | "medium" | "high";
+export type InterestChip = {
+  id: string;
+  label: string;
+  weight: InterestWeight;
+};
+export type InterestProfiles = Partial<Record<ContentTypeId, InterestChip[]>>;
 
 export type ApiKeysBlob = {
   gemini?: string;
@@ -15,6 +25,7 @@ export type ApiKeysBlob = {
   podcastIndexSecret?: string;
   aiModel?: string;
   aiQueueIntervalMinutes?: number;
+  interestProfiles?: InterestProfiles;
 };
 
 export async function readUserSettings(db: Db, userId: string): Promise<ApiKeysBlob> {
@@ -65,4 +76,45 @@ export async function resolveMetadataEnv(db: Db, userId: string, env: Env): Prom
     PODCAST_INDEX_KEY: keys.podcastIndexKey || env.PODCAST_INDEX_KEY,
     PODCAST_INDEX_SECRET: keys.podcastIndexSecret || env.PODCAST_INDEX_SECRET,
   };
+}
+
+export function normalizeInterestProfiles(input: unknown): InterestProfiles {
+  if (!input || typeof input !== "object") return {};
+
+  const output: InterestProfiles = {};
+
+  for (const contentType of CONTENT_TYPE_IDS) {
+    const rawEntries = (input as Record<string, unknown>)[contentType];
+    if (!Array.isArray(rawEntries)) continue;
+
+    const normalized = rawEntries
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const record = entry as Record<string, unknown>;
+        const id = typeof record.id === "string" ? record.id.trim() : "";
+        const label = typeof record.label === "string" ? record.label.trim() : "";
+        const weight = record.weight;
+
+        if (!label) return null;
+        if (weight !== "low" && weight !== "medium" && weight !== "high") return null;
+
+        return {
+          id: id || `${contentType}:${label.toLowerCase().replace(/\s+/g, "-")}`,
+          label,
+          weight,
+        } satisfies InterestChip;
+      })
+      .filter((entry): entry is InterestChip => Boolean(entry));
+
+    if (normalized.length > 0) {
+      output[contentType] = normalized;
+    }
+  }
+
+  return output;
+}
+
+export async function resolveInterestProfiles(db: Db, userId: string): Promise<InterestProfiles> {
+  const settings = await readUserSettings(db, userId);
+  return normalizeInterestProfiles(settings.interestProfiles);
 }

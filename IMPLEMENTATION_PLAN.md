@@ -1070,3 +1070,97 @@ apps/web/src/components/ThemeProvider.tsx
 | V2.5–1 — Theme System | Add persisted light/dark theme state and visible switchers | ✅ Done |
 | V2.5–2 — Dark Tokens | Create a distinct dark visual language inspired by the reference | ✅ Done |
 | V2.5–3 — Surface Pass | Adapt the shell and major surfaces so dark mode feels intentional | ✅ Done |
+
+---
+
+# V2.6 — Interest-Based Suggest Metric and Next-To-Consume Ranking
+
+> **Motivation:** The original Next To Consume flow relied on AI ranking the current queue directly. V2.6 replaces that with a stored scoring model so recommendation quality can be explained, boosted deterministically, reused across views, and personalized per media type.
+
+## V2.6 Step 1 — Interest Profiles in Settings
+
+- [x] Add a per-media-type interest profile system to user settings
+- [x] Keep these interests separate from tags
+- [x] Use free-form chips per content type
+- [x] Give each chip a weight of `low`, `medium`, or `high`
+- [x] Store the profiles inside the existing user settings blob
+
+## V2.6 Step 2 — Stored Suggest Metric on Items
+
+- [x] Extend items with stored recommendation fields:
+  - `suggestMetricBase`
+  - `suggestMetricFinal`
+  - `suggestMetricUpdatedAt`
+  - `suggestMetricReason`
+  - `trendingBoostEnabled`
+- [x] Compute final score as:
+  - AI base score `0–1000`
+  - plus `Recent` boost `+50`
+  - plus `Trending` boost `+100`
+- [x] Apply `Recent` only during the first 7 days and only while status is `suggestions`
+
+## V2.6 Step 3 — Score Queue Jobs
+
+- [x] Add a new `score_item` AI queue job
+- [x] Automatically queue scoring when new items are created
+- [x] Queue scoring refreshes when recommendation-relevant item data changes
+- [x] Let AI receive the item context plus that media type’s interest profile
+- [x] Persist the returned base score and explanation on the item
+- [x] Recompute final score whenever boosts or score state change
+
+## V2.6 Step 4 — Score-Driven Next To Consume
+
+- [x] Replace direct AI ranking with score-based ranking from stored item fields
+- [x] Show a global next-to-consume list from `suggestions`
+- [x] Show a type-specific next-to-consume list on each media collection page
+- [x] Sort by:
+  - `suggestMetricFinal DESC`
+  - `suggestMetricUpdatedAt DESC`
+  - `createdAt DESC`
+  - `title ASC`
+- [x] Keep finished and archived items out of next-to-consume rankings
+
+## V2.6 Step 5 — Item and Queue Visibility
+
+- [x] Add a manual `Trending` toggle on the item detail page
+- [x] Show base score, final score, boosts, explanation, and last updated timestamp on the item page
+- [x] Include `score_item` jobs in the AI Queue section
+- [x] Allow failed score jobs to be retried
+
+## V2.6 Files Changed
+
+### Modified
+```text
+IMPLEMENTATION_PLAN.md
+worker/src/db/schema.ts
+worker/src/routes/ai.ts
+worker/src/routes/items.ts
+worker/src/routes/user.ts
+worker/src/services/ai.ts
+worker/src/services/ai-queue.ts
+worker/src/lib/user-settings.ts
+apps/web/src/lib/api.ts
+apps/web/src/hooks/useAI.ts
+apps/web/src/hooks/useItems.ts
+apps/web/src/hooks/useUser.ts
+apps/web/src/routes/settings.tsx
+apps/web/src/routes/item.$id.tsx
+apps/web/src/components/dashboard/NextToConsume.tsx
+apps/web/src/components/NextListPanel.tsx
+apps/web/src/components/views/TypePageLayout.tsx
+```
+
+### Created
+```text
+worker/src/db/migrations/0004_suggest_metric.sql
+```
+
+## V2.6 Summary Table
+
+| Step | Goal | Status |
+|------|------|--------|
+| V2.6–1 — Interest Profiles | Add per-type weighted interest chips in settings | ✅ Done |
+| V2.6–2 — Stored Metrics | Persist base and final suggest scores on items | ✅ Done |
+| V2.6–3 — Score Jobs | Queue AI scoring for new and refreshed items | ✅ Done |
+| V2.6–4 — Ranked Views | Rebuild next-to-consume around stored scores globally and per type | ✅ Done |
+| V2.6–5 — Visibility | Show trending, score details, and score jobs in the UI | ✅ Done |

@@ -24,10 +24,10 @@ export function useAnalyzeItem(itemId?: string) {
   });
 }
 
-export function useNextList() {
+export function useNextList(contentType?: string) {
   return useQuery({
-    queryKey: ["ai-next"],
-    queryFn: () => aiApi.getNextList(),
+    queryKey: ["ai-next", contentType ?? "all"],
+    queryFn: () => aiApi.getNextList(contentType),
     refetchInterval: (query) => {
       const state = query.state.data;
       return state?.job && ["queued", "processing"].includes(state.job.status) ? 30000 : false;
@@ -35,12 +35,12 @@ export function useNextList() {
   });
 }
 
-export function useRefreshNextList() {
+export function useRefreshNextList(contentType?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => aiApi.queueNextList(),
+    mutationFn: () => aiApi.queueNextList(contentType),
     onSuccess: (data) => {
-      qc.setQueryData(["ai-next"], data);
+      qc.setQueryData(["ai-next", contentType ?? "all"], data);
       qc.invalidateQueries({ queryKey: ["ai-next"] });
     },
   });

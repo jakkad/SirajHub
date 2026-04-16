@@ -36,13 +36,13 @@ export function NextListPanel() {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Next To Consume</DialogTitle>
-            <DialogDescription>AI-ranked from the items sitting in Suggestions.</DialogDescription>
+            <DialogDescription>Scored from your interest profiles, then boosted by freshness and trending.</DialogDescription>
           </DialogHeader>
 
           <div className="flex items-center justify-between gap-3">
             <Badge variant="outline">{suggestionsCount} queued</Badge>
             <Button variant="outline" onClick={() => refresh()} disabled={refreshing || isFetching}>
-              {refreshing || isFetching ? "Queueing…" : ranked.length > 0 ? "Refresh" : "Queue ranking"}
+              {refreshing || isFetching ? "Queueing…" : ranked.length > 0 ? "Refresh scores" : "Queue scoring"}
             </Button>
           </div>
 
@@ -51,7 +51,7 @@ export function NextListPanel() {
               {data.job.status === "queued" ? `Queued for ${new Date(data.job.runAfter).toLocaleString()}.` : null}
               {data.job.status === "processing" ? "Queue job is processing now." : null}
               {data.job.status === "failed" ? `Last queue attempt failed: ${data.job.lastError ?? "Unknown error"}` : null}
-              {data.job.status === "completed" && data.savedAt ? `Latest ranking saved ${new Date(data.savedAt).toLocaleString()}.` : null}
+              {data.job.status === "completed" && data.savedAt ? `Latest score refresh completed ${new Date(data.savedAt).toLocaleString()}.` : null}
             </div>
           ) : null}
 
@@ -62,9 +62,7 @@ export function NextListPanel() {
 
           {ranked.length > 0 ? (
             <ol className="flex list-none flex-col gap-3 p-0">
-              {[...ranked]
-                .sort((a, b) => a.rank - b.rank)
-                .map((entry) => {
+              {ranked.map((entry) => {
                   const item = itemById[entry.id];
                   if (!item) return null;
                   const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
@@ -73,7 +71,10 @@ export function NextListPanel() {
                       key={entry.id}
                       className="flex items-start gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-card p-4 shadow-[var(--shadow-subtle)]"
                     >
-                      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-sm font-semibold text-primary">#{entry.rank}</div>
+                      <div className="flex min-h-12 min-w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary/10 px-2 text-primary">
+                        <span className="text-base font-semibold">{entry.score ?? "…"}</span>
+                        <span className="text-[10px] uppercase tracking-[0.08em]">{entry.pending ? "pending" : "score"}</span>
+                      </div>
                       <div className="cover-frame flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[18px]">
                         {item.coverUrl ? (
                           <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
@@ -84,7 +85,11 @@ export function NextListPanel() {
                       <div className="min-w-0 flex-1">
                         <div className="text-base font-semibold text-foreground">{item.title}</div>
                         {item.creator ? <div className="text-sm text-muted-foreground">{item.creator}</div> : null}
-                        <p className="mt-2 text-sm italic text-muted-foreground">{entry.reason}</p>
+                        <p className="mt-2 text-sm italic text-muted-foreground">{entry.reason ?? "Waiting for AI score."}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {entry.boosts.recent > 0 ? <Badge variant="secondary">Recent +50</Badge> : null}
+                          {entry.boosts.trending > 0 ? <Badge variant="secondary">Trending +100</Badge> : null}
+                        </div>
                       </div>
                     </li>
                   );
@@ -93,7 +98,7 @@ export function NextListPanel() {
           ) : null}
           {ranked.length === 0 && suggestionsCount > 0 && !data?.job ? (
             <div className="py-10 text-center text-sm text-muted-foreground">
-              No saved ranking yet. Queue one and it will run automatically after your configured interval.
+              No stored scores yet. Queue a refresh and the scorer will run automatically after your configured interval.
             </div>
           ) : null}
         </DialogContent>

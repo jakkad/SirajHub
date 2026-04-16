@@ -112,7 +112,7 @@ function ItemDetailPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-white/90">
+        <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-card/90">
           Back
         </Button>
 
@@ -169,6 +169,21 @@ function ItemDetailPage() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>Trending Boost</Label>
+              <Button
+                variant={currentItem.trendingBoostEnabled ? "secondary" : "outline"}
+                onClick={() =>
+                  updateItem({
+                    id: currentItem.id,
+                    trendingBoostEnabled: !currentItem.trendingBoostEnabled,
+                  })
+                }
+              >
+                {currentItem.trendingBoostEnabled ? "Trending +100 enabled" : "Enable Trending +100"}
+              </Button>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -296,6 +311,39 @@ function ItemDetailPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Suggest Metric</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <MetricStat label="Base score" value={currentItem.suggestMetricBase != null ? currentItem.suggestMetricBase : "Pending"} />
+                <MetricStat label="Final score" value={currentItem.suggestMetricFinal != null ? currentItem.suggestMetricFinal : "Pending"} />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {currentItem.status === "suggestions" && Date.now() - currentItem.createdAt < 7 * 24 * 60 * 60 * 1000 ? (
+                  <Badge variant="secondary">Recent +50</Badge>
+                ) : null}
+                {currentItem.trendingBoostEnabled ? <Badge variant="secondary">Trending +100</Badge> : null}
+                {currentItem.status !== "suggestions" ? <Badge variant="outline">Not in next-to-consume pool</Badge> : null}
+              </div>
+
+              <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">AI explanation</p>
+                <p className="mt-2 text-sm leading-7 text-foreground">
+                  {currentItem.suggestMetricReason ?? "No suggest metric has been generated for this item yet."}
+                </p>
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                {currentItem.suggestMetricUpdatedAt
+                  ? `Last scored ${new Date(currentItem.suggestMetricUpdatedAt).toLocaleString()}`
+                  : "Waiting for AI scoring."}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Tags</CardTitle>
             </CardHeader>
             <CardContent>
@@ -322,6 +370,15 @@ function ItemDetailPage() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function MetricStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
+      <div className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-foreground">{value}</div>
     </div>
   );
 }

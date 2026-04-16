@@ -1,16 +1,20 @@
 import { Hono } from "hono";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { createDb } from "../db/client";
-import { aiCache, items } from "../db/schema";
+import { aiCache, aiJobs, items } from "../db/schema";
 import { resolveAiModel, resolveAiQueueIntervalMinutes, resolveGeminiKey } from "../lib/user-settings";
 import { categorizeItem } from "../services/ai";
 import {
+  computeFinalSuggestMetric,
+  getRecentBoost,
+  getTrendingBoost,
   getLatestJob,
   getRunAfterFromInterval,
   listJobs,
   queueAiJob,
   retryAiJob,
   serializeJob,
+  syncSuggestMetrics,
 } from "../services/ai-queue";
 import type { Env } from "../types";
 
@@ -124,12 +128,58 @@ router.post("/analyze/:id", async (c) => {
 router.get("/next", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
-  const job = await getLatestJob(db, userId, "rank_next");
+  const contentType = c.req.query("content_type");
+  const rankJob = await getLatestJob(db, userId, "rank_next");
+  const scoreJobs = await db
+    .select()
+    .from(aiJobs)
+    .where(
+      and(
+        eq(aiJobs.userId, userId),
+        eq(aiJobs.jobType, "score_item"),
+        or(eq(aiJobs.status, "queued"), eq(aiJobs.status, "processing"))
+      )
+    );
+  const activeScoreJob = scoreJobs.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+  const job = activeScoreJob ?? rankJob;
+  const rankingItems = await db
+    .select()
+    .from(items)
+    .where(
+      contentType
+        ? and(eq(items.userId, userId), eq(items.status, "suggestions"), eq(items.contentType, contentType))
+        : and(eq(items.userId, userId), eq(items.status, "suggestions"))
+    );
+
+  const syncedItems = await syncSuggestMetrics(db, rankingItems);
+  const result = [...syncedItems]
+    .sort((a, b) => {
+      const aScore = computeFinalSuggestMetric(a) ?? -1;
+      const bScore = computeFinalSuggestMetric(b) ?? -1;
+      if (bScore !== aScore) return bScore - aScore;
+      if ((b.suggestMetricUpdatedAt ?? 0) !== (a.suggestMetricUpdatedAt ?? 0)) {
+        return (b.suggestMetricUpdatedAt ?? 0) - (a.suggestMetricUpdatedAt ?? 0);
+      }
+      if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
+      return a.title.localeCompare(b.title);
+    })
+    .map((item) => ({
+      id: item.id,
+      score: item.suggestMetricFinal,
+      baseScore: item.suggestMetricBase,
+      reason: item.suggestMetricReason,
+      boosts: {
+        recent: getRecentBoost(item.createdAt, item.status),
+        trending: getTrendingBoost(item.trendingBoostEnabled),
+      },
+      pending: item.suggestMetricBase == null,
+      updatedAt: item.suggestMetricUpdatedAt,
+    }));
 
   return c.json({
-    result: job?.status === "completed" && job.result ? JSON.parse(job.result) : [],
-    savedAt: job?.completedAt ?? null,
-    modelUsed: job?.modelUsed ?? null,
+    result,
+    savedAt: result[0]?.updatedAt ?? null,
+    modelUsed: null,
     job: job ? serializeJob(job) : null,
   });
 });
@@ -137,24 +187,23 @@ router.get("/next", async (c) => {
 router.post("/next", async (c) => {
   const userId = c.get("userId");
   const db = createDb(c.env.DB);
+  const contentType = c.req.query("content_type") || null;
   const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
 
   const job = await queueAiJob(
     db,
     userId,
     "rank_next",
-    { kind: "next_list" },
+    { kind: "next_list_refresh", contentType },
     getRunAfterFromInterval(intervalMinutes)
   );
-
-  const latest = await getLatestJob(db, userId, "rank_next");
 
   return c.json({
     queued: true,
     intervalMinutes,
-    result: latest?.status === "completed" && latest.result ? JSON.parse(latest.result) : [],
-    savedAt: latest?.completedAt ?? null,
-    modelUsed: latest?.modelUsed ?? null,
+    result: [],
+    savedAt: null,
+    modelUsed: null,
     job: serializeJob(job),
   });
 });

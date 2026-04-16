@@ -4,6 +4,7 @@ import { createDb } from "../db/client";
 import { aiCache, aiJobs, items, user } from "../db/schema";
 import {
   DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+  normalizeInterestProfiles,
   readUserSettings,
   writeUserSettings,
   type ApiKeysBlob,
@@ -91,7 +92,7 @@ router.delete("/ai-cache", async (c) => {
 
 const VALID_SERVICES = [
   "gemini", "tmdb", "youtube", "googleBooks",
-  "podcastIndexKey", "podcastIndexSecret", "aiModel", "aiQueueIntervalMinutes",
+  "podcastIndexKey", "podcastIndexSecret", "aiModel", "aiQueueIntervalMinutes", "interestProfiles",
 ] as const;
 
 // GET /api/user/settings — returns which keys are set (never returns raw values)
@@ -112,13 +113,22 @@ router.get("/settings", async (c) => {
       typeof keys.aiQueueIntervalMinutes === "number"
         ? keys.aiQueueIntervalMinutes
         : DEFAULT_AI_QUEUE_INTERVAL_MINUTES,
+    interestProfiles: normalizeInterestProfiles(keys.interestProfiles),
   });
 });
 
 // PATCH /api/user/settings — store or clear a single API key / model selection
 router.patch("/settings", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{ service: string; key: string }>();
+  const body = await c.req.json<{ service?: string; key?: string; interestProfiles?: unknown }>();
+
+  if (body.interestProfiles !== undefined) {
+    const db = createDb(c.env.DB);
+    const current = await readUserSettings(db, userId);
+    current.interestProfiles = normalizeInterestProfiles(body.interestProfiles);
+    await writeUserSettings(db, userId, current);
+    return c.json({ ok: true });
+  }
 
   if (!body.service || !VALID_SERVICES.includes(body.service as typeof VALID_SERVICES[number])) {
     return c.json({ error: "Invalid service" }, 400);
@@ -128,15 +138,17 @@ router.patch("/settings", async (c) => {
   const current = await readUserSettings(db, userId);
 
   if (body.service === "aiQueueIntervalMinutes") {
-    const parsed = Number.parseInt(body.key, 10);
+    const parsed = Number.parseInt(body.key ?? "", 10);
     if (!Number.isFinite(parsed) || parsed <= 0) {
       return c.json({ error: "Queue interval must be a positive number of minutes" }, 400);
     }
     current.aiQueueIntervalMinutes = Math.max(5, parsed);
-  } else if (body.key === "") {
+  } else if (body.service === "interestProfiles") {
+    current.interestProfiles = normalizeInterestProfiles(body.interestProfiles);
+  } else if ((body.key ?? "") === "") {
     delete current[body.service as keyof ApiKeysBlob];
   } else {
-    (current as Record<string, string>)[body.service] = body.key;
+    (current as Record<string, string>)[body.service] = body.key ?? "";
   }
 
   await writeUserSettings(db, userId, current);
