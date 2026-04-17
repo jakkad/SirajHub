@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { useScoreItem } from "../hooks/useAI";
 import { useItems, useUpdateItem, useDeleteItem } from "../hooks/useItems";
+import { useAddItemToList, useCreateList, useItemLists, useRemoveItemFromList } from "../hooks/useLists";
+import { useCreateNoteEntry, useDeleteNoteEntry, useNoteEntries } from "../hooks/useNotes";
 import { CONTENT_TYPES, STATUSES } from "../lib/constants";
 import type { StatusId } from "../lib/constants";
 import { AIPanel } from "../components/AIPanel";
@@ -32,6 +34,13 @@ function ItemDetailPage() {
   const { mutate: updateItem } = useUpdateItem();
   const { mutate: deleteItem, isPending: deleting } = useDeleteItem();
   const { mutate: queueScore, isPending: queueingScore } = useScoreItem(id);
+  const { data: itemListsData } = useItemLists(id);
+  const { mutate: addItemToList, isPending: addingToList } = useAddItemToList();
+  const { mutate: removeItemFromList, isPending: removingFromList } = useRemoveItemFromList();
+  const { mutate: createList, isPending: creatingList } = useCreateList();
+  const { data: noteEntriesData } = useNoteEntries(id);
+  const { mutate: createNoteEntry, isPending: creatingNoteEntry } = useCreateNoteEntry(id);
+  const { mutate: deleteNoteEntry, isPending: deletingNoteEntry } = useDeleteNoteEntry(id);
 
   const item = allItems.find((i) => i.id === id);
 
@@ -51,6 +60,16 @@ function ItemDetailPage() {
     current: "",
     total: "",
     percent: "",
+  });
+  const [newListName, setNewListName] = useState("");
+  const [entryForm, setEntryForm] = useState<{
+    entryType: "highlight" | "quote" | "takeaway" | "reflection";
+    content: string;
+    context: string;
+  }>({
+    entryType: "highlight",
+    content: "",
+    context: "",
   });
 
   useEffect(() => {
@@ -94,6 +113,8 @@ function ItemDetailPage() {
   const currentItem = item;
   const ct = CONTENT_TYPES.find((c) => c.id === currentItem.contentType);
   const progressMeta = getProgressMeta(currentItem);
+  const availableLists = itemListsData?.lists ?? [];
+  const noteEntries = noteEntriesData?.entries ?? [];
 
   function saveNotes() {
     const current = notes;
@@ -133,6 +154,40 @@ function ItemDetailPage() {
       progressTotal: progressForm.total ? parseInt(progressForm.total, 10) : null,
       progressPercent: progressForm.percent ? parseInt(progressForm.percent, 10) : null,
     });
+  }
+
+  function handleCreateListAndAdd() {
+    const name = newListName.trim();
+    if (!name) return;
+    createList(
+      { name },
+      {
+        onSuccess: (created) => {
+          addItemToList({ itemId: currentItem.id, listId: created.id });
+          setNewListName("");
+        },
+      }
+    );
+  }
+
+  function handleCreateEntry() {
+    const content = entryForm.content.trim();
+    if (!content) return;
+    createNoteEntry(
+      {
+        entryType: entryForm.entryType,
+        content,
+        context: entryForm.context.trim() || undefined,
+      },
+      {
+        onSuccess: () =>
+          setEntryForm({
+            entryType: entryForm.entryType,
+            content: "",
+            context: "",
+          }),
+      }
+    );
   }
 
   return (
@@ -213,6 +268,54 @@ function ItemDetailPage() {
               </Button>
             </div>
 
+            <div className="flex flex-col gap-3">
+              <Label>Recommendation Controls</Label>
+              <Button
+                variant={currentItem.hiddenFromRecommendations ? "secondary" : "outline"}
+                onClick={() =>
+                  updateItem({
+                    id: currentItem.id,
+                    hiddenFromRecommendations: !currentItem.hiddenFromRecommendations,
+                  })
+                }
+              >
+                {currentItem.hiddenFromRecommendations ? "Hidden from recommendations" : "Show in recommendations"}
+              </Button>
+
+              <div className="flex flex-wrap gap-2">
+                {[0, 50, 100, 200].map((boost) => (
+                  <Button
+                    key={boost}
+                    variant={currentItem.manualBoost === boost ? "secondary" : "outline"}
+                    onClick={() => updateItem({ id: currentItem.id, manualBoost: boost })}
+                  >
+                    {boost === 0 ? "No manual boost" : `Boost +${boost}`}
+                  </Button>
+                ))}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={currentItem.cooldownUntil && currentItem.cooldownUntil > Date.now() ? "secondary" : "outline"}
+                  onClick={() => updateItem({ id: currentItem.id, cooldownUntil: Date.now() + 7 * 24 * 60 * 60 * 1000 })}
+                >
+                  Cooldown 7 days
+                </Button>
+                <Button
+                  variant={currentItem.cooldownUntil && currentItem.cooldownUntil > Date.now() ? "secondary" : "outline"}
+                  onClick={() => updateItem({ id: currentItem.id, cooldownUntil: Date.now() + 30 * 24 * 60 * 60 * 1000 })}
+                >
+                  Cooldown 30 days
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => updateItem({ id: currentItem.id, cooldownUntil: null })}
+                >
+                  Clear cooldown
+                </Button>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-2">
               <Label>Rating</Label>
               <div className="flex flex-wrap gap-2">
@@ -221,6 +324,46 @@ function ItemDetailPage() {
                     {n}★
                   </Button>
                 ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <Label>Lists</Label>
+              <div className="flex flex-wrap gap-2">
+                {availableLists.length > 0 ? (
+                  availableLists.map((list) => (
+                    <Button
+                      key={list.id}
+                      variant={list.containsItem ? "secondary" : "outline"}
+                      onClick={() =>
+                        list.containsItem
+                          ? removeItemFromList({ itemId: currentItem.id, listId: list.id })
+                          : addItemToList({ itemId: currentItem.id, listId: list.id })
+                      }
+                      disabled={addingToList || removingFromList}
+                      className="justify-start"
+                    >
+                      <span className="size-2.5 rounded-full" style={{ backgroundColor: list.color }} />
+                      {list.name}
+                    </Button>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground">No lists yet. Create one below or from the Lists page.</div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  placeholder="Create list and add item"
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleCreateListAndAdd}
+                  disabled={creatingList || !newListName.trim()}
+                >
+                  {creatingList ? "Creating…" : "Add"}
+                </Button>
               </div>
             </div>
 
@@ -351,6 +494,11 @@ function ItemDetailPage() {
                   <Badge variant="secondary">Recent +50</Badge>
                 ) : null}
                 {currentItem.trendingBoostEnabled ? <Badge variant="secondary">Trending +100</Badge> : null}
+                {currentItem.manualBoost > 0 ? <Badge variant="secondary">Manual +{currentItem.manualBoost}</Badge> : null}
+                {currentItem.hiddenFromRecommendations ? <Badge variant="outline">Hidden from recommendations</Badge> : null}
+                {currentItem.cooldownUntil && currentItem.cooldownUntil > Date.now() ? (
+                  <Badge variant="outline">Cooldown until {new Date(currentItem.cooldownUntil).toLocaleDateString()}</Badge>
+                ) : null}
                 {currentItem.status !== "suggestions" ? <Badge variant="outline">Not in next-to-consume pool</Badge> : null}
               </div>
 
@@ -461,6 +609,97 @@ function ItemDetailPage() {
           <section className="flex flex-col gap-3 border-b border-[hsl(var(--border))] pb-6">
             <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Notes</h2>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveNotes} placeholder="Private notes…" />
+          </section>
+
+          <section className="flex flex-col gap-4 border-b border-[hsl(var(--border))] pb-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Highlights & Quotes</h2>
+              <Badge variant="secondary">{noteEntries.length} entries</Badge>
+            </div>
+
+            <div className="grid gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.22)] p-4">
+              <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
+                <div className="flex flex-col gap-2">
+                  <Label>Entry type</Label>
+                  <Select
+                    value={entryForm.entryType}
+                    onValueChange={(value) =>
+                      setEntryForm((prev) => ({
+                        ...prev,
+                        entryType: value as "highlight" | "quote" | "takeaway" | "reflection",
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="highlight">Highlight</SelectItem>
+                        <SelectItem value="quote">Quote</SelectItem>
+                        <SelectItem value="takeaway">Takeaway</SelectItem>
+                        <SelectItem value="reflection">Reflection</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label>Context</Label>
+                  <Input
+                    value={entryForm.context}
+                    onChange={(e) => setEntryForm((prev) => ({ ...prev, context: e.target.value }))}
+                    placeholder="Chapter, timestamp, scene, page, or why it matters"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>Content</Label>
+                <Textarea
+                  value={entryForm.content}
+                  onChange={(e) => setEntryForm((prev) => ({ ...prev, content: e.target.value }))}
+                  placeholder="Capture a quote, highlight, takeaway, or short reflection"
+                />
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={handleCreateEntry} disabled={creatingNoteEntry || !entryForm.content.trim()}>
+                  {creatingNoteEntry ? "Adding…" : "Add entry"}
+                </Button>
+              </div>
+            </div>
+
+            {noteEntries.length > 0 ? (
+              <div className="grid gap-3">
+                {noteEntries.map((entry) => (
+                  <div key={entry.id} className="rounded-[22px] border border-[hsl(var(--border))] bg-card/80 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">{entry.entryType}</Badge>
+                        {entry.context ? <Badge variant="secondary">{entry.context}</Badge> : null}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={deletingNoteEntry}
+                        onClick={() => deleteNoteEntry(entry.id)}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">{entry.content}</p>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Added {new Date(entry.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[22px] border border-dashed border-[hsl(var(--border))] p-5 text-sm text-muted-foreground">
+                No structured entries yet. Use highlights, quotes, takeaways, and reflections to keep important insights separate from your raw notes.
+              </div>
+            )}
           </section>
 
           <section className="flex flex-col gap-3">

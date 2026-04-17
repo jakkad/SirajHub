@@ -5,6 +5,7 @@ import { TypeStats } from "../components/dashboard/TypeStats";
 import { RecentlyAdded } from "../components/dashboard/RecentlyAdded";
 import { InProgressItems } from "../components/dashboard/InProgressItems";
 import { NextToConsume } from "../components/dashboard/NextToConsume";
+import { ReminderInbox } from "../components/dashboard/ReminderInbox";
 import { CONTENT_TYPES } from "../lib/constants";
 import { matchesSavedViewFilters, summarizeSavedViewFilters } from "../lib/saved-views";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,16 @@ function DashboardPage() {
         </section>
 
         <div className="min-w-0 flex flex-col gap-6">
+          <Card className="min-w-0">
+            <CardHeader>
+              <CardTitle>Reminder Inbox</CardTitle>
+              <CardDescription>Bring strong candidates back into focus before they get buried.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReminderInbox limit={3} />
+            </CardContent>
+          </Card>
+
           <Card className="min-w-0">
             <CardHeader>
               <CardTitle>In Progress</CardTitle>

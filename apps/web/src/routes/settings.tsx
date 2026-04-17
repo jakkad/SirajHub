@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 
 import { useAiJobs, useDeleteAiJob, useRepeatAiJob, useRetryAiJob } from "../hooks/useAI";
 import { useDuplicateGroups, useMergeItems } from "../hooks/useItems";
+import { useReminders, useUpdateReminder } from "../hooks/useReminders";
 import { useTags, useDeleteTag } from "../hooks/useTags";
 import {
   useClearAiCache,
@@ -66,6 +67,7 @@ function SettingsPage() {
           <TabsTrigger value="apikeys" className="border border-[hsl(var(--border))] bg-card shadow-none">API Keys</TabsTrigger>
           <TabsTrigger value="aimodel" className="border border-[hsl(var(--border))] bg-card shadow-none">AI Model</TabsTrigger>
           <TabsTrigger value="interests" className="border border-[hsl(var(--border))] bg-card shadow-none">Interests</TabsTrigger>
+          <TabsTrigger value="reminders" className="border border-[hsl(var(--border))] bg-card shadow-none">Reminders</TabsTrigger>
           <TabsTrigger value="duplicates" className="border border-[hsl(var(--border))] bg-card shadow-none">Duplicates</TabsTrigger>
           <TabsTrigger value="tags" className="border border-[hsl(var(--border))] bg-card shadow-none">Tags</TabsTrigger>
           <TabsTrigger value="data" className="border border-[hsl(var(--border))] bg-card shadow-none">Data</TabsTrigger>
@@ -82,6 +84,9 @@ function SettingsPage() {
         </TabsContent>
         <TabsContent value="interests" className="mt-0">
           <InterestProfilesTab />
+        </TabsContent>
+        <TabsContent value="reminders" className="mt-0">
+          <RemindersTab />
         </TabsContent>
         <TabsContent value="duplicates" className="mt-0">
           <DuplicateReviewTab />
@@ -102,6 +107,72 @@ const INTEREST_WEIGHTS: Array<{ id: InterestWeight; label: string }> = [
   { id: "medium", label: "Medium" },
   { id: "high", label: "High" },
 ];
+
+function RemindersTab() {
+  const { data, isLoading } = useReminders();
+  const { mutate: updateReminder, isPending } = useUpdateReminder();
+  const reminders = data?.reminders ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Reminder Inbox</CardTitle>
+        <CardDescription>
+          Review resurfaced items that have gone stale, stalled in progress, or sat too long despite a strong score.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Loading reminders…</div>
+        ) : reminders.length > 0 ? (
+          reminders.map((reminder) => (
+            <div key={reminder.id} className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.2)] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-semibold text-foreground">{reminder.title}</div>
+                    <Badge variant="secondary">{reminder.ageDays}d</Badge>
+                    <Badge variant="outline">{reminder.item.contentType}</Badge>
+                  </div>
+                  <div className="mt-2 text-sm text-muted-foreground">{reminder.message}</div>
+                </div>
+                <Link
+                  to="/item/$id"
+                  params={{ id: reminder.item.id }}
+                  className="rounded-full border border-[hsl(var(--border))] px-3 py-1.5 text-sm font-medium text-foreground no-underline hover:bg-card"
+                >
+                  Open item
+                </Link>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => updateReminder({ itemId: reminder.item.id, type: reminder.type, action: "snooze" })}
+                >
+                  Snooze 7 days
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending}
+                  onClick={() => updateReminder({ itemId: reminder.item.id, type: reminder.type, action: "dismiss" })}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-[24px] border border-dashed border-[hsl(var(--border))] p-5 text-sm text-muted-foreground">
+            No active reminders right now.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function InterestProfilesTab() {
   const { data: settings } = useUserSettings();

@@ -57,6 +57,9 @@ export interface Item {
   suggestMetricMoreInfoRequest: string | null;
   suggestMetricModelUsed: string | null;
   trendingBoostEnabled: boolean;
+  hiddenFromRecommendations: boolean;
+  manualBoost: number;
+  cooldownUntil: number | null;
   startedAt: number | null;
   finishedAt: number | null;
   createdAt: number;
@@ -126,6 +129,9 @@ export type UpdateItemInput = Partial<
     | "title" | "contentType" | "status" | "creator" | "description"
     | "coverUrl" | "releaseDate" | "sourceUrl" | "rating" | "notes" | "position"
     | "trendingBoostEnabled"
+    | "hiddenFromRecommendations"
+    | "manualBoost"
+    | "cooldownUntil"
     | "externalId"
     | "progressPercent" | "progressCurrent" | "progressTotal" | "lastTouchedAt"
     | "startedAt" | "finishedAt"
@@ -234,12 +240,15 @@ export interface RankedSuggestion {
   boosts: {
     recent: number;
     trending: number;
+    manual: number;
   };
   pending: boolean;
   updatedAt: number | null;
   needsMoreInfo: boolean;
   moreInfoRequest: string | null;
   modelUsed: string | null;
+  hidden?: boolean;
+  cooldownUntil?: number | null;
 }
 
 export interface AiJobSummary {
@@ -443,6 +452,27 @@ export interface SavedView {
   updatedAt: number;
 }
 
+export interface CustomList {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  color: string;
+  position: number;
+  createdAt: number;
+  updatedAt: number;
+  itemCount: number;
+}
+
+export interface CustomListDetail extends CustomList {
+  items: Array<Item & { listPosition: number; listAddedAt: number }>;
+}
+
+export interface ItemListMembership extends CustomList {
+  containsItem: boolean;
+  membership: { addedAt: number; position: number } | null;
+}
+
 export interface ImportSourceDescriptor {
   id: string;
   label: string;
@@ -465,6 +495,28 @@ export interface ImportJobSummary {
   result: unknown | null;
   lastError: string | null;
   completedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Reminder {
+  id: string;
+  type: "untouched_30_days" | "resume_in_progress" | "high_score_waiting";
+  title: string;
+  message: string;
+  dueAt: number;
+  ageDays: number;
+  item: Item;
+}
+
+export interface NoteEntry {
+  id: string;
+  userId: string;
+  itemId: string;
+  entryType: "highlight" | "quote" | "takeaway" | "reflection";
+  content: string;
+  context: string | null;
+  position: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -507,6 +559,43 @@ export const userSettingsApi = {
       method: "PATCH",
       body: JSON.stringify({ aiPrompts }),
     });
+  },
+};
+
+export const remindersApi = {
+  list(): Promise<{ reminders: Reminder[] }> {
+    return request("/api/reminders");
+  },
+
+  update(itemId: string, type: Reminder["type"], action: "dismiss" | "snooze" | "clear"): Promise<{ ok: true }> {
+    return request(`/api/reminders/${itemId}/${type}`, {
+      method: "PATCH",
+      body: JSON.stringify({ action }),
+    });
+  },
+};
+
+export const notesApi = {
+  list(itemId: string): Promise<{ entries: NoteEntry[] }> {
+    return request(`/api/notes/item/${itemId}`);
+  },
+
+  create(itemId: string, data: { entryType: NoteEntry["entryType"]; content: string; context?: string }): Promise<NoteEntry> {
+    return request(`/api/notes/item/${itemId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  update(id: string, data: { entryType?: NoteEntry["entryType"]; content?: string; context?: string | null }): Promise<NoteEntry> {
+    return request(`/api/notes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete(id: string): Promise<{ ok: true }> {
+    return request(`/api/notes/${id}`, { method: "DELETE" });
   },
 };
 
@@ -565,6 +654,57 @@ export const itemsApi = {
 
   delete(id: string): Promise<{ ok: boolean }> {
     return request<{ ok: boolean }>(`/api/items/${id}`, { method: "DELETE" });
+  },
+};
+
+export const listsApi = {
+  list(): Promise<{ lists: CustomList[] }> {
+    return request("/api/lists");
+  },
+
+  reorder(orderedIds: string[]): Promise<{ ok: true }> {
+    return request("/api/lists/reorder", {
+      method: "PATCH",
+      body: JSON.stringify({ orderedIds }),
+    });
+  },
+
+  create(data: { name: string; description?: string; color?: string }): Promise<CustomList> {
+    return request("/api/lists", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  get(id: string): Promise<CustomListDetail> {
+    return request(`/api/lists/${id}`);
+  },
+
+  update(id: string, data: { name?: string; description?: string | null; color?: string }): Promise<CustomList> {
+    return request(`/api/lists/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  },
+
+  delete(id: string): Promise<{ ok: true }> {
+    return request(`/api/lists/${id}`, { method: "DELETE" });
+  },
+
+  getItemLists(itemId: string): Promise<{ lists: ItemListMembership[] }> {
+    return request(`/api/lists/item/${itemId}`);
+  },
+
+  addItem(itemId: string, listId: string): Promise<{ ok: true; alreadyPresent?: boolean }> {
+    return request(`/api/lists/item/${itemId}`, {
+      method: "POST",
+      body: JSON.stringify({ listId }),
+    });
+  },
+
+  reorderItems(listId: string, orderedItemIds: string[]): Promise<{ ok: true }> {
+    return request(`/api/lists/${listId}/items/reorder`, {
+      method: "PATCH",
+      body: JSON.stringify({ orderedItemIds }),
+    });
+  },
+
+  removeItem(itemId: string, listId: string): Promise<{ ok: true }> {
+    return request(`/api/lists/item/${itemId}/${listId}`, { method: "DELETE" });
   },
 };
 

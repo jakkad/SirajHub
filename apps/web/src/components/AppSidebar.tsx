@@ -4,6 +4,7 @@ import {
   FileText,
   Film,
   LayoutDashboard,
+  ListOrdered,
   MessageSquare,
   Mic,
   Play,
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { to: "/videos", label: "Videos", icon: Play, color: "var(--color-youtube)" },
   { to: "/articles", label: "Articles", icon: FileText, color: "var(--color-article)" },
   { to: "/tweets", label: "Tweets", icon: MessageSquare, color: "var(--color-tweet)" },
+  { to: "/lists", label: "Lists", icon: ListOrdered, color: undefined },
 ] as const;
 
 interface AppSidebarProps {

@@ -675,6 +675,8 @@ router.post("/merge", async (c) => {
     mergedProgressCurrent != null && mergedProgressTotal != null && mergedProgressTotal > 0
       ? Math.min(100, Math.round((mergedProgressCurrent / mergedProgressTotal) * 100))
       : Math.max(target.progressPercent ?? 0, source.progressPercent ?? 0) || null;
+  const mergedManualBoost = Math.max(target.manualBoost ?? 0, source.manualBoost ?? 0);
+  const mergedCooldownUntil = Math.max(target.cooldownUntil ?? 0, source.cooldownUntil ?? 0) || null;
 
   await db
     .update(items)
@@ -694,6 +696,9 @@ router.post("/merge", async (c) => {
       progressTotal: mergedProgressTotal,
       progressPercent: mergedProgressPercent,
       lastTouchedAt: Math.max(target.lastTouchedAt ?? 0, source.lastTouchedAt ?? 0) || null,
+      hiddenFromRecommendations: target.hiddenFromRecommendations || source.hiddenFromRecommendations,
+      manualBoost: mergedManualBoost,
+      cooldownUntil: mergedCooldownUntil,
       updatedAt: now,
     })
     .where(and(eq(items.id, target.id), eq(items.userId, userId)));
@@ -764,6 +769,9 @@ router.patch("/:id", async (c) => {
       startedAt: number | null;
       finishedAt: number | null;
       trendingBoostEnabled: boolean | null;
+      hiddenFromRecommendations: boolean | null;
+      manualBoost: number | null;
+      cooldownUntil: number | null;
       progressPercent: number | null;
       progressCurrent: number | null;
       progressTotal: number | null;
@@ -790,6 +798,12 @@ router.patch("/:id", async (c) => {
     (body.progressPercent != null && body.progressPercent > 100)
   ) {
     return c.json({ error: "Progress values must be non-negative integers and percent must be 0–100." }, 400);
+  }
+  if (!isValidOptionalNonNegativeInteger(body.manualBoost ?? null)) {
+    return c.json({ error: "Manual boost must be a non-negative integer." }, 400);
+  }
+  if (!isValidOptionalNonNegativeInteger(body.cooldownUntil ?? null)) {
+    return c.json({ error: "Cooldown must be a valid timestamp." }, 400);
   }
 
   const [existing] = await db
@@ -850,6 +864,9 @@ router.patch("/:id", async (c) => {
       "startedAt",
       "finishedAt",
       "trendingBoostEnabled",
+      "hiddenFromRecommendations",
+      "manualBoost",
+      "cooldownUntil",
     ]),
   };
 

@@ -137,9 +137,28 @@ export function getTrendingBoost(enabled: boolean) {
   return enabled ? 100 : 0;
 }
 
+export function getManualBoost(value: number | null | undefined) {
+  return Math.max(0, value ?? 0);
+}
+
+export function isRecommendationEligible(
+  item: {
+    status: string;
+    hiddenFromRecommendations?: boolean;
+    cooldownUntil?: number | null;
+  },
+  now = Date.now()
+) {
+  if (item.status !== "suggestions") return false;
+  if (item.hiddenFromRecommendations) return false;
+  if ((item.cooldownUntil ?? 0) > now) return false;
+  return true;
+}
+
 export function computeFinalSuggestMetric(item: {
   suggestMetricBase: number | null;
   trendingBoostEnabled: boolean;
+  manualBoost?: number | null;
   createdAt: number;
   status: string;
 }, now = Date.now()) {
@@ -147,7 +166,8 @@ export function computeFinalSuggestMetric(item: {
 
   return item.suggestMetricBase
     + getRecentBoost(item.createdAt, item.status, now)
-    + getTrendingBoost(item.trendingBoostEnabled);
+    + getTrendingBoost(item.trendingBoostEnabled)
+    + getManualBoost(item.manualBoost);
 }
 
 export async function syncSuggestMetric(db: Db, item: typeof items.$inferSelect, now = Date.now()) {

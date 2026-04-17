@@ -1454,6 +1454,21 @@ scripts/smoke-api.mjs
 - [x] Add real non-CSV source importers
 - [x] Add deeper type-specific progress UX
 
+### V3.1 Usage Slice — Completed
+
+- [x] Add user-owned custom lists / collections
+- [x] Add ordering within lists and within list items
+- [x] Keep lists distinct from tags conceptually and structurally
+- [x] Add reminder + resurfacing flows for stale, stalled, and high-score items
+- [x] Add dismiss and snooze controls for reminders
+- [x] Expand notes into structured highlights / quotes / takeaways / reflections
+- [x] Keep existing freeform notes while adding structured note entries
+- [x] Add recommendation controls:
+  - hide from recommendations
+  - manual boost
+  - cooldown for 7 / 30 days
+- [x] Reflect recommendation controls directly in next-to-consume ranking behavior
+
 ## Priority 0 — Must-Have / Highest ROI
 
 ### V3 Priority 0.1 — Source Imports Beyond CSV
@@ -1514,30 +1529,33 @@ scripts/smoke-api.mjs
 
 ### V3 Priority 1.1 — Collections / Custom Lists
 
-- [ ] Add user-owned custom lists / collections
-- [ ] Add ordering within lists
-- [ ] Keep lists distinct from tags conceptually and structurally
+- [x] Add user-owned custom lists / collections
+- [x] Add ordering within lists
+- [x] Add ordering within list items
+- [x] Keep lists distinct from tags conceptually and structurally
 
 ### V3 Priority 1.2 — Reminder + Resurfacing System
 
-- [ ] Add reminders such as:
+- [x] Add reminders such as:
   - untouched in 30 days
   - high-score item still in suggestions
   - resume unfinished item
-- [ ] Build on queue/settings foundations where appropriate
+- [x] Add dismiss / snooze controls for reminders
+- [x] Build on queue/settings foundations where appropriate
 
 ### V3 Priority 1.3 — Rich Notes, Highlights, and Quotes
 
-- [ ] Expand notes into structured highlights / quotes / takeaways
-- [ ] Support especially strong flows for books, podcasts, videos, and articles
+- [x] Expand notes into structured highlights / quotes / takeaways / reflections
+- [x] Keep freeform notes while adding structured note entries
+- [x] Support especially strong flows for books, podcasts, videos, and articles through item-level structured capture
 
 ### V3 Priority 1.4 — Better Recommendation Controls
 
-- [ ] Add user controls such as:
+- [x] Add user controls such as:
   - hide from recommendations
   - manual boost
   - cooldown for 7 / 30 days
-- [ ] Reflect those controls directly in next-to-consume ranking behavior
+- [x] Reflect those controls directly in next-to-consume ranking behavior
 
 ## Priority 2 — Strong Quality-of-Life Features
 
@@ -1590,10 +1608,10 @@ scripts/smoke-api.mjs
 
 ### V3.1 — Usage Layer
 
-- [ ] Collections
-- [ ] Reminder / resurfacing
-- [ ] Rich notes / highlights
-- [ ] Recommendation controls
+- [x] Collections
+- [x] Reminder / resurfacing
+- [x] Rich notes / highlights
+- [x] Recommendation controls
 
 ### V3.2 — Convenience Layer
 
@@ -1610,17 +1628,22 @@ scripts/smoke-api.mjs
   - `progressTotal`
   - `lastTouchedAt`
 - [ ] Extend `items` with fields such as:
+  - `deletedAt`
+- [x] Extend `items` with fields such as:
   - `hiddenFromRecommendations`
   - `manualBoost`
   - `cooldownUntil`
-  - `deletedAt`
 - [x] Add entities such as:
   - `saved_views`
-- [ ] Add entities such as:
+- [x] Add entities such as:
   - `lists`
   - `list_items`
-  - `item_links`
   - optional `reminders` / `resurfacing_rules`
+- [ ] Add entities such as:
+  - `item_links`
+  - `deletedAt`-backed archive/restore structures if needed later
+- [x] Add entities such as:
+  - `note_entries`
 - [x] Add import subsystem entities such as:
   - importer registry
   - import jobs
@@ -1633,8 +1656,8 @@ scripts/smoke-api.mjs
 - [ ] Importers must be idempotent and duplicate-safe
 - [ ] Progress tracking must behave correctly across media types
 - [ ] Saved views must remain stable as the library grows
-- [ ] Recommendation controls must visibly affect ranking
-- [ ] Reminder/resurfacing behavior must be explainable
+- [x] Recommendation controls must visibly affect ranking
+- [x] Reminder/resurfacing behavior must be explainable
 - [ ] Dashboard additions must not noticeably slow initial page load
 
 ## V3 Assumptions
@@ -1691,3 +1714,45 @@ scripts/smoke-api.mjs
 | V3.0–5 | Add duplicate review UI in Settings | ✅ Done |
 | V3.0–6 | Add real external importers and source-mapping metadata | ✅ Done |
 | V3.0–7 | Add deeper type-specific progress UX | ✅ Done |
+
+## V3.1 Files Changed
+
+### Backend
+
+- [x] [worker/src/db/schema.ts](/Users/Jake/Coding/SirajHub/worker/src/db/schema.ts)
+- [x] [worker/src/db/migrations/0008_custom_lists.sql](/Users/Jake/Coding/SirajHub/worker/src/db/migrations/0008_custom_lists.sql)
+- [x] [worker/src/db/migrations/0009_reminders.sql](/Users/Jake/Coding/SirajHub/worker/src/db/migrations/0009_reminders.sql)
+- [x] [worker/src/db/migrations/0010_note_entries.sql](/Users/Jake/Coding/SirajHub/worker/src/db/migrations/0010_note_entries.sql)
+- [x] [worker/src/db/migrations/0011_recommendation_controls.sql](/Users/Jake/Coding/SirajHub/worker/src/db/migrations/0011_recommendation_controls.sql)
+- [x] [worker/src/routes/lists.ts](/Users/Jake/Coding/SirajHub/worker/src/routes/lists.ts)
+- [x] [worker/src/routes/reminders.ts](/Users/Jake/Coding/SirajHub/worker/src/routes/reminders.ts)
+- [x] [worker/src/routes/notes.ts](/Users/Jake/Coding/SirajHub/worker/src/routes/notes.ts)
+- [x] [worker/src/routes/items.ts](/Users/Jake/Coding/SirajHub/worker/src/routes/items.ts)
+- [x] [worker/src/routes/ai.ts](/Users/Jake/Coding/SirajHub/worker/src/routes/ai.ts)
+- [x] [worker/src/services/ai-queue.ts](/Users/Jake/Coding/SirajHub/worker/src/services/ai-queue.ts)
+- [x] [worker/src/index.ts](/Users/Jake/Coding/SirajHub/worker/src/index.ts)
+
+### Frontend
+
+- [x] [apps/web/src/lib/api.ts](/Users/Jake/Coding/SirajHub/apps/web/src/lib/api.ts)
+- [x] [apps/web/src/hooks/useLists.ts](/Users/Jake/Coding/SirajHub/apps/web/src/hooks/useLists.ts)
+- [x] [apps/web/src/hooks/useReminders.ts](/Users/Jake/Coding/SirajHub/apps/web/src/hooks/useReminders.ts)
+- [x] [apps/web/src/hooks/useNotes.ts](/Users/Jake/Coding/SirajHub/apps/web/src/hooks/useNotes.ts)
+- [x] [apps/web/src/routes/lists.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/routes/lists.tsx)
+- [x] [apps/web/src/routes/item.$id.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/routes/item.$id.tsx)
+- [x] [apps/web/src/routes/index.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/routes/index.tsx)
+- [x] [apps/web/src/routes/settings.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/routes/settings.tsx)
+- [x] [apps/web/src/components/AppSidebar.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/components/AppSidebar.tsx)
+- [x] [apps/web/src/components/dashboard/ReminderInbox.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/components/dashboard/ReminderInbox.tsx)
+- [x] [apps/web/src/components/dashboard/NextToConsume.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/components/dashboard/NextToConsume.tsx)
+- [x] [apps/web/src/components/NextListPanel.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/components/NextListPanel.tsx)
+
+## V3.1 Summary Table
+
+| Step | Focus | Status |
+|------|------|--------|
+| V3.1–1 | Add custom lists / collections | ✅ Done |
+| V3.1–2 | Add list ordering and item ordering within lists | ✅ Done |
+| V3.1–3 | Add reminder + resurfacing inbox with snooze/dismiss | ✅ Done |
+| V3.1–4 | Add structured note entries for highlights / quotes / takeaways / reflections | ✅ Done |
+| V3.1–5 | Add recommendation controls and wire them into ranking | ✅ Done |

@@ -4097,6 +4097,8 @@ What is live now:
 
 What this means in practice is that V3.0 is no longer just a foundation slice. Priority 0 is now completed in a first full pass, and the next meaningful work moves into V3.1 rather than leaving the core onboarding loop half-finished.
 
+The next slice, V3.1, is also no longer theoretical. The first full usage-layer pass is now implemented too.
+
 ---
 
 ## Priority 0 — Must-Have / Highest ROI
@@ -4215,6 +4217,15 @@ V3 should introduce user-created lists like:
 
 These would be ordered, intentional collections rather than general-purpose labels.
 
+This is now live in a practical first version:
+
+- users can create custom lists from a dedicated `Lists` page
+- lists can have their own name, description, and accent color
+- items can be added to or removed from lists directly from the item page
+- both the lists themselves and the items inside them can be reordered
+
+That matters because it turns lists into real curated collections, not just another label system.
+
 ### Reminder + Resurfacing System
 
 Once the library has depth, the system should help bring the right items back to attention.
@@ -4226,6 +4237,18 @@ Examples:
 - resume this unfinished item
 
 This builds naturally on the queue and settings systems already in place.
+
+This is now implemented in a first useful form:
+
+- the dashboard has a `Reminder Inbox`
+- Settings has a reminder-management tab
+- reminder types currently include:
+  - untouched for 30 days
+  - stalled in-progress items
+  - high-score suggestions that have sat too long
+- each reminder can be snoozed for 7 days or dismissed
+
+The key product improvement is that SirajHub now helps the user re-encounter good items instead of only storing them.
 
 ### Rich Notes, Highlights, and Quotes
 
@@ -4241,6 +4264,18 @@ V3 should evolve this into structured reflection:
 
 This is especially valuable for books, podcasts, articles, and videos.
 
+This is now live as a structured notes layer:
+
+- freeform private notes still exist
+- each item can now also hold structured entries of type:
+  - highlight
+  - quote
+  - takeaway
+  - reflection
+- each structured entry can also include optional context, like a chapter, timestamp, scene, or why it matters
+
+That is a much better fit for real media reflection than one long mixed note field.
+
 ### Better Recommendation Controls
 
 The recommendation system becomes much more useful when users can steer it directly.
@@ -4252,6 +4287,16 @@ The roadmap suggests controls like:
 - cooldown this item for 7 or 30 days
 
 That makes next-to-consume feel more transparent and less “AI decided this, deal with it.”
+
+This is now implemented directly in the item page and ranking logic:
+
+- hide from recommendations
+- manual boost
+- cooldown for 7 days
+- cooldown for 30 days
+- clear cooldown
+
+These controls are not cosmetic. They change whether an item appears in `Next To Consume` and how strongly it is ranked when eligible.
 
 ---
 
@@ -4349,6 +4394,15 @@ This should deepen everyday product usage:
 - rich notes / highlights
 - recommendation controls
 
+The current state is:
+
+- collections / custom lists are implemented
+- reminder / resurfacing is implemented
+- rich notes / highlights are implemented
+- recommendation controls are implemented
+
+That means the first V3.1 usage-layer pass is now complete too.
+
 ### V3.2 — Convenience Layer
 
 This should improve speed, insight, and overall usability:
@@ -4400,6 +4454,13 @@ Some of these are already real now:
 - importer registry
 - import jobs
 - source mapping metadata
+- `lists`
+- `list_items`
+- `note_entries`
+- reminder state storage
+- `hiddenFromRecommendations`
+- `manualBoost`
+- `cooldownUntil`
 
 So the V3 data model has already started moving in the direction the roadmap described.
 
@@ -4466,3 +4527,22 @@ What remains next is no longer unfinished Priority 0 work. The next meaningful r
 2. reminder + resurfacing flows
 3. rich notes / highlights / quotes
 4. stronger recommendation controls
+
+## V3.1 Progress Summary
+
+V3.1 is now complete in its first full pass too.
+
+Completed pieces:
+
+1. custom lists / collections
+2. ordering for lists and list items
+3. reminder + resurfacing inboxes on dashboard and Settings
+4. structured note entries for highlights, quotes, takeaways, and reflections
+5. direct recommendation controls for hiding, boosting, and cooling down items
+
+What remains next is no longer unfinished V3.1 work. The next meaningful roadmap step is V3.2:
+
+1. quick capture tools
+2. richer dashboard analytics
+3. timeline / calendar
+4. item linking

@@ -6,9 +6,11 @@ import { resolveAiQueueIntervalMinutes } from "../lib/user-settings";
 import {
   computeFinalSuggestMetric,
   getLatestJob,
+  getManualBoost,
   getRecentBoost,
   getRunAfterFromInterval,
   getTrendingBoost,
+  isRecommendationEligible,
   listJobs,
   processAiQueue,
   queueAiJob,
@@ -163,7 +165,8 @@ router.get("/next", async (c) => {
     );
 
   const syncedItems = await syncSuggestMetrics(db, rankingItems);
-  const relevantItemIds = syncedItems.map((item) => item.id);
+  const eligibleItems = syncedItems.filter((item) => isRecommendationEligible(item));
+  const relevantItemIds = eligibleItems.map((item) => item.id);
   const scoreJobs = relevantItemIds.length > 0
     ? await db
         .select()
@@ -179,7 +182,7 @@ router.get("/next", async (c) => {
     : [];
   const activeScoreJob = scoreJobs.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
 
-  const result = [...syncedItems]
+  const result = [...eligibleItems]
     .sort((a, b) => {
       const aScore = computeFinalSuggestMetric(a) ?? -1;
       const bScore = computeFinalSuggestMetric(b) ?? -1;
@@ -198,12 +201,15 @@ router.get("/next", async (c) => {
       boosts: {
         recent: getRecentBoost(item.createdAt, item.status),
         trending: getTrendingBoost(item.trendingBoostEnabled),
+        manual: getManualBoost(item.manualBoost),
       },
       pending: item.suggestMetricBase == null,
       updatedAt: item.suggestMetricUpdatedAt,
       needsMoreInfo: item.suggestMetricNeedsMoreInfo,
       moreInfoRequest: item.suggestMetricMoreInfoRequest,
       modelUsed: item.suggestMetricModelUsed,
+      hidden: item.hiddenFromRecommendations,
+      cooldownUntil: item.cooldownUntil,
     }));
 
   return c.json({

@@ -83,6 +83,9 @@ export const items = sqliteTable(
     suggestMetricMoreInfoRequest: text("suggest_metric_more_info_request"),
     suggestMetricModelUsed: text("suggest_metric_model_used"),
     trendingBoostEnabled: integer("trending_boost_enabled", { mode: "boolean" }).notNull().default(false),
+    hiddenFromRecommendations: integer("hidden_from_recommendations", { mode: "boolean" }).notNull().default(false),
+    manualBoost: integer("manual_boost").notNull().default(0),
+    cooldownUntil: integer("cooldown_until"),
 
     // Timestamps (Unix ms integers for fast sorting/filtering)
     startedAt: integer("started_at"),
@@ -167,6 +170,91 @@ export const importSourceMappings = sqliteTable(
     index("idx_import_source_mappings_job").on(t.importJobId),
     index("idx_import_source_mappings_item").on(t.itemId),
     index("idx_import_source_mappings_source_record").on(t.source, t.sourceRecordId),
+  ]
+);
+
+// ── Custom Lists / Collections ───────────────────────────────────────────────
+export const lists = sqliteTable(
+  "lists",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    color: text("color").notNull().default("#94a3b8"),
+    position: integer("position").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("idx_lists_user_position").on(t.userId, t.position)]
+);
+
+export const listItems = sqliteTable(
+  "list_items",
+  {
+    listId: text("list_id")
+      .notNull()
+      .references(() => lists.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    addedAt: integer("added_at").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.listId, t.itemId] }),
+    index("idx_list_items_list_position").on(t.listId, t.position),
+    index("idx_list_items_item").on(t.itemId),
+  ]
+);
+
+// ── Reminders / Resurfacing ──────────────────────────────────────────────────
+export const reminderStates = sqliteTable(
+  "reminder_states",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    reminderType: text("reminder_type").notNull(), // 'untouched_30_days' | 'resume_in_progress' | 'high_score_waiting'
+    status: text("status").notNull().default("active"), // 'active' | 'dismissed' | 'snoozed'
+    snoozedUntil: integer("snoozed_until"),
+    dismissedAt: integer("dismissed_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_reminder_states_user_type").on(t.userId, t.reminderType),
+    index("idx_reminder_states_item_type").on(t.itemId, t.reminderType),
+  ]
+);
+
+// ── Structured Notes / Highlights / Quotes ──────────────────────────────────
+export const noteEntries = sqliteTable(
+  "note_entries",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    entryType: text("entry_type").notNull(), // 'highlight' | 'quote' | 'takeaway' | 'reflection'
+    content: text("content").notNull(),
+    context: text("context"),
+    position: integer("position").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_note_entries_item_position").on(t.itemId, t.position),
+    index("idx_note_entries_user_type").on(t.userId, t.entryType),
   ]
 );
 

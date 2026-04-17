@@ -91,6 +91,7 @@ export function NextListPanel({ open: controlledOpen, onOpenChange, showTrigger 
                         <div className="mt-2 flex flex-wrap gap-2">
                           {entry.boosts.recent > 0 ? <Badge variant="secondary">Recent +50</Badge> : null}
                           {entry.boosts.trending > 0 ? <Badge variant="secondary">Trending +100</Badge> : null}
+                          {entry.boosts.manual > 0 ? <Badge variant="secondary">Manual +{entry.boosts.manual}</Badge> : null}
                           {entry.needsMoreInfo ? <Badge variant="outline">Needs more info</Badge> : null}
                         </div>
                         {entry.moreInfoRequest ? <p className="mt-2 text-xs text-muted-foreground">{entry.moreInfoRequest}</p> : null}

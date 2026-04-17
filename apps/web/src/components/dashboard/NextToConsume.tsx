@@ -92,6 +92,7 @@ export function NextToConsume({
                         <div className="mt-2 flex flex-wrap gap-2">
                           {r.boosts.recent > 0 ? <Badge variant="secondary">Recent +50</Badge> : null}
                           {r.boosts.trending > 0 ? <Badge variant="secondary">Trending +100</Badge> : null}
+                          {r.boosts.manual > 0 ? <Badge variant="secondary">Manual +{r.boosts.manual}</Badge> : null}
                           {r.needsMoreInfo ? <Badge variant="outline">Needs more info</Badge> : null}
                         </div>
                         {r.moreInfoRequest ? <div className="mt-2 text-xs text-muted-foreground">{r.moreInfoRequest}</div> : null}

@@ -8,6 +8,9 @@ import aiRouter from "./routes/ai";
 import tagsRouter from "./routes/tags";
 import userRouter from "./routes/user";
 import viewsRouter from "./routes/views";
+import listsRouter from "./routes/lists";
+import remindersRouter from "./routes/reminders";
+import notesRouter from "./routes/notes";
 import { processAiQueue } from "./services/ai-queue";
 import type { Env } from "./types";
 
@@ -51,6 +54,9 @@ app.route("/api/ai", aiRouter);
 app.route("/api/tags", tagsRouter);
 app.route("/api/user", userRouter);
 app.route("/api/views", viewsRouter);
+app.route("/api/lists", listsRouter);
+app.route("/api/reminders", remindersRouter);
+app.route("/api/notes", notesRouter);
 
 export default {
   fetch: app.fetch,
