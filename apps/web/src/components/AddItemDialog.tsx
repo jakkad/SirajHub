@@ -9,7 +9,13 @@ import {
   useIngestSearch,
   useResolveIngestSuggestion,
 } from "../hooks/useItems";
-import { parseCsv, prepareCsvImport } from "../lib/csv";
+import {
+  createDefaultManualCsvMapping,
+  parseCsv,
+  prepareCsvImport,
+  prepareMappedCsvImport,
+  type ManualCsvMapping,
+} from "../lib/csv";
 import { prepareImportFile, type ImportSourceId } from "../lib/importers";
 import { AUTO_DETECT_SOURCES, CONTENT_TYPES, SEARCHABLE_EXTERNAL_TYPES, STATUSES } from "../lib/constants";
 import type { ContentTypeId, StatusId } from "../lib/constants";
@@ -61,6 +67,28 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [csvText, setCsvText] = useState("");
   const [csvImportResult, setCsvImportResult] = useState<BulkImportResult | null>(null);
   const [createDuplicate, setCreateDuplicate] = useState<DuplicateItemSummary | null>(null);
+  const [manualMappingEnabled, setManualMappingEnabled] = useState(false);
+  const [manualMapping, setManualMapping] = useState<ManualCsvMapping>({
+    title: "",
+    contentType: "",
+    fixedContentType: "",
+    status: "",
+    fixedStatus: "",
+    creator: "",
+    fixedCreator: "",
+    description: "",
+    fixedDescription: "",
+    coverUrl: "",
+    fixedCoverUrl: "",
+    releaseDate: "",
+    fixedReleaseDate: "",
+    rating: "",
+    fixedRating: "",
+    notes: "",
+    fixedNotes: "",
+    sourceUrl: "",
+    fixedSourceUrl: "",
+  });
 
   const { mutate: createItem, isPending: saving, error: saveError } = useCreateItem();
   const { mutate: importItems, isPending: importing, error: importError } = useImportItems();
@@ -69,9 +97,18 @@ export function AddItemDialog({ open, onClose }: Props) {
   const { mutate: fetchMeta, isPending: fetching, error: fetchError } = useIngest();
   const { mutate: searchMeta, isPending: searching, error: searchError } = useIngestSearch();
   const { mutate: resolveSuggestion, isPending: resolving, error: resolveError } = useResolveIngestSuggestion();
+  const parsedCsv = useMemo(() => parseCsv(csvText), [csvText]);
   const csvPreparation = useMemo(() => {
+    if (manualMappingEnabled && parsedCsv.headers.length > 0) {
+      const prepared = prepareMappedCsvImport(parsedCsv, manualMapping);
+      return {
+        rows: prepared.items,
+        preview: prepared.preview,
+        errors: prepared.errors,
+      };
+    }
     if (importSource === "csv") {
-      const prepared = prepareCsvImport(parseCsv(csvText));
+      const prepared = prepareCsvImport(parsedCsv);
       return {
         rows: prepared.items,
         preview: prepared.preview,
@@ -79,7 +116,7 @@ export function AddItemDialog({ open, onClose }: Props) {
       };
     }
     return prepareImportFile(importSource, csvText);
-  }, [csvText, importSource]);
+  }, [csvText, importSource, manualMappingEnabled, manualMapping, parsedCsv]);
 
   function setField(field: keyof typeof DEFAULT_FORM, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -114,6 +151,28 @@ export function AddItemDialog({ open, onClose }: Props) {
     setCsvText("");
     setCsvImportResult(null);
     setCreateDuplicate(null);
+    setManualMappingEnabled(false);
+    setManualMapping({
+      title: "",
+      contentType: "",
+      fixedContentType: "",
+      status: "",
+      fixedStatus: "",
+      creator: "",
+      fixedCreator: "",
+      description: "",
+      fixedDescription: "",
+      coverUrl: "",
+      fixedCoverUrl: "",
+      releaseDate: "",
+      fixedReleaseDate: "",
+      rating: "",
+      fixedRating: "",
+      notes: "",
+      fixedNotes: "",
+      sourceUrl: "",
+      fixedSourceUrl: "",
+    });
   }
 
   function handleFetchUrl() {
@@ -187,9 +246,13 @@ export function AddItemDialog({ open, onClose }: Props) {
   async function handleCsvFileChange(file: File | null) {
     if (!file) return;
     const text = await file.text();
+    const parsed = parseCsv(text);
+    const defaultMapping = createDefaultManualCsvMapping(parsed);
     setCsvFileName(file.name);
     setCsvText(text);
     setCsvImportResult(null);
+    setManualMapping(defaultMapping);
+    setManualMappingEnabled(Boolean(defaultMapping.fixedContentType || defaultMapping.contentType));
   }
 
   function handleImportCsv() {
@@ -355,24 +418,6 @@ export function AddItemDialog({ open, onClose }: Props) {
                         <Card>
                           <CardContent className="grid gap-3 p-5">
                             <div>
-                              <p className="text-sm font-semibold text-foreground">Import sources</p>
-                              <p className="text-xs text-muted-foreground">Choose an export source, upload the file you exported from that service, and SirajHub will normalize it into items.</p>
-                            </div>
-                            {(importSources?.sources ?? []).map((source) => (
-                              <div key={source.id} className="flex items-start justify-between gap-3 rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
-                                <div>
-                                  <p className="text-sm font-semibold text-foreground">{source.label}</p>
-                                  <p className="text-xs leading-5 text-muted-foreground">{source.description}</p>
-                                </div>
-                                <Badge variant={source.status === "available" ? "secondary" : "outline"}>{source.status}</Badge>
-                              </div>
-                            ))}
-                          </CardContent>
-                        </Card>
-
-                        <Card>
-                          <CardContent className="grid gap-3 p-5">
-                            <div>
                               <p className="text-sm font-semibold text-foreground">Recent import jobs</p>
                               <p className="text-xs text-muted-foreground">Every CSV run is now tracked as a real import job with created, duplicate, and failed counts.</p>
                             </div>
@@ -405,20 +450,24 @@ export function AddItemDialog({ open, onClose }: Props) {
                           {csvFileName ? <Badge variant="outline">{csvFileName}</Badge> : null}
                         </div>
 
-                        <Select value={importSource} onValueChange={(value) => setImportSource(value as ImportSourceId)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectGroup>
-                              {(importSources?.sources ?? []).filter((source) => source.status === "available").map((source) => (
-                                <SelectItem key={source.id} value={source.id}>
-                                  {source.label}
-                                </SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex flex-wrap gap-2">
+                          {(importSources?.sources ?? [])
+                            .filter((source) => source.status === "available")
+                            .map((source) => (
+                              <button
+                                key={source.id}
+                                type="button"
+                                onClick={() => setImportSource(source.id as ImportSourceId)}
+                                className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                                  importSource === source.id
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-[hsl(var(--border))] bg-card text-foreground"
+                                }`}
+                              >
+                                {source.label}
+                              </button>
+                            ))}
+                        </div>
 
                         <Input
                           type="file"
@@ -435,7 +484,199 @@ export function AddItemDialog({ open, onClose }: Props) {
                       </div>
 
                       {csvText ? (
-                        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                        <div className="grid gap-4">
+                          {parsedCsv.headers.length > 0 ? (
+                            <Card>
+                              <CardContent className="grid gap-4 p-5">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-foreground">Manual field mapping</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Match your CSV headers to SirajHub fields when the export format does not line up automatically.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={manualMappingEnabled ? "secondary" : "outline"}
+                                    onClick={() => setManualMappingEnabled((prev) => !prev)}
+                                  >
+                                    {manualMappingEnabled ? "Manual mapping on" : "Enable manual mapping"}
+                                  </Button>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                  {parsedCsv.headers.map((header) => (
+                                    <Badge key={header} variant="outline">{header}</Badge>
+                                  ))}
+                                </div>
+
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                  <MappingField
+                                    label="Title column"
+                                    value={manualMapping.title}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, title: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <MappingField
+                                    label="Creator column"
+                                    value={manualMapping.creator}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, creator: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed creator">
+                                    <Input
+                                      value={manualMapping.fixedCreator}
+                                      onChange={(e) => setManualMapping((prev) => ({ ...prev, fixedCreator: e.target.value }))}
+                                      placeholder="Optional manual creator"
+                                    />
+                                  </Field>
+                                  <MappingField
+                                    label="Release date / year"
+                                    value={manualMapping.releaseDate}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, releaseDate: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed release date / year">
+                                    <Input
+                                      value={manualMapping.fixedReleaseDate}
+                                      onChange={(e) => setManualMapping((prev) => ({ ...prev, fixedReleaseDate: e.target.value }))}
+                                      placeholder="e.g. 2024"
+                                    />
+                                  </Field>
+                                  <MappingField
+                                    label="Source URL"
+                                    value={manualMapping.sourceUrl}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, sourceUrl: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed source URL">
+                                    <Input
+                                      value={manualMapping.fixedSourceUrl}
+                                      onChange={(e) => setManualMapping((prev) => ({ ...prev, fixedSourceUrl: e.target.value }))}
+                                      placeholder="Optional manual URL"
+                                    />
+                                  </Field>
+                                  <MappingField
+                                    label="Status column"
+                                    value={manualMapping.status}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, status: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed status">
+                                    <Select
+                                      value={manualMapping.fixedStatus || "__none__"}
+                                      onValueChange={(value) =>
+                                        setManualMapping((prev) => ({
+                                          ...prev,
+                                          fixedStatus: value === "__none__" ? "" : (value as StatusId),
+                                        }))
+                                      }
+                                    >
+                                      <SelectTrigger className="bg-card">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-card">
+                                        <SelectGroup>
+                                          <SelectItem value="__none__">No fixed status</SelectItem>
+                                          {STATUSES.map((status) => (
+                                            <SelectItem key={status.id} value={status.id}>
+                                              {status.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectGroup>
+                                      </SelectContent>
+                                    </Select>
+                                  </Field>
+                                  <MappingField
+                                    label="Content type column"
+                                    value={manualMapping.contentType}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, contentType: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed content type">
+                                    <Select
+                                      value={manualMapping.fixedContentType || "__none__"}
+                                      onValueChange={(value) =>
+                                        setManualMapping((prev) => ({
+                                          ...prev,
+                                          fixedContentType: value === "__none__" ? "" : (value as ContentTypeId),
+                                        }))
+                                      }
+                                    >
+                                      <SelectTrigger className="bg-card">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-card">
+                                        <SelectGroup>
+                                          <SelectItem value="__none__">No fixed type</SelectItem>
+                                          {CONTENT_TYPES.map((type) => (
+                                            <SelectItem key={type.id} value={type.id}>
+                                              {type.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectGroup>
+                                      </SelectContent>
+                                    </Select>
+                                  </Field>
+                                  <MappingField
+                                    label="Rating column"
+                                    value={manualMapping.rating}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, rating: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed rating">
+                                    <Input
+                                      value={manualMapping.fixedRating}
+                                      onChange={(e) => setManualMapping((prev) => ({ ...prev, fixedRating: e.target.value }))}
+                                      placeholder="1-5"
+                                    />
+                                  </Field>
+                                  <MappingField
+                                    label="Description column"
+                                    value={manualMapping.description}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, description: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed description">
+                                    <Textarea
+                                      value={manualMapping.fixedDescription}
+                                      onChange={(e) => setManualMapping((prev) => ({ ...prev, fixedDescription: e.target.value }))}
+                                      placeholder="Optional manual description"
+                                    />
+                                  </Field>
+                                  <MappingField
+                                    label="Cover URL column"
+                                    value={manualMapping.coverUrl}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, coverUrl: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed cover URL">
+                                    <Input
+                                      value={manualMapping.fixedCoverUrl}
+                                      onChange={(e) => setManualMapping((prev) => ({ ...prev, fixedCoverUrl: e.target.value }))}
+                                      placeholder="https://..."
+                                    />
+                                  </Field>
+                                  <MappingField
+                                    label="Notes column"
+                                    value={manualMapping.notes}
+                                    onChange={(value) => setManualMapping((prev) => ({ ...prev, notes: value }))}
+                                    headers={parsedCsv.headers}
+                                  />
+                                  <Field label="Fixed notes">
+                                    <Textarea
+                                      value={manualMapping.fixedNotes}
+                                      onChange={(e) => setManualMapping((prev) => ({ ...prev, fixedNotes: e.target.value }))}
+                                      placeholder="Optional manual notes"
+                                    />
+                                  </Field>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ) : null}
+
+                          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
                           <Card>
                             <CardContent className="grid gap-4 p-5">
                               <div className="flex items-center justify-between gap-3">
@@ -527,6 +768,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                               ) : null}
                             </CardContent>
                           </Card>
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -687,5 +929,37 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <Label>{label}</Label>
       {children}
     </div>
+  );
+}
+
+function MappingField({
+  label,
+  value,
+  onChange,
+  headers,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  headers: string[];
+}) {
+  return (
+    <Field label={label}>
+      <Select value={value || "__none__"} onValueChange={(next) => onChange(next === "__none__" ? "" : next)}>
+        <SelectTrigger className="bg-card">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-card">
+          <SelectGroup>
+            <SelectItem value="__none__">Not mapped</SelectItem>
+            {headers.map((header) => (
+              <SelectItem key={header} value={header}>
+                {header}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
   );
 }

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, asc, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb } from "../db/client";
 import { importJobs, importSourceMappings, itemTags, items } from "../db/schema";
@@ -445,7 +445,7 @@ async function runImportJob(
 
   const created =
     createdIds.length > 0
-      ? await db.select().from(items).where(or(...createdIds.map((id) => eq(items.id, id)))!)
+      ? await db.select().from(items).where(inArray(items.id, createdIds))
       : [];
 
   await db

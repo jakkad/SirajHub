@@ -59,6 +59,20 @@ function csvHeadersMap(text: string) {
   return { parsed, headers };
 }
 
+function detectSpecialCsvSource(text: string): ImportSourceId | null {
+  const { headers } = csvHeadersMap(text);
+  const has = (...names: string[]) => names.some((name) => headers.includes(name.toLowerCase()));
+
+  if (has("letterboxd uri", "letterboxd_uri")) return "letterboxd";
+  if (has("exclusive shelf", "exclusive_shelf", "bookshelves")) return "goodreads";
+  if (has("title type", "titletype", "titleconst", "const")) return "imdb";
+  if (has("resolved_url", "given_url", "resolved_title")) return "pocket";
+  if (has("folder", "collection") && has("link", "url")) return "raindrop";
+  if (has("video title", "video url", "videoid")) return "youtube_history";
+
+  return null;
+}
+
 function getCell(row: string[], headers: string[], names: string[]) {
   for (const name of names) {
     const idx = headers.indexOf(name.toLowerCase());
@@ -342,7 +356,10 @@ function parseXBookmarks(text: string): PreparedImportResult {
 }
 
 export function prepareImportFile(source: ImportSourceId, text: string): PreparedImportResult {
-  switch (source) {
+  const detectedCsvSource = source === "csv" ? detectSpecialCsvSource(text) : null;
+  const effectiveSource = detectedCsvSource ?? source;
+
+  switch (effectiveSource) {
     case "goodreads":
       return parseGoodreads(text);
     case "letterboxd":
