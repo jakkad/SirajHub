@@ -183,7 +183,7 @@ async function findDuplicateCandidate(
   const titleCandidates = await db
     .select()
     .from(items)
-    .where(and(eq(items.userId, userId), like(items.title, input.title.trim())));
+    .where(and(eq(items.userId, userId), eq(items.title, input.title.trim())));
 
   const titleMatch = titleCandidates.find((entry) => {
     if (entry.id === excludeId) return false;
