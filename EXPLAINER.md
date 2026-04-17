@@ -4055,3 +4055,414 @@ The most important updated areas are:
 | V2.9 Step 3 | Move AI model definitions to a backend-owned source of truth | Complete |
 | V2.9 Step 4 | Improve model validation, Gemma handling, and queue metadata | Complete |
 | V2.9 Step 5 | Add smoke-test tooling and reduce root-shell bundle weight | Complete |
+
+---
+
+# V3 — Product Expansion Roadmap
+
+## What V3 Is Trying To Do
+
+V1 built the core product.
+
+V2 made it feel like a real application.
+
+V3 is where the product should become much more useful in everyday life.
+
+The strongest V3 theme is:
+
+1. get content into SirajHub faster
+2. make the system better at helping the user act on that content
+3. make the library more valuable over time
+
+Instead of spreading out in too many directions at once, the roadmap is organized around priority levels.
+
+---
+
+## What Has Already Started In V3
+
+V3 is no longer just a future idea. The first V3.0 foundation slice has already been implemented.
+
+What is live now:
+
+- progress tracking fields now exist on items
+- the item page can now save progress directly
+- in-progress cards on the dashboard can now show progress visually
+- item creation and CSV import now detect likely duplicates instead of blindly creating them
+- the backend now has a merge endpoint for duplicate cleanup foundations
+- CSV import now runs through a real import-job model instead of being treated like a one-off helper
+- the system now has saved-view storage and first smart-view UI on collection pages and the dashboard
+- the import system now supports real file-based sources beyond plain CSV, including Goodreads, Letterboxd, IMDb, Trakt, Pocket, Raindrop, YouTube history, Apple Podcasts OPML, and X bookmarks
+- import jobs now persist source-mapping metadata so imported records can be traced back to their source rows
+- the item page now uses type-aware progress labels and quick presets so books, articles, TV, and duration-based media no longer all feel like the same generic progress form
+
+What this means in practice is that V3.0 is no longer just a foundation slice. Priority 0 is now completed in a first full pass, and the next meaningful work moves into V3.1 rather than leaving the core onboarding loop half-finished.
+
+---
+
+## Priority 0 — Must-Have / Highest ROI
+
+### Source Imports Beyond CSV
+
+CSV import was a strong first step, but it still leaves too much manual work for real users who already have content history elsewhere.
+
+The highest-value expansion is direct source import from places like:
+
+- Goodreads
+- Letterboxd
+- IMDb
+- Trakt
+- Pocket
+- Raindrop
+- YouTube playlists/history
+- Apple Podcasts OPML
+- X bookmarks where feasible
+
+This is likely the single biggest adoption lever because it helps users migrate an existing media life into the product.
+
+This is no longer just infrastructure work. The first real importer pass is now live:
+
+- the app now has an import source registry
+- import jobs persist source-aware mapping metadata for created, duplicate, and failed rows
+- the Add Item flow now shows supported source import modes and recent import jobs
+- the app can now parse and import exported files from Goodreads, Letterboxd, IMDb, Trakt, Pocket, Raindrop, YouTube history, Apple Podcasts OPML, and X bookmarks
+
+This is still a file-import approach, not a full OAuth/API sync layer, but it already solves the main user problem: getting existing library history into SirajHub without rebuilding it by hand.
+
+### Duplicate Detection + Merge
+
+As soon as more importers exist, duplicate handling becomes a core product requirement.
+
+The roadmap recommends duplicate detection based on:
+
+- URL
+- external ID
+- fuzzy title + creator matching
+
+The important product behavior is not just detection, but a merge/review flow so the app can stay clean without forcing users to manually clean up repeated entries.
+
+The first implementation of this is already live:
+
+- duplicates are now checked on item creation
+- duplicates are now checked during CSV import
+- the backend has a merge endpoint foundation
+- the app now has a first in-app duplicate review surface inside Settings
+
+The merge/review flow can still get more polished later, but Priority 0 now covers the essential product behavior.
+
+### Progress Tracking Per Type
+
+Right now the product is strong at storing items, but weaker at tracking real progress through them.
+
+V3 should add type-aware progress so the app becomes a more active consumption tool:
+
+- books → pages / percent
+- podcasts / YouTube / movies → watched/listened state and optional minutes
+- TV → season / episode progress
+- articles → read/unread and reading progress
+
+The foundation work for this is now live:
+
+- items now store progress fields
+- the item page can save progress
+- dashboard in-progress cards can display progress
+
+That deeper type-specific pass is now in place in the first practical form:
+
+- books use page-oriented progress language
+- articles use reading-time style progress language
+- podcasts, YouTube, and movies use minutes-oriented progress
+- TV uses episode-oriented progress hints
+- the item page includes quick presets like 25%, 50%, 75%, and Done to make progress updates faster
+
+There is still room for later V3 refinement, especially around season/episode depth and richer article read-state handling, but Priority 0 now has real type-aware progress UX instead of only generic fields.
+
+### Saved Filters / Smart Views
+
+As libraries grow, users need more than raw lists and statuses.
+
+Saved smart views would let them create reusable slices such as:
+
+- short reads
+- high-score Arabic books
+- queued podcasts under 30 minutes
+- trending movies not started
+
+This makes the library much easier to use at scale.
+
+The first version of this is already live:
+
+- the backend now stores saved views
+- collection pages can save and reuse smart views
+- the dashboard can display saved smart views as quick-entry slices
+- collection pages now support richer filters like text query, minimum score, maximum duration, trending-only, and status
+
+This is still not the final form of saved views, but it is now strong enough to count as a real Priority 0 feature rather than only a stub.
+
+---
+
+## Priority 1 — Very Strong Product Upgrades
+
+### Collections / Custom Lists
+
+Tags are useful, but they are not the same thing as curated lists.
+
+V3 should introduce user-created lists like:
+
+- `2026 Reading List`
+- `Ramadan Reads`
+- `AI Research`
+- `Comfort Watchlist`
+
+These would be ordered, intentional collections rather than general-purpose labels.
+
+### Reminder + Resurfacing System
+
+Once the library has depth, the system should help bring the right items back to attention.
+
+Examples:
+
+- you have not touched this in 30 days
+- this high-score item is still in Suggestions
+- resume this unfinished item
+
+This builds naturally on the queue and settings systems already in place.
+
+### Rich Notes, Highlights, and Quotes
+
+Notes should eventually become more than a single text field.
+
+V3 should evolve this into structured reflection:
+
+- highlights
+- quotes
+- takeaways
+- favorite moments
+- short reflections
+
+This is especially valuable for books, podcasts, articles, and videos.
+
+### Better Recommendation Controls
+
+The recommendation system becomes much more useful when users can steer it directly.
+
+The roadmap suggests controls like:
+
+- hide from recommendations
+- boost this item
+- cooldown this item for 7 or 30 days
+
+That makes next-to-consume feel more transparent and less “AI decided this, deal with it.”
+
+---
+
+## Priority 2 — Strong Quality-of-Life Features
+
+### Quick Capture Tools
+
+The faster the capture step becomes, the more naturally SirajHub fits into everyday use.
+
+This includes:
+
+- browser extension
+- bookmarklet
+- mobile/PWA share target
+- general “send to SirajHub” flow
+
+### Calendar / Timeline View
+
+A timeline view would make the app more reflective, not just operational.
+
+Users could see when items were:
+
+- added
+- started
+- finished
+- abandoned
+
+### Richer Dashboard / Analytics
+
+The dashboard can become more valuable by showing longer-term patterns:
+
+- weekly/monthly consumption trends
+- completion rates by type
+- backlog growth
+- most common tags/topics
+- time spent vs queue growth
+
+### Item Linking
+
+Many media items are related, and those relationships matter.
+
+V3 should support links like:
+
+- book ↔ movie adaptation
+- article ↔ podcast episode
+- tweet ↔ article thread
+- sequel / prequel / same creator
+
+### Archive / Restore / Soft Delete
+
+The product would become safer and easier to trust if normal user deletion flowed through soft delete / restore instead of immediate permanent deletion.
+
+---
+
+## Priority 3 — Nice-To-Have / Longer-Term
+
+These are promising longer-term directions, but they are less central than the earlier priorities:
+
+- collaboration / shared lists
+- public profiles / shareable views
+- multi-user recommendation modes
+- stronger offline-first behavior
+- an AI knowledge layer that reasons across the user’s library and notes
+
+These are valuable, but they make more sense after the core V3 loop is stronger.
+
+---
+
+## Recommended V3 Focus
+
+### V3.0 — Core
+
+This should focus on the highest-leverage foundation work:
+
+- source imports beyond CSV
+- duplicate detection + merge
+- progress tracking
+- saved filters / smart views
+
+The current state is:
+
+- source imports beyond CSV are now implemented in a first real pass
+- duplicate detection and first duplicate review flows are done
+- progress tracking foundations and first type-aware UX are done
+- saved filters / smart views are implemented in a practical first version
+
+That means V3.0 Priority 0 is now complete, and the next work belongs to V3.1 instead of more core-gap cleanup.
+
+### V3.1 — Usage Layer
+
+This should deepen everyday product usage:
+
+- collections
+- reminder / resurfacing
+- rich notes / highlights
+- recommendation controls
+
+### V3.2 — Convenience Layer
+
+This should improve speed, insight, and overall usability:
+
+- browser quick capture
+- dashboard analytics
+- timeline / calendar
+- item linking
+
+---
+
+## Important Interface / Data Additions
+
+The roadmap implies several likely additions.
+
+Items may need fields such as:
+
+- `progressPercent`
+- `progressCurrent`
+- `progressTotal`
+- `lastTouchedAt`
+- `hiddenFromRecommendations`
+- `manualBoost`
+- `cooldownUntil`
+- `deletedAt`
+
+The system may also need new entities such as:
+
+- `lists`
+- `list_items`
+- `saved_views`
+- `item_links`
+- optional reminder/resurfacing tables
+
+And the import layer likely needs more formal infrastructure, such as:
+
+- importer registry
+- import jobs
+- duplicate review state
+- source mapping metadata
+
+Some of these are already real now:
+
+- `progressPercent`
+- `progressCurrent`
+- `progressTotal`
+- `lastTouchedAt`
+- `saved_views`
+- importer registry
+- import jobs
+- source mapping metadata
+
+So the V3 data model has already started moving in the direction the roadmap described.
+
+---
+
+## Why This Roadmap Makes Sense
+
+The most important idea in V3 is not “add more features.”
+
+It is to strengthen the real product loop:
+
+- capture
+- rank
+- consume
+- reflect
+
+If V3 improves that loop well, SirajHub becomes much more than a tracker. It becomes a useful personal media system people can actually live in.
+
+---
+
+## V3 Assumptions
+
+This roadmap assumes a few things about the direction of the product:
+
+- SirajHub stays primarily a personal media intelligence app, not a social network
+- recommendation quality and fast capture matter more than social features in V3
+- the best V3 outcome comes from strengthening the real loop:
+  - capture
+  - rank
+  - consume
+  - reflect
+
+---
+
+## V3 Summary Table
+
+| Priority | Focus | Outcome |
+|---|---|---|
+| Priority 0 | Import, dedupe, progress, smart views | Faster onboarding and a more usable library |
+| Priority 1 | Lists, reminders, richer notes, recommendation controls | Stronger day-to-day usage |
+| Priority 2 | Quick capture, timeline, analytics, linking, soft delete | Better quality-of-life and insight |
+| Priority 3 | Sharing, public views, multi-user, offline-first, AI knowledge layer | Longer-term expansion options |
+
+---
+
+## V3.0 Progress Summary
+
+V3.0 Priority 0 is now complete in its first full pass.
+
+Completed pieces:
+
+1. progress persistence and item/dashboard progress UI
+2. duplicate-aware create/import behavior plus merge foundations
+3. duplicate review UI inside Settings
+4. import source registry and import-job tracking
+5. real file-based importers beyond CSV
+6. source mapping metadata for imported rows
+7. saved-view storage and richer smart-view filters
+8. deeper type-specific progress UX on the item page
+
+What remains next is no longer unfinished Priority 0 work. The next meaningful roadmap step is V3.1:
+
+1. collections / custom lists
+2. reminder + resurfacing flows
+3. rich notes / highlights / quotes
+4. stronger recommendation controls

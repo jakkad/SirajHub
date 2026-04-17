@@ -1,10 +1,19 @@
 import { useMemo, useState } from "react";
 
-import { useCreateItem, useImportItems, useIngest, useIngestSearch, useResolveIngestSuggestion } from "../hooks/useItems";
+import {
+  useCreateItem,
+  useImportItems,
+  useImportJobs,
+  useImportSources,
+  useIngest,
+  useIngestSearch,
+  useResolveIngestSuggestion,
+} from "../hooks/useItems";
 import { parseCsv, prepareCsvImport } from "../lib/csv";
+import { prepareImportFile, type ImportSourceId } from "../lib/importers";
 import { AUTO_DETECT_SOURCES, CONTENT_TYPES, SEARCHABLE_EXTERNAL_TYPES, STATUSES } from "../lib/constants";
 import type { ContentTypeId, StatusId } from "../lib/constants";
-import type { BulkImportResult, FetchedMetadata, SearchSuggestion } from "../lib/api";
+import { ApiError, type BulkImportResult, type DuplicateItemSummary, type FetchedMetadata, type SearchSuggestion } from "../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,18 +54,32 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [queryInput, setQueryInput] = useState("");
   const [searchType, setSearchType] = useState<ContentTypeId>("book");
   const [mode, setMode] = useState<"url" | "search" | "manual" | "csv">("url");
+  const [importSource, setImportSource] = useState<ImportSourceId>("csv");
   const [form, setForm] = useState(DEFAULT_FORM);
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvText, setCsvText] = useState("");
   const [csvImportResult, setCsvImportResult] = useState<BulkImportResult | null>(null);
+  const [createDuplicate, setCreateDuplicate] = useState<DuplicateItemSummary | null>(null);
 
   const { mutate: createItem, isPending: saving, error: saveError } = useCreateItem();
   const { mutate: importItems, isPending: importing, error: importError } = useImportItems();
+  const { data: importSources } = useImportSources();
+  const { data: importJobs } = useImportJobs();
   const { mutate: fetchMeta, isPending: fetching, error: fetchError } = useIngest();
   const { mutate: searchMeta, isPending: searching, error: searchError } = useIngestSearch();
   const { mutate: resolveSuggestion, isPending: resolving, error: resolveError } = useResolveIngestSuggestion();
-  const csvPreparation = useMemo(() => prepareCsvImport(parseCsv(csvText)), [csvText]);
+  const csvPreparation = useMemo(() => {
+    if (importSource === "csv") {
+      const prepared = prepareCsvImport(parseCsv(csvText));
+      return {
+        rows: prepared.items,
+        preview: prepared.preview,
+        errors: prepared.errors,
+      };
+    }
+    return prepareImportFile(importSource, csvText);
+  }, [csvText, importSource]);
 
   function setField(field: keyof typeof DEFAULT_FORM, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -84,11 +107,13 @@ export function AddItemDialog({ open, onClose }: Props) {
     setQueryInput("");
     setSearchType("book");
     setMode("url");
+    setImportSource("csv");
     setForm(DEFAULT_FORM);
     setSearchSuggestions([]);
     setCsvFileName("");
     setCsvText("");
     setCsvImportResult(null);
+    setCreateDuplicate(null);
   }
 
   function handleFetchUrl() {
@@ -149,6 +174,12 @@ export function AddItemDialog({ open, onClose }: Props) {
           reset();
           onClose();
         },
+        onError: (error) => {
+          if (error instanceof ApiError && error.status === 409) {
+            const body = error.body as { duplicate?: DuplicateItemSummary };
+            setCreateDuplicate(body.duplicate ?? null);
+          }
+        },
       }
     );
   }
@@ -162,9 +193,9 @@ export function AddItemDialog({ open, onClose }: Props) {
   }
 
   function handleImportCsv() {
-    if (csvPreparation.items.length === 0) return;
+    if (csvPreparation.rows.length === 0) return;
 
-    importItems(csvPreparation.items, {
+    importItems({ source: importSource, rows: csvPreparation.rows }, {
       onSuccess(result) {
         setCsvImportResult(result);
       },
@@ -173,7 +204,7 @@ export function AddItemDialog({ open, onClose }: Props) {
 
   const error = fetchError ?? searchError ?? resolveError ?? saveError ?? importError;
   const isCsvMode = mode === "csv";
-  const csvImportDisabled = csvPreparation.items.length === 0;
+  const csvImportDisabled = csvPreparation.rows.length === 0;
 
   return (
     <Dialog
@@ -207,7 +238,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                       <TabsTrigger value="url" className="border border-[hsl(var(--border))] bg-card shadow-none">Paste URL</TabsTrigger>
                       <TabsTrigger value="search" className="border border-[hsl(var(--border))] bg-card shadow-none">Search by Name</TabsTrigger>
                       <TabsTrigger value="manual" className="border border-[hsl(var(--border))] bg-card shadow-none">Manual</TabsTrigger>
-                      <TabsTrigger value="csv" className="border border-[hsl(var(--border))] bg-card shadow-none">CSV Import</TabsTrigger>
+                      <TabsTrigger value="csv" className="border border-[hsl(var(--border))] bg-card shadow-none">Imports</TabsTrigger>
                     </TabsList>
                   </Tabs>
 
@@ -320,20 +351,78 @@ export function AddItemDialog({ open, onClose }: Props) {
 
                   {mode === "csv" ? (
                     <div className="grid gap-4">
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <Card>
+                          <CardContent className="grid gap-3 p-5">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">Import sources</p>
+                              <p className="text-xs text-muted-foreground">Choose an export source, upload the file you exported from that service, and SirajHub will normalize it into items.</p>
+                            </div>
+                            {(importSources?.sources ?? []).map((source) => (
+                              <div key={source.id} className="flex items-start justify-between gap-3 rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-foreground">{source.label}</p>
+                                  <p className="text-xs leading-5 text-muted-foreground">{source.description}</p>
+                                </div>
+                                <Badge variant={source.status === "available" ? "secondary" : "outline"}>{source.status}</Badge>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardContent className="grid gap-3 p-5">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">Recent import jobs</p>
+                              <p className="text-xs text-muted-foreground">Every CSV run is now tracked as a real import job with created, duplicate, and failed counts.</p>
+                            </div>
+                            {(importJobs?.jobs ?? []).slice(0, 4).map((job) => (
+                              <div key={job.id} className="flex items-center justify-between gap-3 rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-semibold text-foreground">{job.sourceLabel}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {job.createdCount} created · {job.duplicateCount} duplicates · {job.failedCount} failed
+                                  </p>
+                                </div>
+                                <Badge variant={job.status === "completed" ? "secondary" : "outline"}>{job.status}</Badge>
+                              </div>
+                            ))}
+                            {(importJobs?.jobs ?? []).length ? null : (
+                              <p className="text-xs text-muted-foreground">No import jobs yet.</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+
                       <div className="flex flex-col gap-3 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className="text-sm font-semibold text-foreground">Upload a CSV file</p>
+                            <p className="text-sm font-semibold text-foreground">Upload an export file</p>
                             <p className="text-xs leading-5 text-muted-foreground">
-                              Required columns: <code>title</code> and <code>contentType</code>. Optional: <code>status</code>, <code>creator</code>, <code>description</code>, <code>coverUrl</code>, <code>releaseDate</code>, <code>rating</code>, <code>notes</code>, <code>sourceUrl</code>.
+                              CSV still works, but this mode also supports dedicated export formats for Goodreads, Letterboxd, IMDb, Trakt, Pocket, Raindrop, YouTube, Apple Podcasts OPML, and X bookmarks.
                             </p>
                           </div>
                           {csvFileName ? <Badge variant="outline">{csvFileName}</Badge> : null}
                         </div>
 
+                        <Select value={importSource} onValueChange={(value) => setImportSource(value as ImportSourceId)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              {(importSources?.sources ?? []).filter((source) => source.status === "available").map((source) => (
+                                <SelectItem key={source.id} value={source.id}>
+                                  {source.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+
                         <Input
                           type="file"
-                          accept=".csv,text/csv"
+                          accept=".csv,text/csv,.json,application/json,.html,text/html,.xml,.opml,text/xml"
                           onChange={(e) => {
                             const file = e.target.files?.[0] ?? null;
                             void handleCsvFileChange(file);
@@ -341,7 +430,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                         />
 
                         <p className="text-xs leading-5 text-muted-foreground">
-                          Aliases like <code>content_type</code>, <code>type</code>, <code>author</code>, <code>url</code>, and <code>cover_url</code> also work.
+                          For CSV imports, aliases like <code>content_type</code>, <code>type</code>, <code>author</code>, <code>url</code>, and <code>cover_url</code> still work.
                         </p>
                       </div>
 
@@ -353,7 +442,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                                 <div>
                                   <p className="text-sm font-semibold text-foreground">Import preview</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {csvPreparation.items.length} valid row{csvPreparation.items.length === 1 ? "" : "s"} ready to import
+                                    {csvPreparation.rows.length} valid row{csvPreparation.rows.length === 1 ? "" : "s"} ready to import
                                   </p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -411,8 +500,18 @@ export function AddItemDialog({ open, onClose }: Props) {
                                 <div className="grid gap-3 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.3)] p-4">
                                   <div className="flex flex-wrap gap-2">
                                     <Badge variant="secondary">{csvImportResult.createdCount} imported</Badge>
+                                    <Badge variant="outline">{csvImportResult.duplicateCount} duplicates</Badge>
                                     <Badge variant="outline">{csvImportResult.failedCount} failed</Badge>
                                   </div>
+                                  {csvImportResult.duplicates.length > 0 ? (
+                                    <div className="grid gap-2">
+                                      {csvImportResult.duplicates.slice(0, 6).map((entry) => (
+                                        <p key={`${entry.row}-${entry.duplicate.id}`} className="text-xs text-muted-foreground">
+                                          Row {entry.row}: matched existing "{entry.duplicate.title}" via {entry.duplicate.reason.replace("_", " ")}.
+                                        </p>
+                                      ))}
+                                    </div>
+                                  ) : null}
                                   {csvImportResult.errors.length > 0 ? (
                                     <div className="grid gap-2">
                                       {csvImportResult.errors.slice(0, 8).map((entry) => (
@@ -438,6 +537,22 @@ export function AddItemDialog({ open, onClose }: Props) {
 
               {!isCsvMode ? (
                 <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                {createDuplicate ? (
+                  <div className="lg:col-span-2 rounded-[22px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Potential duplicate detected</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          This item matches <span className="font-medium text-foreground">{createDuplicate.title}</span> by {createDuplicate.reason.replace("_", " ")}.
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" onClick={() => { window.location.href = `/item/${createDuplicate.id}`; }}>
+                        Open existing item
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
                 <Card>
                   <CardContent className="grid gap-4 p-5">
                     <div className="grid gap-4 md:grid-cols-2">
@@ -551,7 +666,7 @@ export function AddItemDialog({ open, onClose }: Props) {
               </Button>
               {isCsvMode ? (
                 <Button type="button" onClick={handleImportCsv} disabled={importing || csvImportDisabled}>
-                  {importing ? "Importing…" : `Import ${csvPreparation.items.length} item${csvPreparation.items.length === 1 ? "" : "s"}`}
+                  {importing ? "Importing…" : `Import ${csvPreparation.rows.length} item${csvPreparation.rows.length === 1 ? "" : "s"}`}
                 </Button>
               ) : (
                 <Button type="submit" disabled={saving || !form.title.trim()}>

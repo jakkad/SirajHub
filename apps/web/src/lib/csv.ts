@@ -180,7 +180,18 @@ export function prepareCsvImport(parsed: ParsedCsvFile): CsvImportPreparation {
         return;
       }
 
-      mapped[target] = value;
+      if (
+        target === "title" ||
+        target === "creator" ||
+        target === "description" ||
+        target === "coverUrl" ||
+        target === "releaseDate" ||
+        target === "notes" ||
+        target === "sourceUrl" ||
+        target === "externalId"
+      ) {
+        mapped[target] = value;
+      }
     });
 
     if (!mapped.title?.trim()) {

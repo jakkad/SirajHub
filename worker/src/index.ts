@@ -7,6 +7,7 @@ import ingestRouter from "./routes/ingest";
 import aiRouter from "./routes/ai";
 import tagsRouter from "./routes/tags";
 import userRouter from "./routes/user";
+import viewsRouter from "./routes/views";
 import { processAiQueue } from "./services/ai-queue";
 import type { Env } from "./types";
 
@@ -49,6 +50,7 @@ app.route("/api/ingest", ingestRouter);
 app.route("/api/ai", aiRouter);
 app.route("/api/tags", tagsRouter);
 app.route("/api/user", userRouter);
+app.route("/api/views", viewsRouter);
 
 export default {
   fetch: app.fetch,

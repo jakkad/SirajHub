@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 
 import { useAiJobs, useDeleteAiJob, useRepeatAiJob, useRetryAiJob } from "../hooks/useAI";
+import { useDuplicateGroups, useMergeItems } from "../hooks/useItems";
 import { useTags, useDeleteTag } from "../hooks/useTags";
 import {
   useClearAiCache,
@@ -64,6 +66,7 @@ function SettingsPage() {
           <TabsTrigger value="apikeys" className="border border-[hsl(var(--border))] bg-card shadow-none">API Keys</TabsTrigger>
           <TabsTrigger value="aimodel" className="border border-[hsl(var(--border))] bg-card shadow-none">AI Model</TabsTrigger>
           <TabsTrigger value="interests" className="border border-[hsl(var(--border))] bg-card shadow-none">Interests</TabsTrigger>
+          <TabsTrigger value="duplicates" className="border border-[hsl(var(--border))] bg-card shadow-none">Duplicates</TabsTrigger>
           <TabsTrigger value="tags" className="border border-[hsl(var(--border))] bg-card shadow-none">Tags</TabsTrigger>
           <TabsTrigger value="data" className="border border-[hsl(var(--border))] bg-card shadow-none">Data</TabsTrigger>
         </TabsList>
@@ -79,6 +82,9 @@ function SettingsPage() {
         </TabsContent>
         <TabsContent value="interests" className="mt-0">
           <InterestProfilesTab />
+        </TabsContent>
+        <TabsContent value="duplicates" className="mt-0">
+          <DuplicateReviewTab />
         </TabsContent>
         <TabsContent value="tags" className="mt-0">
           <TagsTab />
@@ -863,6 +869,104 @@ function TagsTab() {
             </Button>
           </div>
         ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function DuplicateReviewTab() {
+  const { data, isLoading, refetch } = useDuplicateGroups();
+  const { mutate: mergeItems, isPending: merging } = useMergeItems();
+  const groups = data?.groups ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Duplicate Review</CardTitle>
+        <CardDescription>
+          Review likely duplicates across your library and merge them without cleaning everything up by hand.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {groups.length} duplicate group{groups.length === 1 ? "" : "s"} found
+          </p>
+          <Button variant="outline" onClick={() => refetch()}>
+            Refresh duplicates
+          </Button>
+        </div>
+
+        {isLoading ? <div className="text-sm text-muted-foreground">Scanning for duplicates…</div> : null}
+        {!isLoading && groups.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No duplicate groups detected right now.</div>
+        ) : null}
+
+        {groups.map((group) => {
+          const [target, ...sources] = group.items;
+          if (!target) return null;
+
+          return (
+            <div key={group.id} className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Duplicate group</p>
+                  <p className="text-xs text-muted-foreground">Matched by {group.reason.replace("_", " ")}.</p>
+                </div>
+                <Badge variant="outline">{group.items.length} items</Badge>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                <div className="rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{target.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Keep target · {target.creator ?? "Unknown creator"} · {target.status.replace("_", " ")}
+                      </p>
+                    </div>
+                    <Link to="/item/$id" params={{ id: target.id }} className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground no-underline">
+                      Open
+                    </Link>
+                  </div>
+                </div>
+
+                {sources.map((source) => (
+                  <div key={source.id} className="rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{source.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Merge into target · {source.creator ?? "Unknown creator"} · {source.status.replace("_", " ")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link to="/item/$id" params={{ id: source.id }} className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground no-underline">
+                          Open
+                        </Link>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            mergeItems(
+                              { sourceId: source.id, targetId: target.id },
+                              {
+                                onSuccess: () => refetch(),
+                              }
+                            )
+                          }
+                          disabled={merging}
+                        >
+                          {merging ? "Merging…" : "Merge"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </CardContent>
     </Card>
   );

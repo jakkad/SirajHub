@@ -45,6 +45,10 @@ export interface Item {
   position: number | null;
   rating: number | null;
   notes: string | null;
+  progressPercent: number | null;
+  progressCurrent: number | null;
+  progressTotal: number | null;
+  lastTouchedAt: number | null;
   suggestMetricBase: number | null;
   suggestMetricFinal: number | null;
   suggestMetricUpdatedAt: number | null;
@@ -70,13 +74,51 @@ export interface CreateItemInput {
   rating?: number;
   notes?: string;
   sourceUrl?: string;
+  externalId?: string;
+  progressPercent?: number | null;
+  progressCurrent?: number | null;
+  progressTotal?: number | null;
+}
+
+export interface DuplicateItemSummary {
+  id: string;
+  title: string;
+  creator: string | null;
+  contentType: ContentTypeId;
+  status: StatusId;
+  coverUrl: string | null;
+  sourceUrl: string | null;
+  reason: "source_url" | "external_id" | "title_creator";
+}
+
+export interface DuplicateGroup {
+  id: string;
+  reason: "source_url" | "external_id" | "title_creator";
+  items: Array<{
+    id: string;
+    title: string;
+    creator: string | null;
+    contentType: ContentTypeId;
+    status: StatusId;
+    coverUrl: string | null;
+    sourceUrl: string | null;
+    updatedAt: number;
+  }>;
 }
 
 export interface BulkImportResult {
   created: Item[];
   createdCount: number;
+  duplicateCount: number;
   failedCount: number;
+  duplicates: { row: number; title?: string; duplicate: DuplicateItemSummary }[];
   errors: { row: number; title?: string; error: string }[];
+  importJobId: string;
+}
+
+export interface ImportRowInput extends CreateItemInput {
+  sourceRecordId?: string;
+  sourceMetadata?: unknown;
 }
 
 export type UpdateItemInput = Partial<
@@ -84,11 +126,25 @@ export type UpdateItemInput = Partial<
     | "title" | "contentType" | "status" | "creator" | "description"
     | "coverUrl" | "releaseDate" | "sourceUrl" | "rating" | "notes" | "position"
     | "trendingBoostEnabled"
+    | "externalId"
+    | "progressPercent" | "progressCurrent" | "progressTotal" | "lastTouchedAt"
     | "startedAt" | "finishedAt"
   >
 >;
 
 // ── Fetch helper ──────────────────────────────────────────────────────────────
+
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -98,7 +154,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
+    throw new ApiError((body as { error?: string }).error ?? `HTTP ${res.status}`, res.status, body);
   }
   return res.json() as Promise<T>;
 }
@@ -367,6 +423,52 @@ export interface UserSettingsModelTestResponse {
   message: string;
 }
 
+export interface SavedViewFilters {
+  status?: StatusId;
+  contentType?: ContentTypeId;
+  minScore?: number;
+  maxDuration?: number;
+  onlyTrending?: boolean;
+  query?: string;
+}
+
+export interface SavedView {
+  id: string;
+  userId: string;
+  name: string;
+  scope: "collection" | "dashboard";
+  contentType: ContentTypeId | null;
+  filters: SavedViewFilters;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ImportSourceDescriptor {
+  id: string;
+  label: string;
+  status: "available" | "planned";
+  description: string;
+}
+
+export interface ImportJobSummary {
+  id: string;
+  userId: string;
+  source: string;
+  sourceLabel: string;
+  status: "queued" | "processing" | "completed" | "failed";
+  duplicateStrategy: string;
+  totalRows: number;
+  createdCount: number;
+  duplicateCount: number;
+  failedCount: number;
+  metadata: unknown | null;
+  result: unknown | null;
+  lastError: string | null;
+  completedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export const userSettingsApi = {
   getSettings(): Promise<UserSettings> {
     return request<UserSettings>("/api/user/settings");
@@ -424,10 +526,36 @@ export const itemsApi = {
     return request<Item>("/api/items", { method: "POST", body: JSON.stringify(data) });
   },
 
-  importCsv(rows: CreateItemInput[]): Promise<BulkImportResult> {
+  importCsv(rows: ImportRowInput[]): Promise<BulkImportResult> {
     return request<BulkImportResult>("/api/items/import/csv", {
       method: "POST",
       body: JSON.stringify({ rows }),
+    });
+  },
+
+  importSource(source: string, rows: ImportRowInput[]): Promise<BulkImportResult> {
+    return request<BulkImportResult>("/api/items/import/source", {
+      method: "POST",
+      body: JSON.stringify({ source, rows }),
+    });
+  },
+
+  listImportSources(): Promise<{ sources: ImportSourceDescriptor[] }> {
+    return request("/api/items/import/sources");
+  },
+
+  listImportJobs(): Promise<{ jobs: ImportJobSummary[] }> {
+    return request("/api/items/import/jobs");
+  },
+
+  listDuplicates(): Promise<{ groups: DuplicateGroup[] }> {
+    return request("/api/items/duplicates");
+  },
+
+  merge(sourceId: string, targetId: string): Promise<Item> {
+    return request("/api/items/merge", {
+      method: "POST",
+      body: JSON.stringify({ sourceId, targetId }),
     });
   },
 
@@ -437,5 +565,32 @@ export const itemsApi = {
 
   delete(id: string): Promise<{ ok: boolean }> {
     return request<{ ok: boolean }>(`/api/items/${id}`, { method: "DELETE" });
+  },
+};
+
+export const savedViewsApi = {
+  list(filters?: { scope?: "collection" | "dashboard"; content_type?: ContentTypeId }): Promise<{ views: SavedView[] }> {
+    const params = new URLSearchParams();
+    if (filters?.scope) params.set("scope", filters.scope);
+    if (filters?.content_type) params.set("content_type", filters.content_type);
+    const qs = params.toString();
+    return request(`/api/views${qs ? `?${qs}` : ""}`);
+  },
+
+  create(data: {
+    name: string;
+    scope?: "collection" | "dashboard";
+    contentType?: ContentTypeId | null;
+    filters?: SavedViewFilters;
+  }): Promise<SavedView> {
+    return request("/api/views", { method: "POST", body: JSON.stringify(data) });
+  },
+
+  update(id: string, data: { name?: string; filters?: SavedViewFilters }): Promise<SavedView> {
+    return request(`/api/views/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  },
+
+  delete(id: string): Promise<{ ok: true }> {
+    return request(`/api/views/${id}`, { method: "DELETE" });
   },
 };

@@ -1431,3 +1431,263 @@ scripts/smoke-api.mjs
 | V2.9–3 — Model Registry | Move AI model definitions to a backend-owned source of truth | ✅ Done |
 | V2.9–4 — AI Hardening | Improve model validation, Gemma handling, and queue metadata | ✅ Done |
 | V2.9–5 — Maintainability | Add smoke-test tooling and reduce root-shell bundle weight | ✅ Done |
+
+---
+
+# V3 — Product Expansion Roadmap
+
+> **Motivation:** V1 and V2 established the product core: capture, organize, analyze, score, and queue. V3 is about increasing daily usefulness by making the library easier to fill, easier to act on, and more valuable over time.
+
+## V3 Current Progress
+
+### V3.0 Foundation Slice — Completed
+
+- [x] Add progress tracking fields to `items`
+- [x] Add item-page progress editing and dashboard progress visibility
+- [x] Add duplicate-aware item create / update / CSV import checks
+- [x] Add item merge endpoint for duplicate cleanup foundations
+- [x] Add duplicate review UI in Settings with merge actions
+- [x] Add import source registry and import job tracking
+- [x] Add `saved_views` storage and API
+- [x] Add smart-view UI foundations on collection pages and dashboard
+- [x] Expand smart views into richer filters and editing flows
+- [x] Add real non-CSV source importers
+- [x] Add deeper type-specific progress UX
+
+## Priority 0 — Must-Have / Highest ROI
+
+### V3 Priority 0.1 — Source Imports Beyond CSV
+
+- [x] Add dedicated importers beyond CSV for high-value sources such as:
+  - Goodreads
+  - Letterboxd
+  - IMDb
+  - Trakt
+  - Pocket
+  - Raindrop
+  - YouTube playlists/history
+  - Apple Podcasts OPML
+  - X bookmarks where technically feasible
+- [x] Add importer registry / import job infrastructure so new sources can be added consistently
+- [x] Track import status and import metadata
+- [x] Add source mapping metadata for richer external importer support
+
+### V3 Priority 0.2 — Duplicate Detection + Merge
+
+- [x] Detect duplicates by:
+  - source URL
+  - external ID
+  - fuzzy title + creator matching
+- [x] Add merge endpoint instead of silently duplicating items
+- [x] Make CSV import duplicate-safe by default
+- [x] Add first duplicate review/merge UI flow inside the app
+
+### V3 Priority 0.3 — Progress Tracking Per Media Type
+
+- [x] Add progress tracking fields to items:
+  - `progressPercent`
+  - `progressCurrent`
+  - `progressTotal`
+  - `lastTouchedAt`
+- [x] Add generic progress editing on the item page
+- [x] Show progress in dashboard in-progress cards
+- [x] Support deeper type-aware progress:
+  - books → pages / percent
+  - podcasts / YouTube / movies → watched/listened state and optional minutes
+  - TV → season / episode progress
+  - articles → read state and reading progress
+
+### V3 Priority 0.4 — Saved Filters / Smart Views
+
+- [x] Add `saved_views` backend storage and CRUD routes
+- [x] Add smart-view UI foundations on collection pages
+- [x] Add dashboard smart-view visibility
+- [x] Add richer saved views such as:
+  - short reads
+  - high-score Arabic books
+  - queued podcasts under 30 mins
+  - trending movies not started
+- [x] Add backend storage for reusable saved filter definitions
+- [x] Make smart views work across collection pages and dashboard modules
+
+## Priority 1 — Very Strong Product Upgrades
+
+### V3 Priority 1.1 — Collections / Custom Lists
+
+- [ ] Add user-owned custom lists / collections
+- [ ] Add ordering within lists
+- [ ] Keep lists distinct from tags conceptually and structurally
+
+### V3 Priority 1.2 — Reminder + Resurfacing System
+
+- [ ] Add reminders such as:
+  - untouched in 30 days
+  - high-score item still in suggestions
+  - resume unfinished item
+- [ ] Build on queue/settings foundations where appropriate
+
+### V3 Priority 1.3 — Rich Notes, Highlights, and Quotes
+
+- [ ] Expand notes into structured highlights / quotes / takeaways
+- [ ] Support especially strong flows for books, podcasts, videos, and articles
+
+### V3 Priority 1.4 — Better Recommendation Controls
+
+- [ ] Add user controls such as:
+  - hide from recommendations
+  - manual boost
+  - cooldown for 7 / 30 days
+- [ ] Reflect those controls directly in next-to-consume ranking behavior
+
+## Priority 2 — Strong Quality-of-Life Features
+
+### V3 Priority 2.1 — Quick Capture Tools
+
+- [ ] Add browser extension and/or bookmarklet support
+- [ ] Add mobile/PWA share-to-app capture if feasible
+
+### V3 Priority 2.2 — Calendar / Timeline View
+
+- [ ] Show added / started / finished / abandoned activity over time
+- [ ] Use it as a retrospective and habit-review surface
+
+### V3 Priority 2.3 — Richer Dashboard / Analytics
+
+- [ ] Add weekly and monthly consumption trends
+- [ ] Show completion rate by type
+- [ ] Show backlog growth vs completed work
+- [ ] Surface top tags/topics over time
+
+### V3 Priority 2.4 — Item Linking
+
+- [ ] Add relationships between items such as:
+  - book ↔ movie adaptation
+  - article ↔ podcast episode
+  - tweet ↔ article thread
+  - sequel / prequel / same creator
+
+### V3 Priority 2.5 — Archive / Restore / Soft Delete
+
+- [ ] Add safer restore flows for removed content
+- [ ] Prefer soft delete for normal user actions instead of immediate permanent deletion
+
+## Priority 3 — Nice-to-Have / Longer-Term
+
+- [ ] Collaboration / shared lists
+- [ ] Public profiles / shareable views
+- [ ] Multi-user recommendation modes
+- [ ] Stronger offline-first / local-first behavior
+- [ ] AI knowledge layer across notes, themes, and cross-item insights
+
+## Recommended V3 Focus
+
+### V3.0 — Core
+
+- [x] Source imports beyond CSV
+- [x] Duplicate detection + merge foundations
+- [x] Progress tracking foundations
+- [x] Saved filters / smart views
+
+### V3.1 — Usage Layer
+
+- [ ] Collections
+- [ ] Reminder / resurfacing
+- [ ] Rich notes / highlights
+- [ ] Recommendation controls
+
+### V3.2 — Convenience Layer
+
+- [ ] Browser quick capture
+- [ ] Dashboard analytics
+- [ ] Timeline / calendar
+- [ ] Item linking
+
+## Important Interface / Data Additions
+
+- [x] Extend `items` with fields such as:
+  - `progressPercent`
+  - `progressCurrent`
+  - `progressTotal`
+  - `lastTouchedAt`
+- [ ] Extend `items` with fields such as:
+  - `hiddenFromRecommendations`
+  - `manualBoost`
+  - `cooldownUntil`
+  - `deletedAt`
+- [x] Add entities such as:
+  - `saved_views`
+- [ ] Add entities such as:
+  - `lists`
+  - `list_items`
+  - `item_links`
+  - optional `reminders` / `resurfacing_rules`
+- [x] Add import subsystem entities such as:
+  - importer registry
+  - import jobs
+- [x] Add import subsystem entities such as:
+  - duplicate review state
+  - source mapping metadata
+
+## V3 Acceptance Focus
+
+- [ ] Importers must be idempotent and duplicate-safe
+- [ ] Progress tracking must behave correctly across media types
+- [ ] Saved views must remain stable as the library grows
+- [ ] Recommendation controls must visibly affect ranking
+- [ ] Reminder/resurfacing behavior must be explainable
+- [ ] Dashboard additions must not noticeably slow initial page load
+
+## V3 Assumptions
+
+- [ ] SirajHub remains primarily a personal media intelligence app, not a social network
+- [ ] Recommendation quality and faster capture matter more than social features in V3
+- [ ] The strongest V3 strategy is to improve the real product loop:
+  - capture
+  - rank
+  - consume
+  - reflect
+
+## V3 Summary Table
+
+| Priority | Focus | Outcome |
+|------|------|--------|
+| Priority 0 | Import, dedupe, progress, smart views | Faster onboarding and more useful library state |
+| Priority 1 | Lists, reminders, richer notes, recommendation controls | Stronger day-to-day usage loop |
+| Priority 2 | Quick capture, timeline, analytics, linking, soft delete | Better quality of life and insight |
+| Priority 3 | Sharing, public views, multi-user, offline-first, AI knowledge layer | Longer-term expansion options |
+
+## V3.0 Files Changed
+
+### Backend
+
+- [x] [worker/src/db/schema.ts](/Users/Jake/Coding/SirajHub/worker/src/db/schema.ts)
+- [x] [worker/src/db/migrations/0006_v3_priority_zero.sql](/Users/Jake/Coding/SirajHub/worker/src/db/migrations/0006_v3_priority_zero.sql)
+- [x] [worker/src/db/migrations/0007_import_source_mappings.sql](/Users/Jake/Coding/SirajHub/worker/src/db/migrations/0007_import_source_mappings.sql)
+- [x] [worker/src/routes/items.ts](/Users/Jake/Coding/SirajHub/worker/src/routes/items.ts)
+- [x] [worker/src/routes/views.ts](/Users/Jake/Coding/SirajHub/worker/src/routes/views.ts)
+- [x] [worker/src/index.ts](/Users/Jake/Coding/SirajHub/worker/src/index.ts)
+
+### Frontend
+
+- [x] [apps/web/src/lib/api.ts](/Users/Jake/Coding/SirajHub/apps/web/src/lib/api.ts)
+- [x] [apps/web/src/lib/importers.ts](/Users/Jake/Coding/SirajHub/apps/web/src/lib/importers.ts)
+- [x] [apps/web/src/hooks/useItems.ts](/Users/Jake/Coding/SirajHub/apps/web/src/hooks/useItems.ts)
+- [x] [apps/web/src/lib/saved-views.ts](/Users/Jake/Coding/SirajHub/apps/web/src/lib/saved-views.ts)
+- [x] [apps/web/src/components/AddItemDialog.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/components/AddItemDialog.tsx)
+- [x] [apps/web/src/components/views/TypePageLayout.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/components/views/TypePageLayout.tsx)
+- [x] [apps/web/src/routes/index.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/routes/index.tsx)
+- [x] [apps/web/src/components/dashboard/InProgressItems.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/components/dashboard/InProgressItems.tsx)
+- [x] [apps/web/src/routes/item.$id.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/routes/item.$id.tsx)
+- [x] [apps/web/src/routes/settings.tsx](/Users/Jake/Coding/SirajHub/apps/web/src/routes/settings.tsx)
+
+## V3.0 Summary Table
+
+| Step | Focus | Status |
+|------|------|--------|
+| V3.0–1 | Add progress fields, persistence, and first UI surfaces | ✅ Done |
+| V3.0–2 | Add duplicate-aware create/import logic and merge foundations | ✅ Done |
+| V3.0–3 | Add import source registry and import job tracking | ✅ Done |
+| V3.0–4 | Add saved-view storage and richer smart-view UI | ✅ Done |
+| V3.0–5 | Add duplicate review UI in Settings | ✅ Done |
+| V3.0–6 | Add real external importers and source-mapping metadata | ✅ Done |
+| V3.0–7 | Add deeper type-specific progress UX | ✅ Done |

@@ -71,6 +71,10 @@ export const items = sqliteTable(
     position: integer("position").default(0), // for manual ordering within a status column
     rating: integer("rating"), // user's personal 1–5 rating
     notes: text("notes"), // user's private notes
+    progressPercent: integer("progress_percent"),
+    progressCurrent: integer("progress_current"),
+    progressTotal: integer("progress_total"),
+    lastTouchedAt: integer("last_touched_at"),
     suggestMetricBase: integer("suggest_metric_base"),
     suggestMetricFinal: integer("suggest_metric_final"),
     suggestMetricUpdatedAt: integer("suggest_metric_updated_at"),
@@ -90,6 +94,79 @@ export const items = sqliteTable(
     index("idx_items_user_status").on(t.userId, t.status),
     index("idx_items_user_type").on(t.userId, t.contentType),
     index("idx_items_source_url").on(t.sourceUrl),
+  ]
+);
+
+// ── Saved Views ───────────────────────────────────────────────────────────────
+export const savedViews = sqliteTable(
+  "saved_views",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    scope: text("scope").notNull().default("collection"), // 'collection' | 'dashboard'
+    contentType: text("content_type"),
+    filters: text("filters").notNull(), // JSON blob
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_saved_views_user_scope").on(t.userId, t.scope),
+    index("idx_saved_views_user_type").on(t.userId, t.contentType),
+  ]
+);
+
+// ── Import Jobs ───────────────────────────────────────────────────────────────
+export const importJobs = sqliteTable(
+  "import_jobs",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    source: text("source").notNull(), // 'csv' | future importer ids
+    sourceLabel: text("source_label").notNull(),
+    status: text("status").notNull().default("queued"), // 'queued' | 'processing' | 'completed' | 'failed'
+    duplicateStrategy: text("duplicate_strategy").notNull().default("skip"), // 'skip' | future strategies
+    totalRows: integer("total_rows").notNull().default(0),
+    createdCount: integer("created_count").notNull().default(0),
+    duplicateCount: integer("duplicate_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    metadata: text("metadata"), // JSON blob
+    result: text("result"), // JSON blob
+    lastError: text("last_error"),
+    completedAt: integer("completed_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("idx_import_jobs_user_created").on(t.userId, t.createdAt)]
+);
+
+// ── Import Source Mappings ───────────────────────────────────────────────────
+export const importSourceMappings = sqliteTable(
+  "import_source_mappings",
+  {
+    id: text("id").primaryKey(),
+    importJobId: text("import_job_id")
+      .notNull()
+      .references(() => importJobs.id, { onDelete: "cascade" }),
+    itemId: text("item_id").references(() => items.id, { onDelete: "cascade" }),
+    duplicateOfItemId: text("duplicate_of_item_id").references(() => items.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    sourceRecordId: text("source_record_id"),
+    sourceUrl: text("source_url"),
+    rawTitle: text("raw_title"),
+    rawCreator: text("raw_creator"),
+    payload: text("payload"),
+    status: text("status").notNull().default("created"), // 'created' | 'duplicate' | 'failed'
+    createdAt: integer("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_import_source_mappings_job").on(t.importJobId),
+    index("idx_import_source_mappings_item").on(t.itemId),
+    index("idx_import_source_mappings_source_record").on(t.source, t.sourceRecordId),
   ]
 );
 
@@ -207,3 +284,6 @@ export type AiJob = typeof aiJobs.$inferSelect;
 export type UrlCache = typeof urlCache.$inferSelect;
 export type Account = typeof account.$inferSelect;
 export type Verification = typeof verification.$inferSelect;
+export type SavedView = typeof savedViews.$inferSelect;
+export type ImportJob = typeof importJobs.$inferSelect;
+export type ImportSourceMapping = typeof importSourceMappings.$inferSelect;

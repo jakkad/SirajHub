@@ -47,6 +47,11 @@ function ItemDetailPage() {
     coverUrl: "",
     contentType: "book" as typeof CONTENT_TYPES[number]["id"],
   });
+  const [progressForm, setProgressForm] = useState({
+    current: "",
+    total: "",
+    percent: "",
+  });
 
   useEffect(() => {
     if (item) setNotes(item.notes ?? "");
@@ -61,6 +66,15 @@ function ItemDetailPage() {
       releaseDate: item.releaseDate ?? "",
       coverUrl: item.coverUrl ?? "",
       contentType: item.contentType,
+    });
+  }, [item]);
+
+  useEffect(() => {
+    if (!item) return;
+    setProgressForm({
+      current: item.progressCurrent?.toString() ?? "",
+      total: item.progressTotal?.toString() ?? "",
+      percent: item.progressPercent?.toString() ?? "",
     });
   }, [item]);
 
@@ -79,6 +93,7 @@ function ItemDetailPage() {
 
   const currentItem = item;
   const ct = CONTENT_TYPES.find((c) => c.id === currentItem.contentType);
+  const progressMeta = getProgressMeta(currentItem);
 
   function saveNotes() {
     const current = notes;
@@ -109,6 +124,15 @@ function ItemDetailPage() {
         },
       }
     );
+  }
+
+  function saveProgress() {
+    updateItem({
+      id: currentItem.id,
+      progressCurrent: progressForm.current ? parseInt(progressForm.current, 10) : null,
+      progressTotal: progressForm.total ? parseInt(progressForm.total, 10) : null,
+      progressPercent: progressForm.percent ? parseInt(progressForm.percent, 10) : null,
+    });
   }
 
   return (
@@ -353,6 +377,82 @@ function ItemDetailPage() {
               </div>
           </section>
 
+          <section className="flex flex-col gap-4 border-b border-[hsl(var(--border))] pb-6">
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Progress</h2>
+            <div className="flex flex-wrap gap-2">
+              {progressMeta.presets.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setProgressForm({
+                      current: preset.current != null ? String(preset.current) : "",
+                      total: preset.total != null ? String(preset.total) : progressForm.total,
+                      percent: preset.percent != null ? String(preset.percent) : "",
+                    })
+                  }
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="flex flex-col gap-2">
+                <Label>{progressMeta.currentLabel}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={progressForm.current}
+                  onChange={(e) => setProgressForm((prev) => ({ ...prev, current: e.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>{progressMeta.totalLabel}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={progressForm.total}
+                  onChange={(e) => setProgressForm((prev) => ({ ...prev, total: e.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Percent complete</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={progressForm.percent}
+                  onChange={(e) => setProgressForm((prev) => ({ ...prev, percent: e.target.value }))}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-foreground">{progressMeta.summaryLabel}</p>
+                <Badge variant="secondary">{currentItem.progressPercent ?? 0}%</Badge>
+              </div>
+              <div className="mt-3 h-3 rounded-full bg-[hsl(var(--secondary))]">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${Math.max(0, Math.min(100, currentItem.progressPercent ?? 0))}%` }}
+                />
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {currentItem.lastTouchedAt
+                  ? `Last touched ${new Date(currentItem.lastTouchedAt).toLocaleString()}`
+                  : "No progress recorded yet."}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">{progressMeta.helperText}</p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={saveProgress}>Save progress</Button>
+            </div>
+          </section>
+
           <section className="flex flex-col gap-3 border-b border-[hsl(var(--border))] pb-6">
             <h2 className="text-2xl font-semibold tracking-[-0.04em] text-foreground">Tags</h2>
               <InlineTagManager itemId={item.id} suggestedTags={suggestedTags} onSuggestionsApplied={() => setSuggestedTags(null)} />
@@ -382,4 +482,73 @@ function MetricStat({ label, value }: { label: string; value: number | string })
       <div className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-foreground">{value}</div>
     </div>
   );
+}
+
+function getProgressMeta(item: {
+  contentType: (typeof CONTENT_TYPES)[number]["id"];
+  durationMins: number | null;
+  metadata: string | null;
+}) {
+  let parsedMetadata: Record<string, unknown> = {};
+  try {
+    parsedMetadata = item.metadata ? (JSON.parse(item.metadata) as Record<string, unknown>) : {};
+  } catch {
+    parsedMetadata = {};
+  }
+
+  const presets = [
+    { label: "25%", percent: 25, current: item.durationMins ? Math.round(item.durationMins * 0.25) : undefined, total: item.durationMins ?? undefined },
+    { label: "50%", percent: 50, current: item.durationMins ? Math.round(item.durationMins * 0.5) : undefined, total: item.durationMins ?? undefined },
+    { label: "75%", percent: 75, current: item.durationMins ? Math.round(item.durationMins * 0.75) : undefined, total: item.durationMins ?? undefined },
+    { label: "Done", percent: 100, current: item.durationMins ?? undefined, total: item.durationMins ?? undefined },
+  ];
+
+  if (item.contentType === "book") {
+    return {
+      currentLabel: "Current page",
+      totalLabel: "Total pages",
+      summaryLabel: "Reading progress",
+      helperText: "Track pages or percent for books. If you fill current and total pages, percent is recalculated automatically.",
+      presets,
+    };
+  }
+
+  if (item.contentType === "article") {
+    return {
+      currentLabel: "Current reading minutes",
+      totalLabel: "Estimated reading minutes",
+      summaryLabel: "Reading state",
+      helperText: "For articles, you can use minutes or just click a quick preset like 25%, 50%, or Done.",
+      presets,
+    };
+  }
+
+  if (item.contentType === "tv") {
+    const seasons = typeof parsedMetadata.seasons === "number" ? parsedMetadata.seasons : undefined;
+    return {
+      currentLabel: "Episodes watched",
+      totalLabel: seasons ? `Episodes / ${seasons} seasons` : "Total episodes",
+      summaryLabel: "Watch progress",
+      helperText: "TV progress works best as episodes watched versus total episodes. Season-aware UI can build on this later.",
+      presets,
+    };
+  }
+
+  if (item.contentType === "podcast" || item.contentType === "youtube" || item.contentType === "movie") {
+    return {
+      currentLabel: "Minutes completed",
+      totalLabel: "Total minutes",
+      summaryLabel: "Playback progress",
+      helperText: "Use minutes completed for long-form media. Quick presets are useful for partial watches and listens.",
+      presets,
+    };
+  }
+
+  return {
+    currentLabel: "Current progress",
+    totalLabel: "Total",
+    summaryLabel: "Current completion",
+    helperText: "Use the progress fields to track where you are. Percent can be entered directly or derived from current/total values.",
+    presets,
+  };
 }

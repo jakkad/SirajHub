@@ -48,6 +48,14 @@ export function InProgressItems({ items }: InProgressItemsProps) {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-base font-semibold text-foreground">{item.title}</div>
                   {item.creator ? <div className="truncate text-sm text-muted-foreground">{item.creator}</div> : null}
+                  {item.progressPercent != null ? (
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="h-2 flex-1 rounded-full bg-[hsl(var(--secondary))]">
+                        <div className="h-full rounded-full bg-primary" style={{ width: `${item.progressPercent}%` }} />
+                      </div>
+                      <div className="text-xs font-semibold text-muted-foreground">{item.progressPercent}%</div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="shrink-0 text-right">

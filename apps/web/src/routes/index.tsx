@@ -1,13 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useItems } from "../hooks/useItems";
+import { Link } from "@tanstack/react-router";
+import { useItems, useSavedViews } from "../hooks/useItems";
 import { TypeStats } from "../components/dashboard/TypeStats";
 import { RecentlyAdded } from "../components/dashboard/RecentlyAdded";
 import { InProgressItems } from "../components/dashboard/InProgressItems";
 import { NextToConsume } from "../components/dashboard/NextToConsume";
 import { CONTENT_TYPES } from "../lib/constants";
+import { matchesSavedViewFilters, summarizeSavedViewFilters } from "../lib/saved-views";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const CONTENT_TYPE_ROUTE_MAP = {
+  book: "/books",
+  movie: "/movies",
+  tv: "/tv",
+  podcast: "/podcasts",
+  youtube: "/videos",
+  article: "/articles",
+  tweet: "/tweets",
+} as const;
 
 export const Route = createFileRoute("/")({
   component: DashboardPage,
@@ -15,11 +27,13 @@ export const Route = createFileRoute("/")({
 
 function DashboardPage() {
   const { data: allItems = [], isLoading } = useItems();
+  const { data: savedViewsData } = useSavedViews({ scope: "dashboard" });
   const suggestions = allItems.filter((item) => item.status === "suggestions");
   const inProgress = allItems.filter((item) => item.status === "in_progress");
   const finished = allItems.filter((item) => item.status === "finished");
   const archived = allItems.filter((item) => item.status === "archived");
   const completionRate = allItems.length > 0 ? Math.round((finished.length / allItems.length) * 100) : 0;
+  const savedViews = savedViewsData?.views ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -81,6 +95,42 @@ function DashboardPage() {
           <TypeStats items={allItems} />
         </CardContent>
       </Card>
+
+      {savedViews.length > 0 ? (
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle>Smart Views</CardTitle>
+            <CardDescription>Reusable slices of your library that help you jump straight into a useful queue.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {savedViews.map((view) => {
+              const matched = allItems.filter((item) => matchesSavedViewFilters(item, view.filters));
+              const targetType = view.contentType ? CONTENT_TYPES.find((entry) => entry.id === view.contentType) : null;
+              return (
+                <Link
+                  key={view.id}
+                  to={view.contentType ? CONTENT_TYPE_ROUTE_MAP[view.contentType] : "/"}
+                  className="no-underline"
+                >
+                  <div className="h-full rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 transition-colors hover:bg-[hsl(var(--secondary)/0.55)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{view.name}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{summarizeSavedViewFilters(view.filters)}</p>
+                      </div>
+                      <Badge variant="secondary">{matched.length}</Badge>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {targetType ? <Badge variant="outline">{targetType.label}</Badge> : <Badge variant="outline">Dashboard</Badge>}
+                      {view.filters.status ? <Badge variant="outline">{view.filters.status.replace("_", " ")}</Badge> : null}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
         <Card className="min-w-0 h-auto self-start overflow-hidden">
