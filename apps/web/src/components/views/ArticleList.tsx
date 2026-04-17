@@ -1,9 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { Clock3, Globe2 } from "lucide-react";
 import type { Item } from "../../lib/api";
+import type { SelectionProps } from "./TypePageLayout";
+import { SelectionOverlay } from "./SelectionOverlay";
 
 interface ArticleListProps {
   items: Item[];
+  selectionProps?: SelectionProps;
 }
 
 function getFavicon(sourceUrl: string | null): string | null {
@@ -38,7 +41,7 @@ function getReadingTime(item: Item): string | null {
   return `${Math.max(1, Math.round(words / 180))} min read`;
 }
 
-export function ArticleList({ items }: ArticleListProps) {
+export function ArticleList({ items, selectionProps }: ArticleListProps) {
   if (items.length === 0) {
     return <div className="text-muted-foreground p-8 italic">No articles saved yet.</div>;
   }
@@ -53,8 +56,17 @@ export function ArticleList({ items }: ArticleListProps) {
 
         return (
           <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block no-underline flex flex-col h-full group outline-none">
-            <article className="paper-card rounded-3xl p-5 border border-[#10b981]/20 hover:border-[#10b981]/50 bg-gradient-to-br from-[#10b981]/5 to-transparent flex flex-col h-full transition-all duration-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#10b981]/15 drop-shadow-sm">
-              
+            <article className="relative paper-card rounded-3xl p-5 border border-[#10b981]/20 hover:border-[#10b981]/50 bg-gradient-to-br from-[#10b981]/5 to-transparent flex flex-col h-full transition-all duration-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#10b981]/15 drop-shadow-sm">
+              {selectionProps?.isSelectionMode && (
+                <SelectionOverlay 
+                  isSelected={selectionProps.selectedIds.has(item.id)} 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectionProps.toggleSelection(item.id);
+                  }} 
+                />
+              )}
               {/* Cover Image Area */}
               <div className="w-full h-48 rounded-2xl bg-card border border-[hsl(var(--border)_/_0.6)] overflow-hidden relative mb-5 shadow-inner">
                 {item.coverUrl ? (

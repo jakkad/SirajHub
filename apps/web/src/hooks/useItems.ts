@@ -34,8 +34,8 @@ export function useCreateItem() {
 export function useImportItems() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ source, rows }: { source?: string; rows: ImportRowInput[] }) =>
-      source && source !== "csv" ? itemsApi.importSource(source, rows) : itemsApi.importCsv(rows),
+    mutationFn: ({ source, rows, resyncMetadata }: { source?: string; rows: ImportRowInput[]; resyncMetadata?: boolean }) =>
+      source && source !== "csv" ? itemsApi.importSource(source, rows, resyncMetadata) : itemsApi.importCsv(rows, resyncMetadata),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [QUERY_KEY] });
       qc.invalidateQueries({ queryKey: [IMPORT_JOBS_QUERY_KEY] });
@@ -56,6 +56,14 @@ export function useDeleteItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => itemsApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+  });
+}
+
+export function useBulkDeleteItems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => itemsApi.bulkDelete(ids),
     onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
   });
 }

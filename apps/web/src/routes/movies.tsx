@@ -13,7 +13,7 @@ function MoviesPage() {
       title="Movies"
       color="var(--color-movie)"
     >
-      {(items) => <MoviePosterGrid items={items} />}
+      {(items, selectionProps) => <MoviePosterGrid items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }

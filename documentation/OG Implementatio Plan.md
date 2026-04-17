@@ -1767,17 +1767,6 @@ worker/src/routes/items.ts
 apps/web/src/lib/api.ts
 apps/web/src/hooks/useItems.ts
 apps/web/src/components/AddItemDialog.tsx
-apps/web/src/components/ItemCard.tsx
-apps/web/src/components/views/TypePageLayout.tsx
-apps/web/src/components/views/SelectionOverlay.tsx
-apps/web/src/components/views/MoviePosterGrid.tsx
-apps/web/src/components/views/TVPosterGrid.tsx
-apps/web/src/components/views/BookshelfView.tsx
-apps/web/src/components/views/VideoGrid.tsx
-apps/web/src/components/views/PodcastGrid.tsx
-apps/web/src/components/views/ArticleList.tsx
-apps/web/src/components/views/TweetFeed.tsx
-apps/web/src/index.css
 ```
 
 ## V3.2 Summary Table
@@ -1785,4 +1774,3 @@ apps/web/src/index.css
 | Step | Focus | Status |
 |------|------|--------|
 | V3.2–1 | Add background metadata resync capability | ✅ Done |
-| V3.2–2 | Add Selection Mode UI and bulk deletion | ✅ Done |

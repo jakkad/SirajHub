@@ -68,6 +68,7 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [csvImportResult, setCsvImportResult] = useState<BulkImportResult | null>(null);
   const [createDuplicate, setCreateDuplicate] = useState<DuplicateItemSummary | null>(null);
   const [manualMappingEnabled, setManualMappingEnabled] = useState(false);
+  const [resyncMetadata, setResyncMetadata] = useState(false);
   const [manualMapping, setManualMapping] = useState<ManualCsvMapping>({
     title: "",
     contentType: "",
@@ -152,6 +153,7 @@ export function AddItemDialog({ open, onClose }: Props) {
     setCsvImportResult(null);
     setCreateDuplicate(null);
     setManualMappingEnabled(false);
+    setResyncMetadata(false);
     setManualMapping({
       title: "",
       contentType: "",
@@ -258,7 +260,7 @@ export function AddItemDialog({ open, onClose }: Props) {
   function handleImportCsv() {
     if (csvPreparation.rows.length === 0) return;
 
-    importItems({ source: importSource, rows: csvPreparation.rows }, {
+    importItems({ source: importSource, rows: csvPreparation.rows, resyncMetadata }, {
       onSuccess(result) {
         setCsvImportResult(result);
       },
@@ -902,10 +904,22 @@ export function AddItemDialog({ open, onClose }: Props) {
           </div>
 
           <div className="shrink-0 border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] px-6 py-4">
-            <div className="flex flex-wrap justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => { reset(); onClose(); }}>
-                Cancel
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {isCsvMode ? (
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={resyncMetadata}
+                    onChange={(e) => setResyncMetadata(e.target.checked)}
+                    className="h-4 w-4 rounded border-[hsl(var(--border))] bg-card text-primary focus:ring-primary"
+                  />
+                  <span>Resync missing metadata</span>
+                </label>
+              ) : <div />}
+              <div className="flex flex-wrap justify-end gap-3 ml-auto">
+                <Button type="button" variant="outline" onClick={() => { reset(); onClose(); }}>
+                  Cancel
+                </Button>
               {isCsvMode ? (
                 <Button type="button" onClick={handleImportCsv} disabled={importing || csvImportDisabled}>
                   {importing ? "Importing…" : `Import ${csvPreparation.rows.length} item${csvPreparation.rows.length === 1 ? "" : "s"}`}
@@ -917,6 +931,7 @@ export function AddItemDialog({ open, onClose }: Props) {
               )}
             </div>
           </div>
+        </div>
         </form>
       </DialogContent>
     </Dialog>

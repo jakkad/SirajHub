@@ -13,7 +13,7 @@ function VideosPage() {
       title="Videos"
       color="var(--color-youtube)"
     >
-      {(items) => <VideoGrid items={items} />}
+      {(items, selectionProps) => <VideoGrid items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }

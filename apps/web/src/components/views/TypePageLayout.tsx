@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCreateSavedView, useDeleteSavedView, useItems, useSavedViews } from "../../hooks/useItems";
+import { useCreateSavedView, useDeleteSavedView, useItems, useSavedViews, useBulkDeleteItems } from "../../hooks/useItems";
 import { summarizeSavedViewFilters, matchesSavedViewFilters } from "../../lib/saved-views";
 import type { ContentTypeId, StatusId } from "../../lib/constants";
 import { STATUSES } from "../../lib/constants";
@@ -12,11 +12,17 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Filter, Bookmark, X, Search } from "lucide-react";
 
+export interface SelectionProps {
+  isSelectionMode: boolean;
+  selectedIds: Set<string>;
+  toggleSelection: (id: string) => void;
+}
+
 interface TypePageLayoutProps {
   contentType: ContentTypeId;
   title: string;
   color: string;
-  children: (items: Item[]) => React.ReactNode;
+  children: (items: Item[], selectionProps?: { isSelectionMode: boolean; selectedIds: Set<string>; toggleSelection: (id: string) => void }) => React.ReactNode;
 }
 
 const STATUS_FILTERS: Array<{ id: StatusId | "all"; label: string }> = [
@@ -49,6 +55,19 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
   const { data: savedViewsData } = useSavedViews({ scope: "collection", content_type: contentType });
   const { mutate: createSavedView, isPending: savingView } = useCreateSavedView();
   const { mutate: deleteSavedView } = useDeleteSavedView();
+  const { mutate: bulkDeleteItems, isPending: bulkDeleting } = useBulkDeleteItems();
+
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelection(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const savedViews = savedViewsData?.views ?? [];
   const activeView = savedViews.find((view) => view.id === activeViewId) ?? null;
@@ -114,6 +133,18 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
               >
                 <Filter className="mr-2 size-4" />
                 {smartViewsOpen ? "Close Filters" : "Smart Views & Filters"}
+              </Button>
+              <Button
+                variant={isSelectionMode ? "default" : "outline"}
+                className={`rounded-full shadow-sm transition-all h-9 px-4 ${isSelectionMode ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
+                onClick={() => {
+                  setIsSelectionMode((prev) => {
+                    if (prev) setSelectedIds(new Set());
+                    return !prev;
+                  });
+                }}
+              >
+                {isSelectionMode ? "Cancel Select" : "Select"}
               </Button>
             </div>
           </div>
@@ -230,10 +261,37 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
                {Array.from({length: 12}).map((_, i) => <Skeleton key={i} className="aspect-[2/3] w-full rounded-[1.25rem] bg-card/40" />)}
              </div>
           ) : (
-            children(filtered)
+            children(filtered, { isSelectionMode, selectedIds, toggleSelection })
           )}
         </div>
       </div>
+      
+      {isSelectionMode && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className="flex items-center gap-4 bg-[hsl(var(--card)_/_0.95)] backdrop-blur-xl border border-[hsl(var(--border)_/_0.8)] shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] rounded-full px-6 py-3">
+            <span className="font-bold text-foreground text-[14px] px-2 drop-shadow-sm">
+              {selectedIds.size} {selectedIds.size === 1 ? 'item' : 'items'} selected
+            </span>
+            <Button 
+              variant="destructive" 
+              className="bg-red-500 hover:bg-red-600 text-white rounded-full shadow-md h-8 px-4 text-xs font-bold"
+              disabled={selectedIds.size === 0 || bulkDeleting}
+              onClick={() => {
+                if (window.confirm(`Delete ${selectedIds.size} items? This cannot be undone.`)) {
+                  bulkDeleteItems(Array.from(selectedIds), {
+                    onSuccess: () => {
+                      setIsSelectionMode(false);
+                      setSelectedIds(new Set());
+                    }
+                  });
+                }
+              }}
+            >
+              {bulkDeleting ? "Deleting..." : "Delete Selected"}
+            </Button>
+          </div>
+        </div>
+      )}
       
     </div>
   );

@@ -13,7 +13,7 @@ function BooksPage() {
       title="Books"
       color="var(--color-book)"
     >
-      {(items) => <BookshelfView items={items} />}
+      {(items, selectionProps) => <BookshelfView items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }

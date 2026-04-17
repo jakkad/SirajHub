@@ -1,9 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { CalendarDays, ExternalLink } from "lucide-react";
 import type { Item } from "../../lib/api";
+import type { SelectionProps } from "./TypePageLayout";
+import { SelectionOverlay } from "./SelectionOverlay";
 
 interface TweetFeedProps {
   items: Item[];
+  selectionProps?: SelectionProps;
 }
 
 function getHandle(name: string | null): string | null {
@@ -26,7 +29,7 @@ function getTweetBody(item: Item): string {
   return text.replace(/&#39;/g, "'").replace(/&mdash;/g, "—");
 }
 
-export function TweetFeed({ items }: TweetFeedProps) {
+export function TweetFeed({ items, selectionProps }: TweetFeedProps) {
   if (items.length === 0) {
     return <div className="text-muted-foreground italic p-4">No tweets saved yet.</div>;
   }
@@ -40,7 +43,17 @@ export function TweetFeed({ items }: TweetFeedProps) {
 
         return (
           <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block no-underline break-inside-avoid">
-            <article className="paper-card rounded-[2rem] p-6 border border-[#3b82f6]/20 bg-gradient-to-br from-[#3b82f6]/5 to-transparent hover:border-[#3b82f6]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_rgba(59,130,246,0.3)] group drop-shadow-sm">
+            <article className="relative paper-card rounded-[2rem] p-6 border border-[#3b82f6]/20 bg-gradient-to-br from-[#3b82f6]/5 to-transparent hover:border-[#3b82f6]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_rgba(59,130,246,0.3)] group drop-shadow-sm">
+              {selectionProps?.isSelectionMode && (
+                <SelectionOverlay 
+                  isSelected={selectionProps.selectedIds.has(item.id)} 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectionProps.toggleSelection(item.id);
+                  }} 
+                />
+              )}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="size-10 rounded-full bg-gradient-to-br from-[#3b82f6] to-cyan-400 flex items-center justify-center text-white font-bold shadow-sm ring-2 ring-[#3b82f6]/20">

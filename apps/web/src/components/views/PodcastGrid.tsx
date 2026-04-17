@@ -1,11 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
+import type { SelectionProps } from "./TypePageLayout";
+import { SelectionOverlay } from "./SelectionOverlay";
 
 interface PodcastGridProps {
   items: Item[];
+  selectionProps?: SelectionProps;
 }
 
-export function PodcastGrid({ items }: PodcastGridProps) {
+export function PodcastGrid({ items, selectionProps }: PodcastGridProps) {
   if (items.length === 0) {
     return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No podcasts saved yet.</div>;
   }
@@ -46,6 +49,16 @@ export function PodcastGrid({ items }: PodcastGridProps) {
                 onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 20px oklch(0% 0 0 / 0.4)")}
                 onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.boxShadow = "none")}
               >
+                {selectionProps?.isSelectionMode && (
+                  <SelectionOverlay 
+                    isSelected={selectionProps.selectedIds.has(item.id)} 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      selectionProps.toggleSelection(item.id);
+                    }} 
+                  />
+                )}
                 {item.coverUrl ? (
                   <img src={item.coverUrl} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (

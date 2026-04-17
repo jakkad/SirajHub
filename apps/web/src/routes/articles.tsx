@@ -13,7 +13,7 @@ function ArticlesPage() {
       title="Articles"
       color="var(--color-article)"
     >
-      {(items) => <ArticleList items={items} />}
+      {(items, selectionProps) => <ArticleList items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }

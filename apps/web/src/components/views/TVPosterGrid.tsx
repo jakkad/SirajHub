@@ -1,8 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
+import type { SelectionProps } from "./TypePageLayout";
+import { SelectionOverlay } from "./SelectionOverlay";
 
 interface TVPosterGridProps {
   items: Item[];
+  selectionProps?: SelectionProps;
 }
 
 function idToGradient(id: string): string {
@@ -12,7 +15,7 @@ function idToGradient(id: string): string {
   return `linear-gradient(135deg, oklch(25% 0.1 ${hue}), oklch(15% 0.05 ${(hue + 60) % 360}))`;
 }
 
-export function TVPosterGrid({ items }: TVPosterGridProps) {
+export function TVPosterGrid({ items, selectionProps }: TVPosterGridProps) {
   if (items.length === 0) {
     return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No TV shows saved yet.</div>;
   }
@@ -34,6 +37,7 @@ export function TVPosterGrid({ items }: TVPosterGridProps) {
           <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
             <div
               style={{ cursor: "pointer", position: "relative" }}
+              className="group"
               onMouseEnter={(e) => {
                 const overlay = e.currentTarget.querySelector(".poster-overlay") as HTMLElement | null;
                 if (overlay) overlay.style.opacity = "1";
@@ -59,6 +63,16 @@ export function TVPosterGrid({ items }: TVPosterGridProps) {
                   transition: "box-shadow 0.15s",
                 }}
               >
+                {selectionProps?.isSelectionMode && (
+                  <SelectionOverlay 
+                    isSelected={selectionProps.selectedIds.has(item.id)} 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      selectionProps.toggleSelection(item.id);
+                    }} 
+                  />
+                )}
                 {item.coverUrl ? (
                   <img src={item.coverUrl} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (

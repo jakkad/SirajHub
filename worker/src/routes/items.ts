@@ -255,7 +255,8 @@ async function runImportJob(
   db: ReturnType<typeof createDb>,
   userId: string,
   source: ImportSourceId,
-  rows: ImportRowInput[]
+  rows: ImportRowInput[],
+  options?: { resyncMetadata?: boolean }
 ) {
   const sourceMeta = VALID_IMPORT_SOURCES.find((entry) => entry.id === source) ?? VALID_IMPORT_SOURCES[0];
   const now = Date.now();
@@ -440,7 +441,11 @@ async function runImportJob(
     });
 
     const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
-    await queueAiJob(db, userId, "score_item", { itemId: id }, getRunAfterFromInterval(intervalMinutes), id);
+    if (options?.resyncMetadata) {
+      await queueAiJob(db, userId, "fetch_metadata", { itemId: id }, getRunAfterFromInterval(intervalMinutes), id);
+    } else {
+      await queueAiJob(db, userId, "score_item", { itemId: id }, getRunAfterFromInterval(intervalMinutes), id);
+    }
   }
 
   const created =
@@ -719,7 +724,7 @@ router.post("/merge", async (c) => {
 
 router.post("/import/csv", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{ rows?: ImportRowInput[] }>();
+  const body = await c.req.json<{ rows?: ImportRowInput[]; resyncMetadata?: boolean }>();
 
   const rows = body.rows ?? [];
   if (!Array.isArray(rows) || rows.length === 0) {
@@ -727,13 +732,13 @@ router.post("/import/csv", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const result = await runImportJob(db, userId, "csv", rows);
+  const result = await runImportJob(db, userId, "csv", rows, { resyncMetadata: body.resyncMetadata });
   return c.json(result, 201);
 });
 
 router.post("/import/source", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{ source?: ImportSourceId; rows?: ImportRowInput[] }>();
+  const body = await c.req.json<{ source?: ImportSourceId; rows?: ImportRowInput[]; resyncMetadata?: boolean }>();
   const source = body.source;
   const rows = body.rows ?? [];
 
@@ -745,7 +750,7 @@ router.post("/import/source", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const result = await runImportJob(db, userId, source, rows);
+  const result = await runImportJob(db, userId, source, rows, { resyncMetadata: body.resyncMetadata });
   return c.json(result, 201);
 });
 
@@ -922,6 +927,23 @@ router.patch("/:id", async (c) => {
   }
 
   return c.json(updated);
+});
+
+router.post("/bulk-delete", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{ ids: string[] }>();
+  const db = createDb(c.env.DB);
+
+  if (!body.ids || !Array.isArray(body.ids) || body.ids.length === 0) {
+    return c.json({ error: "No ids provided" }, 400);
+  }
+
+  // D1 / SQLite parameter limits generally handle hundreds of items fine using inArray.
+  await db
+    .delete(items)
+    .where(and(inArray(items.id, body.ids), eq(items.userId, userId)));
+
+  return c.json({ ok: true, deletedCount: body.ids.length });
 });
 
 router.delete("/:id", async (c) => {

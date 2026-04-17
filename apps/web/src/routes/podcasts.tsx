@@ -13,7 +13,7 @@ function PodcastsPage() {
       title="Podcasts"
       color="var(--color-podcast)"
     >
-      {(items) => <PodcastGrid items={items} />}
+      {(items, selectionProps) => <PodcastGrid items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }

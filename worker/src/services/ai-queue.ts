@@ -10,11 +10,14 @@ import {
   resolveAiPrompts,
   resolveGeminiKey,
   resolveInterestProfiles,
+  resolveMetadataEnv,
+  resolveAiQueueIntervalMinutes,
 } from "../lib/user-settings";
 import { analyzeItem, scoreSuggestMetric } from "./ai";
+import { dispatch } from "./metadata";
 import type { Env } from "../types";
 
-export type AiJobType = "analyze_item" | "score_item";
+export type AiJobType = "analyze_item" | "score_item" | "fetch_metadata";
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 60;
@@ -413,6 +416,43 @@ async function processScoreJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect
   return { model, result: { ...result, finalScore, interestLinesUsed: interestLines } };
 }
 
+async function processFetchMetadataJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect) {
+  const payload = JSON.parse(job.payload) as { itemId?: string };
+  const itemId = payload.itemId ?? job.itemId ?? undefined;
+  if (!itemId) throw new Error("Missing item id");
+
+  const [item] = await db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, itemId), eq(items.userId, job.userId)));
+
+  if (!item) throw new Error("Item not found");
+
+  const resolvedEnv = await resolveMetadataEnv(db, job.userId, env);
+  const metadata = await dispatch({ query: item.title, contentType: item.contentType }, resolvedEnv);
+
+  const now = Date.now();
+  await db
+    .update(items)
+    .set({
+      coverUrl: item.coverUrl || metadata.coverUrl || null,
+      description: item.description || metadata.description || null,
+      creator: item.creator || metadata.creator || null,
+      releaseDate: item.releaseDate || metadata.releaseDate || null,
+      durationMins: item.durationMins || metadata.durationMins || null,
+      sourceUrl: item.sourceUrl || metadata.sourceUrl || null,
+      externalId: item.externalId || metadata.externalId || null,
+      metadata: item.metadata || metadata.metadata || null,
+      updatedAt: now,
+    })
+    .where(eq(items.id, item.id));
+
+  const intervalMinutes = await resolveAiQueueIntervalMinutes(db, job.userId);
+  await queueAiJob(db, job.userId, "score_item", { itemId }, getRunAfterFromInterval(intervalMinutes), itemId);
+
+  return { model: null, result: { success: true, metadata } };
+}
+
 export async function processAiQueue(env: Env) {
   const db = createDb(env.DB);
   let processed = 0;
@@ -442,6 +482,8 @@ export async function processAiQueue(env: Env) {
         const output =
           job.jobType === "analyze_item"
             ? await processAnalyzeJob(db, env, job)
+            : job.jobType === "fetch_metadata"
+            ? await processFetchMetadataJob(db, env, job)
             : await processScoreJob(db, env, job);
 
         await db

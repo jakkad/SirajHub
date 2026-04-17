@@ -13,7 +13,7 @@ function TweetsPage() {
       title="Tweets"
       color="var(--color-tweet)"
     >
-      {(items) => <TweetFeed items={items} />}
+      {(items, selectionProps) => <TweetFeed items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }

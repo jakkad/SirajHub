@@ -4554,9 +4554,3 @@ V3.2 is now underway.
 Completed pieces:
 
 1. Background metadata resync functionality for imports (avoids API rate limits by using the background AI queue).
-2. Bulk Deletion and Selection UI Context:
-   - Added a `POST /api/items/bulk-delete` route to the worker backend.
-   - Introduced a native `isSelectionMode` context into `TypePageLayout.tsx`.
-   - Built a sleek, floating action bar for bulk deletion at the bottom of the viewport.
-   - Added `SelectionOverlay` wrappers to all 7 content grids (movies, tv, books, videos, podcasts, articles, tweets) to seamlessly toggle select states directly from the visual timeline without triggering link propagation.
-3. Bug fixes: Resolved single-item dropdown deletion focus glitch in `ItemCard.tsx` conflicting with Radix UI states.

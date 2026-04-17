@@ -1,8 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
+import type { SelectionProps } from "./TypePageLayout";
+import { SelectionOverlay } from "./SelectionOverlay";
 
 interface MoviePosterGridProps {
   items: Item[];
+  selectionProps?: SelectionProps;
 }
 
 // Generate a deterministic gradient from an item id
@@ -13,7 +16,7 @@ function idToGradient(id: string): string {
   return `linear-gradient(135deg, oklch(25% 0.1 ${hue}), oklch(15% 0.05 ${(hue + 40) % 360}))`;
 }
 
-export function MoviePosterGrid({ items }: MoviePosterGridProps) {
+export function MoviePosterGrid({ items, selectionProps }: MoviePosterGridProps) {
   if (items.length === 0) {
     return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No movies saved yet.</div>;
   }
@@ -32,6 +35,7 @@ export function MoviePosterGrid({ items }: MoviePosterGridProps) {
           <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
             <div
               style={{ cursor: "pointer", position: "relative" }}
+              className="group"
               onMouseEnter={(e) => {
                 const overlay = e.currentTarget.querySelector(".poster-overlay") as HTMLElement | null;
                 if (overlay) overlay.style.opacity = "1";
@@ -57,6 +61,17 @@ export function MoviePosterGrid({ items }: MoviePosterGridProps) {
                   transition: "box-shadow 0.15s",
                 }}
               >
+                {selectionProps?.isSelectionMode && (
+                  <SelectionOverlay 
+                    isSelected={selectionProps.selectedIds.has(item.id)} 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      selectionProps.toggleSelection(item.id);
+                    }} 
+                  />
+                )}
+
                 {item.coverUrl ? (
                   <img src={item.coverUrl} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (

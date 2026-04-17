@@ -2,8 +2,12 @@ import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
 import { STATUSES } from "../../lib/constants";
 
+import type { SelectionProps } from "./TypePageLayout";
+import { SelectionOverlay } from "./SelectionOverlay";
+
 interface BookshelfViewProps {
   items: Item[];
+  selectionProps?: SelectionProps;
 }
 
 function idToHash(id: string): number {
@@ -12,7 +16,7 @@ function idToHash(id: string): number {
   return Math.abs(hash);
 }
 
-function Book({ item }: { item: Item }) {
+function Book({ item, selectionProps }: { item: Item; selectionProps?: SelectionProps }) {
   const hash = idToHash(item.id);
   
   // Deterministic spine generation
@@ -49,6 +53,16 @@ function Book({ item }: { item: Item }) {
           (e.currentTarget as HTMLDivElement).style.setProperty('--current-w', 'var(--spine-w)');
         }}
       >
+        {selectionProps?.isSelectionMode && (
+          <SelectionOverlay 
+            isSelected={selectionProps.selectedIds.has(item.id)} 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              selectionProps.toggleSelection(item.id);
+            }} 
+          />
+        )}
         {/* Absolute Cover Container (Always rendered at coverWidth, hides behind spineWidth overflow otherwise) */}
         <div 
            className="absolute bottom-0 left-0 h-full transition-all duration-500"
@@ -92,7 +106,7 @@ function Book({ item }: { item: Item }) {
   );
 }
 
-function Shelf({ label, items }: { label: string; items: Item[] }) {
+function Shelf({ label, items, selectionProps }: { label: string; items: Item[]; selectionProps?: SelectionProps }) {
   if (items.length === 0) return null;
 
   return (
@@ -107,7 +121,7 @@ function Shelf({ label, items }: { label: string; items: Item[] }) {
         {/* The Books */}
         <div className="flex items-end min-w-min" style={{ gap: "2px" }}>
           {items.map((item) => (
-            <Book key={item.id} item={item} />
+            <Book key={item.id} item={item} selectionProps={selectionProps} />
           ))}
         </div>
         
@@ -120,7 +134,7 @@ function Shelf({ label, items }: { label: string; items: Item[] }) {
   );
 }
 
-export function BookshelfView({ items }: BookshelfViewProps) {
+export function BookshelfView({ items, selectionProps }: BookshelfViewProps) {
   if (items.length === 0) {
     return <div className="text-sm text-muted-foreground p-8">No books saved yet.</div>;
   }
@@ -134,7 +148,7 @@ export function BookshelfView({ items }: BookshelfViewProps) {
   return (
     <div>
       {shelves.map((shelf) => (
-        <Shelf key={shelf.id} label={shelf.label} items={shelf.items} />
+        <Shelf key={shelf.id} label={shelf.label} items={shelf.items} selectionProps={selectionProps} />
       ))}
     </div>
   );

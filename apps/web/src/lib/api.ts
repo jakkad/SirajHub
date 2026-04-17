@@ -615,17 +615,17 @@ export const itemsApi = {
     return request<Item>("/api/items", { method: "POST", body: JSON.stringify(data) });
   },
 
-  importCsv(rows: ImportRowInput[]): Promise<BulkImportResult> {
+  importCsv(rows: ImportRowInput[], resyncMetadata?: boolean): Promise<BulkImportResult> {
     return request<BulkImportResult>("/api/items/import/csv", {
       method: "POST",
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows, resyncMetadata }),
     });
   },
 
-  importSource(source: string, rows: ImportRowInput[]): Promise<BulkImportResult> {
+  importSource(source: string, rows: ImportRowInput[], resyncMetadata?: boolean): Promise<BulkImportResult> {
     return request<BulkImportResult>("/api/items/import/source", {
       method: "POST",
-      body: JSON.stringify({ source, rows }),
+      body: JSON.stringify({ source, rows, resyncMetadata }),
     });
   },
 
@@ -654,6 +654,13 @@ export const itemsApi = {
 
   delete(id: string): Promise<{ ok: boolean }> {
     return request<{ ok: boolean }>(`/api/items/${id}`, { method: "DELETE" });
+  },
+
+  bulkDelete(ids: string[]): Promise<{ ok: boolean; deletedCount: number }> {
+    return request<{ ok: boolean; deletedCount: number }>("/api/items/bulk-delete", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
+    });
   },
 };
 

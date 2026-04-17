@@ -65,7 +65,15 @@ export function ItemCard({ item, isDragging, allTags = [], onTitleClick }: Props
                   Archive
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuItem onClick={() => window.confirm(`Delete "${item.title}"?`) && deleteItem(item.id)} className="text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  if (window.confirm(`Delete "${item.title}"?`)) {
+                    deleteItem(item.id);
+                  }
+                }}
+                className="text-destructive focus:text-destructive"
+              >
                 <Trash2 />
                 Delete
               </DropdownMenuItem>

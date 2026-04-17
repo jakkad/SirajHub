@@ -1,8 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
+import type { SelectionProps } from "./TypePageLayout";
+import { SelectionOverlay } from "./SelectionOverlay";
 
 interface VideoGridProps {
   items: Item[];
+  selectionProps?: SelectionProps;
 }
 
 function formatDuration(mins: number | null): string {
@@ -13,7 +16,7 @@ function formatDuration(mins: number | null): string {
   return `${m}:00`;
 }
 
-export function VideoGrid({ items }: VideoGridProps) {
+export function VideoGrid({ items, selectionProps }: VideoGridProps) {
   if (items.length === 0) {
     return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No videos saved yet.</div>;
   }
@@ -28,7 +31,7 @@ export function VideoGrid({ items }: VideoGridProps) {
     >
       {items.map((item) => (
         <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
-          <div style={{ cursor: "pointer" }}>
+          <div style={{ cursor: "pointer" }} className="group">
             {/* 16:9 thumbnail */}
             <div
               style={{
@@ -55,6 +58,16 @@ export function VideoGrid({ items }: VideoGridProps) {
                 (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
               }}
             >
+              {selectionProps?.isSelectionMode && (
+                <SelectionOverlay 
+                  isSelected={selectionProps.selectedIds.has(item.id)} 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectionProps.toggleSelection(item.id);
+                  }} 
+                />
+              )}
               {item.coverUrl ? (
                 <img src={item.coverUrl} alt={item.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (

@@ -13,7 +13,7 @@ function TVPage() {
       title="TV Shows"
       color="var(--color-tv)"
     >
-      {(items) => <TVPosterGrid items={items} />}
+      {(items, selectionProps) => <TVPosterGrid items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }
