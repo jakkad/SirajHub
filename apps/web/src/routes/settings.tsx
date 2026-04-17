@@ -26,8 +26,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ChevronDown, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -62,15 +64,25 @@ function SettingsPage() {
       </div>
 
       <Tabs defaultValue="profile" className="flex flex-col gap-6">
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none">
-          <TabsTrigger value="profile" className="border border-[hsl(var(--border))] bg-card shadow-none">Profile</TabsTrigger>
-          <TabsTrigger value="apikeys" className="border border-[hsl(var(--border))] bg-card shadow-none">API Keys</TabsTrigger>
-          <TabsTrigger value="aimodel" className="border border-[hsl(var(--border))] bg-card shadow-none">AI Model</TabsTrigger>
-          <TabsTrigger value="interests" className="border border-[hsl(var(--border))] bg-card shadow-none">Interests</TabsTrigger>
-          <TabsTrigger value="reminders" className="border border-[hsl(var(--border))] bg-card shadow-none">Reminders</TabsTrigger>
-          <TabsTrigger value="duplicates" className="border border-[hsl(var(--border))] bg-card shadow-none">Duplicates</TabsTrigger>
-          <TabsTrigger value="tags" className="border border-[hsl(var(--border))] bg-card shadow-none">Tags</TabsTrigger>
-          <TabsTrigger value="data" className="border border-[hsl(var(--border))] bg-card shadow-none">Data</TabsTrigger>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none mb-4">
+          {[
+            { id: "profile", label: "Profile" },
+            { id: "apikeys", label: "API Keys" },
+            { id: "aimodel", label: "AI Model" },
+            { id: "interests", label: "Interests" },
+            { id: "reminders", label: "Reminders" },
+            { id: "duplicates", label: "Duplicates" },
+            { id: "tags", label: "Tags" },
+            { id: "data", label: "Data" },
+          ].map((tab) => (
+            <TabsTrigger 
+              key={tab.id} 
+              value={tab.id} 
+              className="rounded-full px-5 py-2 font-medium transition-all data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-md data-[state=inactive]:bg-transparent data-[state=inactive]:hover:bg-card border border-transparent data-[state=inactive]:border-[hsl(var(--border)_/_0.8)] data-[state=inactive]:text-muted-foreground"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="profile" className="mt-0">
@@ -282,64 +294,74 @@ function InterestProfilesTab() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-4">
                   {chips.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">No interests added yet for this media type.</div>
+                    <div className="text-sm text-muted-foreground italic">No interests added yet.</div>
                   ) : (
-                    chips.map((chip) => (
-                      <div
-                        key={chip.id}
-                        className="flex flex-col gap-3 rounded-[18px] border border-[hsl(var(--border))] bg-card/80 px-4 py-3 md:flex-row md:items-center"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-foreground">{chip.label}</div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <Select value={chip.weight} onValueChange={(value) => updateChipWeight(type.id, chip.id, value as InterestWeight)}>
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                {INTEREST_WEIGHTS.map((weight) => (
-                                  <SelectItem key={weight.id} value={weight.id}>
-                                    {weight.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-
-                          <Button variant="outline" onClick={() => removeChip(type.id, chip.id)}>
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ))
+                    <div className="flex flex-wrap gap-2">
+                      {chips.map((chip) => (
+                        <DropdownMenu key={chip.id}>
+                          <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-full border border-[hsl(var(--border)_/_0.6)] bg-card/60 px-3 py-1.5 text-[0.85rem] font-medium text-foreground transition-all hover:bg-card hover:border-[hsl(var(--primary)_/_0.4)] hover:shadow-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-primary">
+                            {chip.label}
+                            <div className={`ml-1 size-2 rounded-full ${
+                              chip.weight === "high" ? "bg-[hsl(var(--destructive))] shadow-[0_0_8px_hsl(var(--destructive)_/_0.3)]" : 
+                              chip.weight === "medium" ? "bg-[hsl(var(--warm-accent))] shadow-[0_0_8px_hsl(var(--warm-accent)_/_0.3)]" : 
+                              "bg-[hsl(var(--success))] shadow-[0_0_8px_hsl(var(--success)_/_0.3)]"
+                            }`} title={`Weight: ${chip.weight}`} />
+                            <ChevronDown className="size-3 text-muted-foreground opacity-70" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[140px] rounded-[18px]">
+                            <DropdownMenuLabel className="text-xs opacity-70">Weight</DropdownMenuLabel>
+                            {INTEREST_WEIGHTS.map((w) => (
+                              <DropdownMenuItem 
+                                key={w.id} 
+                                onClick={() => updateChipWeight(type.id, chip.id, w.id)}
+                                className="flex items-center justify-between text-xs rounded-xl"
+                              >
+                                {w.label}
+                                {chip.weight === w.id && <div className="size-1.5 rounded-full bg-[hsl(var(--primary))]" />}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator className="bg-[hsl(var(--border)_/_0.5)]" />
+                            <DropdownMenuItem 
+                              onClick={() => removeChip(type.id, chip.id)}
+                              className="text-destructive focus:text-destructive focus:bg-destructive/10 gap-2 text-xs rounded-xl"
+                            >
+                              <Trash2 className="size-3" /> Remove
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ))}
+                    </div>
                   )}
 
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_auto]">
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-[hsl(var(--border)_/_0.3)]">
                     <Input
                       value={draft.label}
                       onChange={(e) => updateDraft(type.id, "label", e.target.value)}
-                      placeholder={`Add ${type.label.toLowerCase()} interest`}
+                      placeholder={`Add new...`}
+                      className="h-8 max-w-[180px] rounded-full px-4 text-xs bg-transparent border-[hsl(var(--border)_/_0.6)] focus-visible:ring-1"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') addChip(type.id);
+                      }}
                     />
                     <Select value={draft.weight} onValueChange={(value) => updateDraft(type.id, "weight", value)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-8 w-[100px] rounded-full text-xs bg-transparent border-[hsl(var(--border)_/_0.6)] focus:ring-1">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="rounded-[18px]">
                         <SelectGroup>
                           {INTEREST_WEIGHTS.map((weight) => (
-                            <SelectItem key={weight.id} value={weight.id}>
+                            <SelectItem key={weight.id} value={weight.id} className="text-xs rounded-xl">
                               {weight.label}
                             </SelectItem>
                           ))}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
-                    <Button onClick={() => addChip(type.id)}>Add</Button>
+                    <Button onClick={() => addChip(type.id)} size="sm" className="h-8 rounded-full px-4 text-[11px] font-bold shadow-none uppercase tracking-wider">
+                      Add
+                    </Button>
                   </div>
                 </div>
               </div>
