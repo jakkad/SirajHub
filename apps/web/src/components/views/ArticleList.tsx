@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Clock3, ExternalLink, FilePenLine, Globe2 } from "lucide-react";
+import { Clock3, Globe2 } from "lucide-react";
 import type { Item } from "../../lib/api";
-import { Button } from "@/components/ui/button";
 
 interface ArticleListProps {
   items: Item[];
@@ -28,132 +27,78 @@ function getDomain(sourceUrl: string | null): string {
 
 function getCreatedLabel(createdAt: number): string {
   return new Date(createdAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
+    month: "short", day: "numeric", year: "numeric"
   });
 }
 
 function getReadingTime(item: Item): string | null {
-  if (item.durationMins && item.durationMins > 0) {
-    return `${item.durationMins} min read`;
-  }
-
+  if (item.durationMins && item.durationMins > 0) return `${item.durationMins} min read`;
   if (!item.description) return null;
   const words = item.description.trim().split(/\s+/).length;
-  const mins = Math.max(1, Math.round(words / 180));
-  return `${mins} min read`;
+  return `${Math.max(1, Math.round(words / 180))} min read`;
 }
 
 export function ArticleList({ items }: ArticleListProps) {
   if (items.length === 0) {
-    return <EmptyState message="No articles yet." />;
+    return <div className="text-muted-foreground p-8 italic">No articles saved yet.</div>;
   }
 
   return (
-    <div className="relative pl-6 sm:pl-8">
-      <div className="absolute top-0 bottom-0 left-2 w-px bg-[linear-gradient(180deg,hsl(var(--border-strong))_0%,hsl(var(--border))_16%,transparent_100%)] sm:left-3" />
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {items.map((item) => {
+        const favicon = getFavicon(item.sourceUrl);
+        const domain = getDomain(item.sourceUrl);
+        const readingTime = getReadingTime(item);
+        const createdLabel = getCreatedLabel(item.createdAt);
 
-      <div className="flex flex-col gap-3">
-        {items.map((item) => {
-          const favicon = getFavicon(item.sourceUrl);
-          const domain = getDomain(item.sourceUrl);
-          const readingTime = getReadingTime(item);
-          const createdLabel = getCreatedLabel(item.createdAt);
-
-          return (
-            <div key={item.id} className="group relative">
-              <div className="absolute top-8 -left-[1.18rem] z-10 size-3 rounded-full border-2 border-[hsl(var(--background))] bg-[hsl(var(--color-article))] shadow-[0_0_0_4px_hsl(var(--background))] sm:-left-[1.45rem]" />
-
-              <article className="rounded-[28px] border border-[hsl(var(--border))] bg-card/90 px-5 py-4 shadow-[var(--shadow-subtle)] transition-all duration-200 hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-panel)] sm:px-6">
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 pt-1">
-                    <div className="flex size-14 items-center justify-center overflow-hidden rounded-[14px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.55)] shadow-[inset_0_1px_0_hsl(0_0%_100%/0.85)]">
-                      {item.coverUrl ? (
-                        <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
-                      ) : favicon ? (
-                        <img src={favicon} alt="" className="size-8 rounded-md object-cover" />
-                      ) : (
-                        <Globe2 className="size-6 text-muted-foreground" />
-                      )}
-                    </div>
+        return (
+          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block no-underline flex flex-col h-full group outline-none">
+            <article className="paper-card rounded-3xl p-5 border border-[#10b981]/20 hover:border-[#10b981]/50 bg-gradient-to-br from-[#10b981]/5 to-transparent flex flex-col h-full transition-all duration-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#10b981]/15 drop-shadow-sm">
+              
+              {/* Cover Image Area */}
+              <div className="w-full h-48 rounded-2xl bg-card border border-[hsl(var(--border)_/_0.6)] overflow-hidden relative mb-5 shadow-inner">
+                {item.coverUrl ? (
+                  <img src={item.coverUrl} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={item.title} />
+                ) : (
+                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-[#10b981]/10 to-teal-400/5">
+                     {favicon ? <img src={favicon} className="w-16 h-16 opacity-30 grayscale" alt="domain icon" /> : <Globe2 className="size-16 text-[#10b981]/30" />}
+                   </div>
+                )}
+                
+                {/* Floating Meta Tag */}
+                {domain && (
+                  <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md border border-white/10 text-white text-[10px] uppercase font-bold tracking-widest px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                     {favicon && <img src={favicon} className="size-3 shrink-0" alt="" />}
+                     <span className="truncate max-w-[120px]">{domain}</span>
                   </div>
+                )}
+              </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <Link to="/item/$id" params={{ id: item.id }} className="block no-underline">
-                          <h3 className="text-[1.08rem] font-semibold leading-7 tracking-[-0.02em] text-foreground transition-colors group-hover:text-primary">
-                            {item.title}
-                          </h3>
-                        </Link>
-                        {item.description ? (
-                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                            {item.description}
-                          </p>
-                        ) : null}
-                      </div>
+              {/* Title & Desc */}
+              <div className="flex flex-col gap-2 flex-grow">
+                <h3 className="text-[1.15rem] font-bold font-serif leading-tight text-foreground group-hover:text-[#10b981] transition-colors line-clamp-3">
+                  {item.title}
+                </h3>
+                {item.description ? (
+                  <p className="text-sm text-muted-foreground/90 line-clamp-3 leading-relaxed mt-1">
+                    {item.description}
+                  </p>
+                ) : null}
+              </div>
 
-                      <div className="shrink-0 text-sm text-muted-foreground sm:pl-6">
-                        {createdLabel}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-secondary/60 px-2.5 py-1 text-[12px] font-medium text-foreground">
-                        {favicon ? <img src={favicon} alt="" className="size-3.5 rounded-sm" /> : <Globe2 className="size-3.5" />}
-                        {domain || "article"}
-                      </span>
-
-                      {item.creator ? (
-                        <>
-                          <span className="text-[hsl(var(--border-strong))]">•</span>
-                          <span>{item.creator}</span>
-                        </>
-                      ) : null}
-
-                      {readingTime ? (
-                        <>
-                          <span className="text-[hsl(var(--border-strong))]">•</span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Clock3 className="size-3.5" />
-                            {readingTime}
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-end gap-2 border-t border-[hsl(var(--border))] pt-3">
-                      {item.sourceUrl ? (
-                        <Button asChild type="button" variant="outline" className="rounded-full bg-card/80">
-                          <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">
-                            <ExternalLink className="size-4" />
-                            Source
-                          </a>
-                        </Button>
-                      ) : null}
-
-                      <Button asChild type="button" variant="outline" className="rounded-full bg-card/80">
-                        <Link to="/item/$id" params={{ id: item.id }} className="no-underline">
-                          <FilePenLine className="size-4" />
-                          Edit
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
+              {/* Footer Meta */}
+              <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mt-5 pt-4 border-t border-[hsl(var(--border)_/_0.4)]">
+                <div className="flex items-center gap-4">
+                  <span>{createdLabel}</span>
+                  {readingTime && <span className="flex items-center gap-1 opacity-70"><Clock3 className="size-3"/> {readingTime}</span>}
                 </div>
-              </article>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+                {item.creator && <span className="truncate max-w-[100px] text-[#10b981] opacity-90">{item.creator}</span>}
+              </div>
 
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-[24px] border border-dashed border-[hsl(var(--border))] px-5 py-8 text-sm text-muted-foreground">
-      {message}
+            </article>
+          </Link>
+        );
+      })}
     </div>
   );
 }

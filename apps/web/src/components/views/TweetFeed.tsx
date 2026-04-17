@@ -1,22 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { CalendarDays, ExternalLink, FilePenLine, MessageSquareText } from "lucide-react";
+import { CalendarDays, ExternalLink } from "lucide-react";
 import type { Item } from "../../lib/api";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 interface TweetFeedProps {
   items: Item[];
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return "X";
-  const cleaned = name.replace(/^@/, "").trim();
-  if (!cleaned) return "X";
-  return cleaned
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("");
 }
 
 function getHandle(name: string | null): string | null {
@@ -24,16 +11,13 @@ function getHandle(name: string | null): string | null {
   const trimmed = name.trim();
   if (!trimmed) return null;
   if (trimmed.startsWith("@")) return trimmed;
-
   const compact = trimmed.replace(/\s+/g, "");
   return compact ? `@${compact}` : null;
 }
 
 function getCreatedLabel(createdAt: number): string {
   return new Date(createdAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+    month: "short", day: "numeric", year: "numeric",
   });
 }
 
@@ -44,113 +28,46 @@ function getTweetBody(item: Item): string {
 
 export function TweetFeed({ items }: TweetFeedProps) {
   if (items.length === 0) {
-    return (
-      <div className="rounded-[24px] border border-dashed border-[hsl(var(--border))] px-5 py-8 text-sm text-muted-foreground">
-        No tweets saved yet.
-      </div>
-    );
+    return <div className="text-muted-foreground italic p-4">No tweets saved yet.</div>;
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6">
       {items.map((item) => {
         const body = getTweetBody(item);
         const handle = getHandle(item.creator);
         const createdLabel = getCreatedLabel(item.createdAt);
 
         return (
-          <article
-            key={item.id}
-            className="group overflow-hidden rounded-[30px] border border-[hsl(var(--border))] bg-card/90 shadow-[var(--shadow-subtle)] transition-all duration-200 hover:border-[hsl(var(--border-strong))] hover:shadow-[var(--shadow-panel)]"
-          >
-            <div className="border-b border-[hsl(var(--border))] bg-[linear-gradient(180deg,hsl(var(--secondary)/0.7),hsl(var(--background)))] px-5 py-4 sm:px-6">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 items-start gap-4">
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-[18px] bg-[hsl(var(--color-tweet))] text-base font-semibold text-white shadow-[0_12px_24px_hsl(215_90%_55%/0.22)]">
-                    {getInitials(item.creator)}
+          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block no-underline break-inside-avoid">
+            <article className="paper-card rounded-[2rem] p-6 border border-[#3b82f6]/20 bg-gradient-to-br from-[#3b82f6]/5 to-transparent hover:border-[#3b82f6]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_rgba(59,130,246,0.3)] group drop-shadow-sm">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="size-10 rounded-full bg-gradient-to-br from-[#3b82f6] to-cyan-400 flex items-center justify-center text-white font-bold shadow-sm ring-2 ring-[#3b82f6]/20">
+                    {item.creator ? item.creator[0]?.toUpperCase() : "𝕏"}
                   </div>
-
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-semibold tracking-[-0.03em] text-foreground">
-                        {item.creator || item.title || "Tweet"}
-                      </h3>
-                      <Badge variant="outline" className="rounded-full bg-card/80">
-                        𝕏 Saved
-                      </Badge>
-                    </div>
-
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                      {handle ? <span>{handle}</span> : null}
-                      <span className="inline-flex items-center gap-1.5">
-                        <CalendarDays className="size-3.5" />
-                        {createdLabel}
-                      </span>
-                      {item.status ? (
-                        <span className="rounded-full border border-[hsl(var(--border))] bg-card/70 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                          {item.status.replace("_", " ")}
-                        </span>
-                      ) : null}
-                    </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-foreground leading-tight group-hover:text-[#3b82f6] transition-colors">{item.creator || "Unknown"}</span>
+                    <span className="text-[11px] text-[#3b82f6] opacity-80">{handle || "@tweet"}</span>
                   </div>
                 </div>
-
-                <div className="shrink-0 text-[1.65rem] leading-none text-[hsl(var(--color-tweet))]">𝕏</div>
+                <div className="text-[#3b82f6] text-2xl opacity-50 font-serif leading-none mt-1">𝕏</div>
               </div>
-            </div>
 
-            <div className="px-5 py-5 sm:px-6">
-              <Link to="/item/$id" params={{ id: item.id }} className="block no-underline">
-                <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.3)] px-4 py-4 transition-colors group-hover:bg-[hsl(var(--secondary)/0.45)] sm:px-5">
-                  <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    <MessageSquareText className="size-3.5" />
-                    Tweet Preview
-                  </div>
+              <p className="text-[0.95rem] leading-relaxed text-foreground/90 font-sans mb-4 whitespace-pre-wrap break-words">
+                {body || "No tweet text available."}
+              </p>
 
-                  <p className="line-clamp-4 text-[1rem] leading-8 tracking-[-0.01em] text-foreground">
-                    {body || "No tweet text was saved for this item yet."}
-                  </p>
-
-                  {item.title && item.title !== item.creator && item.title !== item.description ? (
-                    <p className="mt-4 line-clamp-2 text-sm leading-6 text-muted-foreground">
-                      Saved title: {item.title}
-                    </p>
-                  ) : null}
-                </div>
-              </Link>
-
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[hsl(var(--border))] pt-4">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="rounded-full">
-                    Tweet
-                  </Badge>
-                  {item.sourceUrl ? (
-                    <Badge variant="outline" className="rounded-full bg-card/80">
-                      Source saved
-                    </Badge>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {item.sourceUrl ? (
-                    <Button asChild type="button" variant="outline" className="rounded-full bg-card/80">
-                      <a href={item.sourceUrl} target="_blank" rel="noreferrer noopener">
-                        <ExternalLink className="size-4" />
-                        Source
-                      </a>
-                    </Button>
-                  ) : null}
-
-                  <Button asChild type="button" variant="outline" className="rounded-full bg-card/80">
-                    <Link to="/item/$id" params={{ id: item.id }} className="no-underline">
-                      <FilePenLine className="size-4" />
-                      Edit
-                    </Link>
-                  </Button>
-                </div>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground font-medium pt-3 border-t border-[hsl(var(--border)_/_0.3)]">
+                <span className="flex items-center gap-1.5"><CalendarDays className="size-3" /> {createdLabel}</span>
+                {item.sourceUrl && (
+                  <span className="flex items-center gap-1 hover:text-[#3b82f6] transition-colors">
+                     Original <ExternalLink className="size-3" />
+                  </span>
+                )}
               </div>
-            </div>
-          </article>
+            </article>
+          </Link>
         );
       })}
     </div>

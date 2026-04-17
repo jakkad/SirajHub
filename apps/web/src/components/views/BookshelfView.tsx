@@ -6,104 +6,87 @@ interface BookshelfViewProps {
   items: Item[];
 }
 
-// Deterministic spine color per item
-function idToHue(id: string): number {
+function idToHash(id: string): number {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  return Math.abs(hash) % 360;
+  return Math.abs(hash);
 }
 
-function BookSpine({ item }: { item: Item }) {
-  const hue = idToHue(item.id);
-  const spineColor = `oklch(38% 0.15 ${hue})`;
-  const textColor = `oklch(92% 0.04 ${hue})`;
+function Book({ item }: { item: Item }) {
+  const hash = idToHash(item.id);
+  
+  // Deterministic spine generation
+  const spineHeight = 180 + (hash % 100); // 180px - 280px height
+  const spineWidth = 26 + (hash % 24);    // 26px - 50px width
+  const coverWidth = spineHeight * 0.65;  // Native book aspect ratio (appx 2:3)
+  
+  const hue = hash % 360;
+  const saturation = 40 + (hash % 40);
+  const lightness = 20 + (hash % 30);
+  
+  const spineColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  const textColor = lightness > 45 ? '#000' : '#fff';
+  
+  const bookCssVars = {
+    '--spine-w': `${spineWidth}px`,
+    '--cover-w': `${coverWidth}px`,
+    '--current-w': 'var(--spine-w)',
+  } as React.CSSProperties;
 
   return (
-    <Link to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
+    <Link to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }} className="block outline-none">
       <div
-        title={item.title + (item.creator ? ` — ${item.creator}` : "")}
+        className="group relative flex-shrink-0 flex items-end justify-center transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer overflow-hidden origin-bottom z-10 hover:z-50 hover:shadow-[20px_20px_40px_rgba(0,0,0,0.4)] shadow-[4px_0_10px_rgba(0,0,0,0.2)] border-y border-r border-black/20"
         style={{
-          position: "relative",
-          width: 32,
-          height: 160,
-          flexShrink: 0,
-          cursor: "pointer",
-          transition: "transform 0.15s, box-shadow 0.15s",
+          height: spineHeight,
+          width: 'var(--current-w)',
+          ...bookCssVars,
         }}
         onMouseEnter={(e) => {
-          const el = e.currentTarget as HTMLDivElement;
-          el.style.transform = "translateY(-6px)";
-          el.style.boxShadow = "0 8px 20px oklch(0% 0 0 / 0.5)";
+          (e.currentTarget as HTMLDivElement).style.setProperty('--current-w', 'var(--cover-w)');
         }}
         onMouseLeave={(e) => {
-          const el = e.currentTarget as HTMLDivElement;
-          el.style.transform = "translateY(0)";
-          el.style.boxShadow = "none";
+          (e.currentTarget as HTMLDivElement).style.setProperty('--current-w', 'var(--spine-w)');
         }}
       >
-        {/* Spine or cover */}
-        {item.coverUrl ? (
-          <img
-            src={item.coverUrl}
-            alt={item.title}
+        {/* Absolute Cover Container (Always rendered at coverWidth, hides behind spineWidth overflow otherwise) */}
+        <div 
+           className="absolute bottom-0 left-0 h-full transition-all duration-500"
+           style={{ width: coverWidth, background: spineColor }}
+        >
+          {item.coverUrl ? (
+             <img src={item.coverUrl} className="w-full h-full object-cover transition-all duration-300 contrast-125 saturate-110" alt={item.title} />
+          ) : (
+             <div className="w-full h-full flex items-center justify-center relative p-6 bg-gradient-to-br from-white/10 to-transparent">
+               {/* Pattern overlay for books missing covers */}
+               <div className="absolute inset-x-0 top-10 h-1 bg-black/20" />
+               <div className="absolute inset-x-0 bottom-10 h-1 bg-black/20" />
+               <span className="text-xl font-serif text-center font-bold tracking-tight drop-shadow-md line-clamp-4" style={{ color: textColor }}>{item.title}</span>
+             </div>
+          )}
+          
+          {/* Inner spine crease overlay to make it look like a real book cover fold */}
+          <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/40 via-transparent to-transparent pointer-events-none" />
+        </div>
+
+        {/* The Spine Text overlay (Fades out seamlessly when width expands) */}
+        <div 
+          className="absolute left-0 bottom-0 top-0 flex items-center justify-center bg-black/30 group-hover:bg-transparent transition-colors duration-500 pointer-events-none"
+          style={{ width: spineWidth }}
+        >
+          <span
+            className="whitespace-nowrap font-bold tracking-widest break-words overflow-hidden opacity-100 group-hover:opacity-0 transition-opacity duration-300 text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]"
             style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              borderRadius: 3,
-              border: "1px solid var(--color-border)",
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              background: spineColor,
-              borderRadius: 3,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-              border: "1px solid oklch(0% 0 0 / 0.2)",
-              boxShadow: "inset -3px 0 6px oklch(0% 0 0 / 0.2)",
+              writingMode: "vertical-rl",
+              transform: "rotate(180deg)",
+              fontSize: Math.max(10, Math.min(spineWidth * 0.45, 18)),
+              maxHeight: "92%",
             }}
           >
-            <span
-              style={{
-                writingMode: "vertical-rl",
-                transform: "rotate(180deg)",
-                fontSize: 9,
-                fontWeight: 700,
-                color: textColor,
-                textAlign: "center",
-                padding: "4px 2px",
-                lineHeight: 1.2,
-                overflow: "hidden",
-                maxHeight: "100%",
-                letterSpacing: "0.02em",
-              }}
-            >
-              {item.title.length > 28 ? item.title.slice(0, 26) + "…" : item.title}
-            </span>
-          </div>
-        )}
+            {item.title}
+          </span>
+        </div>
 
-        {/* Rating dot if rated */}
-        {item.rating != null && (
-          <div
-            style={{
-              position: "absolute",
-              top: 4,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "oklch(80% 0.18 80)",
-            }}
-          />
-        )}
       </div>
     </Link>
   );
@@ -113,32 +96,24 @@ function Shelf({ label, items }: { label: string; items: Item[] }) {
   if (items.length === 0) return null;
 
   return (
-    <div style={{ marginBottom: 40 }}>
+    <div className="mb-20">
       {/* Shelf label */}
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 12 }}>
-        {label} · {items.length}
-      </div>
+      <h3 className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-4 pl-4 border-l-2 border-[var(--hero-accent)]">
+        {label} <span className="opacity-50 ml-2">({items.length})</span>
+      </h3>
 
-      {/* Books row */}
-      <div
-        style={{
-          overflowX: "auto",
-          paddingBottom: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: 3,
-            alignItems: "flex-end",
-            minWidth: "min-content",
-            paddingBottom: 10,
-            borderBottom: "3px solid var(--color-border)",
-          }}
-        >
+      {/* Actual Physical Shelf Row Container */}
+      <div className="w-full overflow-x-auto pb-8 pt-4 px-4 custom-scrollbar">
+        {/* The Books */}
+        <div className="flex items-end min-w-min" style={{ gap: "2px" }}>
           {items.map((item) => (
-            <BookSpine key={item.id} item={item} />
+            <Book key={item.id} item={item} />
           ))}
+        </div>
+        
+        {/* The Wooden/Concrete physical shelf line that books rest on */}
+        <div className="w-full h-4 mt-0 bg-[hsl(var(--card))] rounded-b shadow-[0_15px_15px_-10px_rgba(0,0,0,0.3)] border-t-2 border-black/10 dark:border-white/5 relative z-0">
+          <div className="w-full h-1 bg-black/10" />
         </div>
       </div>
     </div>
@@ -147,7 +122,7 @@ function Shelf({ label, items }: { label: string; items: Item[] }) {
 
 export function BookshelfView({ items }: BookshelfViewProps) {
   if (items.length === 0) {
-    return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No books saved yet.</div>;
+    return <div className="text-sm text-muted-foreground p-8">No books saved yet.</div>;
   }
 
   const shelves = STATUSES.map((s) => ({

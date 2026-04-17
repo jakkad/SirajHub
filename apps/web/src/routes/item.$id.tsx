@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Ellipsis, ExternalLink, PencilLine, Trash2 } from "lucide-react";
+import { ArrowLeft, Ellipsis, ExternalLink, PencilLine, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AIPanel } from "../components/AIPanel";
 import { InlineTagManager } from "../components/InlineTagManager";
@@ -29,12 +29,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/item/$id")({
   component: ItemDetailPage,
 });
+
+function getTypeColor(typeId?: string) {
+  switch (typeId) {
+    case "book": return "#0ea5e9"; // Sky Blue
+    case "movie": return "#f43f5e"; // Rose
+    case "tv": return "#8b5cf6"; // Violet
+    case "podcast": return "#d946ef"; // Fuchsia
+    case "youtube": return "#ef4444"; // Red
+    case "article": return "#10b981"; // Emerald
+    case "tweet": return "#3b82f6"; // Blue
+    default: return "#06b6d4"; // Cyan
+  }
+}
 
 function ItemDetailPage() {
   const { id } = Route.useParams();
@@ -53,7 +66,6 @@ function ItemDetailPage() {
 
   const item = allItems.find((candidate) => candidate.id === id);
 
-  const [activeTab, setActiveTab] = useState("overview");
   const [notes, setNotes] = useState("");
   const [suggestedTags, setSuggestedTags] = useState<string[] | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -127,6 +139,7 @@ function ItemDetailPage() {
 
   const currentItem = item;
   const contentType = CONTENT_TYPES.find((type) => type.id === currentItem.contentType);
+  const themeColor = getTypeColor(currentItem.contentType);
   const progressMeta = getProgressMeta(currentItem);
   const availableLists = itemListsData?.lists ?? [];
   const noteEntries = noteEntriesData?.entries ?? [];
@@ -135,7 +148,6 @@ function ItemDetailPage() {
 
   const scoreBadges = useMemo(() => {
     const badges: Array<{ label: string; variant: "secondary" | "outline" }> = [];
-
     if (currentItem.status === "suggestions" && Date.now() - currentItem.createdAt < 7 * 24 * 60 * 60 * 1000) {
       badges.push({ label: "Recent +50", variant: "secondary" });
     }
@@ -157,7 +169,6 @@ function ItemDetailPage() {
     if (currentItem.status !== "suggestions") {
       badges.push({ label: "Not in next-to-consume pool", variant: "outline" });
     }
-
     return badges;
   }, [currentItem]);
 
@@ -165,11 +176,7 @@ function ItemDetailPage() {
     if (notes !== (currentItem.notes ?? "")) {
       updateItem(
         { id: currentItem.id, notes: notes || null },
-        {
-          onSuccess: () => {
-            setNoteEditorOpen(false);
-          },
-        }
+        { onSuccess: () => setNoteEditorOpen(false) }
       );
     } else {
       setNoteEditorOpen(false);
@@ -192,11 +199,7 @@ function ItemDetailPage() {
         coverUrl: editForm.coverUrl.trim() || null,
         contentType: editForm.contentType,
       },
-      {
-        onSuccess: () => {
-          setEditOpen(false);
-        },
-      }
+      { onSuccess: () => setEditOpen(false) }
     );
   }
 
@@ -234,11 +237,7 @@ function ItemDetailPage() {
       },
       {
         onSuccess: () => {
-          setEntryForm({
-            entryType: entryForm.entryType,
-            content: "",
-            context: "",
-          });
+          setEntryForm({ entryType: entryForm.entryType, content: "", context: "" });
           setEntryComposerOpen(false);
         },
       }
@@ -246,890 +245,444 @@ function ItemDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-3">
-          <Button onClick={() => window.history.back()} variant="outline" className="w-fit bg-card/90">
-            Back
-          </Button>
-          <div className="flex flex-wrap items-end gap-3">
-            <h1 className="text-4xl font-semibold leading-none tracking-[-0.06em] sm:text-5xl">
-              {currentItem.title}
-            </h1>
-            {contentType ? <Badge variant="outline">{contentType.label}</Badge> : null}
-            {currentItem.releaseDate ? (
-              <Badge variant="secondary">{currentItem.releaseDate.slice(0, 4)}</Badge>
-            ) : null}
+    <div className="flex flex-col gap-10 pb-20" style={{ '--hero-accent': themeColor } as React.CSSProperties}>
+      
+      {/* ─── HERO HEADER ────────────────────────────────────────────────── */}
+      <div 
+        className="relative overflow-hidden rounded-[2rem] border-0 ring-1 ring-[hsl(var(--border)_/_0.6)] paper-card p-6 md:p-10 !bg-[hsl(var(--background))]"
+      >
+        {/* Neon Glass Glow Elements */}
+        <div 
+          className="absolute inset-0 opacity-15 mix-blend-plus-lighter pointer-events-none" 
+          style={{ background: `radial-gradient(circle at top right, var(--hero-accent), transparent 55%)` }} 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[hsl(var(--background)_/_0.6)] to-transparent pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row gap-8 items-start md:items-end">
+          
+          <div className="w-32 md:w-48 shrink-0 overflow-hidden rounded-[1.25rem] shadow-2xl ring-1 ring-white/10 dark:ring-white/5 aspect-[2/3] bg-[hsl(var(--muted))] flex items-center justify-center">
+            {currentItem.coverUrl ? (
+              <img src={currentItem.coverUrl} alt={currentItem.title} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-6xl md:text-8xl">{contentType?.icon ?? "📄"}</span>
+            )}
           </div>
-          {currentItem.subtitle ? (
-            <p className="text-sm italic text-muted-foreground">{currentItem.subtitle}</p>
-          ) : null}
-          {currentItem.creator ? <p className="text-sm text-muted-foreground">{currentItem.creator}</p> : null}
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant={editOpen ? "secondary" : "outline"} onClick={() => setEditOpen((prev) => !prev)}>
-            <PencilLine className="mr-2 h-4 w-4" />
-            {editOpen ? "Close Editor" : "Edit Details"}
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label="More actions">
-                <Ellipsis className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {currentItem.sourceUrl ? (
-                <DropdownMenuItem asChild>
-                  <a href={currentItem.sourceUrl} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4" />
-                    Open source
-                  </a>
-                </DropdownMenuItem>
+          <div className="flex flex-col gap-4 flex-1 w-full min-w-0">
+            <Button onClick={() => window.history.back()} variant="outline" size="sm" className="w-fit mb-2 bg-card/40 backdrop-blur-md rounded-full border-[hsl(var(--border)_/_0.5)]">
+              <ArrowLeft className="mr-2 size-3.5" /> Back
+            </Button>
+            
+            <div>
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                {contentType ? (
+                  <Badge variant="outline" className="bg-[var(--hero-accent)]/10 text-[var(--hero-accent)] border-[var(--hero-accent)]/20 px-3 py-1 text-xs">
+                    {contentType.label}
+                  </Badge>
+                ) : null}
+                {currentItem.releaseDate ? (
+                  <Badge variant="secondary" className="px-3 py-1 text-xs bg-[hsl(var(--secondary)_/_0.5)] backdrop-blur">
+                    {currentItem.releaseDate.slice(0, 4)}
+                  </Badge>
+                ) : null}
+              </div>
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-tight max-w-4xl line-clamp-3">
+                {currentItem.title}
+              </h1>
+              {currentItem.subtitle ? (
+                <p className="text-[1.1rem] md:text-xl italic text-muted-foreground mt-2 max-w-3xl line-clamp-2">{currentItem.subtitle}</p>
               ) : null}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDelete} disabled={deleting} className="text-destructive focus:text-destructive">
-                <Trash2 className="h-4 w-4" />
-                {deleting ? "Deleting…" : "Delete item"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              {currentItem.creator ? (
+                <p className="text-[1.1rem] font-medium text-foreground/80 mt-2">{currentItem.creator}</p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 mt-2">
+              <div className="soft-panel flex items-center rounded-full p-1 border-[hsl(var(--border)_/_0.4)]">
+                <Select
+                  value={currentItem.status}
+                  onValueChange={(value) => updateItem({ id: currentItem.id, status: value as StatusId })}
+                >
+                  <SelectTrigger className="h-9 w-[160px] rounded-full border-none bg-transparent shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {STATUSES.map((status) => (
+                        <SelectItem key={status.id} value={status.id}>{status.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="soft-panel flex items-center gap-1 rounded-full px-4 h-11 border-[hsl(var(--border)_/_0.4)]">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => updateItem({ id: currentItem.id, rating: currentItem.rating === n ? null : n })}
+                    className={`text-xl leading-none transition-all hover:scale-110 ${
+                      (currentItem.rating ?? 0) >= n ? "opacity-100 text-[var(--hero-accent)] drop-shadow-md" : "opacity-20 hover:opacity-50"
+                    }`}
+                    aria-label={`Rate ${n} stars`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[290px_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4">
-          <Card className="border-sky-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(204_100%_98%)_100%)]">
-            <CardContent className="flex flex-col gap-4 p-4">
-              <div className="cover-frame flex aspect-[2/3] items-center justify-center overflow-hidden rounded-[28px]">
-                {currentItem.coverUrl ? (
-                  <img src={currentItem.coverUrl} alt={currentItem.title} className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-6xl">{contentType?.icon ?? "📄"}</span>
-                )}
+      {/* ─── MAIN CONTENT SPLIT ────────────────────────────────────────── */}
+      <div className="grid xl:grid-cols-[1fr_340px] items-start gap-8">
+        
+        {/* LEFT COLUMN: Main Editorial Stream */}
+        <div className="flex flex-col gap-12 w-full min-w-0">
+          
+          {/* Progress Bar (Inline sleek version) */}
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-between items-end">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{progressMeta.summaryLabel}</h2>
+              <span className="font-mono text-sm font-semibold">{currentItem.progressPercent ?? 0}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-[hsl(var(--secondary)_/_0.5)] rounded-full overflow-hidden backdrop-blur-sm">
+              <div 
+                className="h-full rounded-full transition-all duration-700 ease-out" 
+                style={{ width: `${Math.max(0, Math.min(100, currentItem.progressPercent ?? 0))}%`, backgroundColor: themeColor }}
+              />
+            </div>
+            <div className="grid gap-3 grid-cols-3 mt-3">
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">{progressMeta.currentLabel}</Label>
+                <Input type="number" min="0" value={progressForm.current} onChange={(e) => setProgressForm(p => ({...p, current: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
               </div>
-
-              <div className="flex flex-wrap gap-2">
-                {contentType ? <Badge className="border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50" variant="outline">{contentType.label}</Badge> : null}
-                {currentItem.rating ? <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100" variant="secondary">{currentItem.rating}★ rated</Badge> : null}
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">{progressMeta.totalLabel}</Label>
+                <Input type="number" min="0" value={progressForm.total} onChange={(e) => setProgressForm(p => ({...p, total: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
               </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">Percent</Label>
+                <Input type="number" min="0" max="100" value={progressForm.percent} onChange={(e) => setProgressForm(p => ({...p, percent: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
+              </div>
+            </div>
+          </div>
 
-              <div className="grid gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <SectionLabel>Status</SectionLabel>
-                  <Select
-                    value={currentItem.status}
-                    onValueChange={(value) => updateItem({ id: currentItem.id, status: value as StatusId })}
-                  >
-                    <SelectTrigger className="h-9 w-[170px] rounded-full bg-card px-3 py-1.5 shadow-none">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {STATUSES.map((status) => (
-                          <SelectItem key={status.id} value={status.id}>
-                            {status.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+          {/* Description */}
+          {currentItem.description ? (
+            <div className="text-lg leading-relaxed text-foreground/80 font-serif">
+              {currentItem.description}
+            </div>
+          ) : null}
+
+          <hr className="border-[hsl(var(--border)_/_0.3)]" />
+
+          {/* Notebook Block */}
+          <section className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold tracking-tight">Private Notes</h2>
+              <Button variant="outline" size="sm" onClick={() => setNoteEditorOpen(!noteEditorOpen)} className="rounded-full rounded-full bg-[hsl(var(--card)_/_0.5)] backdrop-blur">
+                <PencilLine className="mr-2 size-3.5" />
+                {noteEditorOpen ? "Discard Changes" : "Edit Notes"}
+              </Button>
+            </div>
+
+            {noteEditorOpen ? (
+              <div className="space-y-4 animate-in fade-in-0 duration-300">
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Drop your thoughts, context, or reviews here..."
+                  className="min-h-[300px] text-[1.05rem] leading-relaxed bg-[hsl(var(--card)_/_0.5)] backdrop-blur-md resize-y"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-3">
+                  <Button variant="default" onClick={saveNotes} className="rounded-full px-6">Save notes</Button>
                 </div>
+              </div>
+            ) : currentItem.notes ? (
+              <div className="prose prose-zinc dark:prose-invert max-w-none prose-p:leading-relaxed prose-p:text-[1.05rem]">
+                <p className="whitespace-pre-wrap">{currentItem.notes}</p>
+              </div>
+            ) : (
+              <p className="text-muted-foreground italic">No private notes written yet. Click 'Edit Notes' to start.</p>
+            )}
+          </section>
 
-                <div className="flex items-center justify-between gap-3">
-                  <SectionLabel>Rating</SectionLabel>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        onClick={() =>
-                          updateItem({
-                            id: currentItem.id,
-                            rating: currentItem.rating === n ? null : n,
-                          })
-                        }
-                        className={`text-xl leading-none transition-opacity ${
-                          (currentItem.rating ?? 0) >= n ? "opacity-100" : "opacity-30"
-                        }`}
-                        aria-label={`Rate ${n} stars`}
-                      >
-                        ★
-                      </button>
-                    ))}
+          {/* Highlights & Queries */}
+          <section className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold tracking-tight">Entries & Highlights</h2>
+              <Button
+                variant={entryComposerOpen ? "secondary" : "outline"}
+                size="sm"
+                className="rounded-full text-foreground/80 bg-[hsl(var(--card)_/_0.5)] backdrop-blur"
+                onClick={() => setEntryComposerOpen((prev) => !prev)}
+              >
+                {entryComposerOpen ? "Close Compose" : "+ Add Highlight"}
+              </Button>
+            </div>
+
+            {entryComposerOpen ? (
+              <div className="soft-panel rounded-3xl p-5 md:p-6 animate-in slide-in-from-top-4 fade-in-0 flex flex-col gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                    <Label>Type</Label>
+                    <Select value={entryForm.entryType} onValueChange={(value: "highlight" | "quote" | "takeaway" | "reflection") => setEntryForm(p => ({ ...p, entryType: value }))}>
+                      <SelectTrigger className="bg-[hsl(var(--input)_/_0.5)] backdrop-blur-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="highlight">Highlight</SelectItem>
+                        <SelectItem value="quote">Quote</SelectItem>
+                        <SelectItem value="takeaway">Takeaway</SelectItem>
+                        <SelectItem value="reflection">Reflection</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Context / Location</Label>
+                    <Input value={entryForm.context} onChange={(e) => setEntryForm(p => ({ ...p, context: e.target.value }))} placeholder="Chapter 3, 14:02, Page 40..." className="bg-[hsl(var(--input)_/_0.5)] backdrop-blur-sm" />
                   </div>
                 </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Content</Label>
+                  <Textarea value={entryForm.content} onChange={(e) => setEntryForm(p => ({ ...p, content: e.target.value }))} placeholder="The actual quote or reflection..." className="min-h-[120px] bg-[hsl(var(--input)_/_0.5)] backdrop-blur-sm" />
+                </div>
+                <div className="flex justify-end gap-3 mt-2">
+                  <Button variant="default" onClick={handleCreateEntry} disabled={!entryForm.content.trim() || creatingNoteEntry} className="rounded-full px-6">
+                    {creatingNoteEntry ? "Saving..." : "Save Entry"}
+                  </Button>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            ) : null}
 
-          <Card className="border-violet-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(270_100%_98%)_100%)]">
-            <CardContent className="flex flex-col gap-4 p-4">
-              <div className="grid gap-3">
-                <div className="flex items-center justify-between gap-3">
-                  <SectionLabel>Recommendations</SectionLabel>
-                  <Button
-                    size="sm"
-                    variant={currentItem.hiddenFromRecommendations ? "outline" : "secondary"}
-                    onClick={() =>
-                      updateItem({
-                        id: currentItem.id,
-                        hiddenFromRecommendations: !currentItem.hiddenFromRecommendations,
-                      })
-                    }
-                  >
-                    {currentItem.hiddenFromRecommendations ? "Hidden" : "Shown"}
-                  </Button>
-                </div>
+            {noteEntries.length > 0 ? (
+              <div className="flex flex-col gap-5">
+                {noteEntries.map((entry) => (
+                  <div key={entry.id} className="relative group pl-6 md:pl-8 border-l-[3px] border-[hsl(var(--border)_/_0.8)] hover:border-[var(--hero-accent)] transition-colors py-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground bg-card/40">{entry.entryType}</Badge>
+                      {entry.context ? <span className="text-xs font-mono text-muted-foreground/60">{entry.context}</span> : null}
+                    </div>
+                    <p className="text-lg leading-relaxed text-foreground font-serif italic whitespace-pre-wrap">
+                      "{entry.content}"
+                    </p>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => deleteNoteEntry(entry.id)}
+                      className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
 
-                <div className="flex items-center justify-between gap-3">
-                  <SectionLabel>Trending Post</SectionLabel>
-                  <Button
-                    size="sm"
-                    variant={currentItem.trendingBoostEnabled ? "secondary" : "outline"}
-                    onClick={() =>
-                      updateItem({
-                        id: currentItem.id,
-                        trendingBoostEnabled: !currentItem.trendingBoostEnabled,
-                      })
-                    }
-                  >
-                    {currentItem.trendingBoostEnabled ? "On" : "Off"}
-                  </Button>
+          {/* AI Insights & Automated Section */}
+          <section className="flex flex-col gap-6 mt-6">
+             <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold tracking-tight text-foreground/80 flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-[0.15em] bg-clip-text text-transparent bg-gradient-to-r from-purple-500 to-cyan-500">AI Capabilities</span>
+                </h2>
+             </div>
+             <div className="paper-card p-6 !bg-[hsl(var(--card)_/_0.4)] md:col-span-2 shadow-none border-[hsl(var(--border)_/_0.3)]">
+               <AIPanel item={currentItem} onSuggestTags={setSuggestedTags} />
+             </div>
+          </section>
+
+        </div>
+
+        {/* RIGHT COLUMN: Inspector Sidebar */}
+        <aside className="sticky top-28 flex flex-col gap-8 w-full">
+          
+          <div className="flex flex-col gap-3">
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full justify-between paper-card font-medium">
+                  Edit Metadata <PencilLine className="size-4 opacity-50" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px] paper-card border-[hsl(var(--border)_/_0.4)] rounded-[2rem]">
+                <DialogHeader>
+                  <DialogTitle className="text-2xl font-bold tracking-tight">Edit Metadata</DialogTitle>
+                  <DialogDescription>Adjust title, author, release, and raw description.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2"><Label>Title</Label><Input value={editForm.title} onChange={e => setEditForm(p => ({...p, title: e.target.value}))} /></div>
+                    <div className="flex flex-col gap-2"><Label>Creator</Label><Input value={editForm.creator} onChange={e => setEditForm(p => ({...p, creator: e.target.value}))} placeholder="Author, Channel..." /></div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                       <Label>Content Type</Label>
+                       <Select value={editForm.contentType} onValueChange={v => setEditForm(p => ({...p, contentType: v as any}))}>
+                         <SelectTrigger><SelectValue/></SelectTrigger>
+                         <SelectContent>
+                           {CONTENT_TYPES.map(t => <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>)}
+                         </SelectContent>
+                       </Select>
+                    </div>
+                    <div className="flex flex-col gap-2"><Label>Release Date</Label><Input type="date" value={editForm.releaseDate} onChange={e => setEditForm(p => ({...p, releaseDate: e.target.value}))} /></div>
+                  </div>
+                  <div className="flex flex-col gap-2"><Label>Cover URL</Label><Input value={editForm.coverUrl} onChange={e => setEditForm(p => ({...p, coverUrl: e.target.value}))} /></div>
+                  <div className="flex flex-col gap-2"><Label>Description</Label><Textarea value={editForm.description} onChange={e => setEditForm(p => ({...p, description: e.target.value}))} className="min-h-[100px]" /></div>
                 </div>
+                <div className="flex justify-end gap-3">
+                  <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                  <Button onClick={handleSaveDetails}>Save Changes</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="w-full justify-between text-destructive hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20">
+                  Delete Item <Trash2 className="size-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleDelete} className="text-destructive font-semibold">
+                  Confirm Delete...
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Recommendation Tuning */}
+          <div className="rounded-[24px] p-6 flex flex-col gap-5 pb-7 border border-[var(--hero-accent)]/30 bg-gradient-to-br from-[var(--hero-accent)]/15 via-[var(--hero-accent)]/5 to-transparent shadow-[0_8px_32px_-12px_var(--hero-accent)] backdrop-blur-xl relative overflow-hidden group">
+            {/* Soft decorative glow */}
+            <div className="absolute -top-12 -right-12 size-32 bg-[var(--hero-accent)]/20 blur-3xl rounded-full pointer-events-none transition-transform duration-700 group-hover:scale-150" />
+            
+            <div className="flex items-center justify-between relative z-10">
+              <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-[var(--hero-accent)] drop-shadow-sm">Tuning & Scoring</h3>
+              <Button variant="outline" size="sm" onClick={() => queueScore(currentItem.id)} disabled={queueingScore} className="h-7 text-[10px] px-3 rounded-full tracking-wide bg-background/50 border-[var(--hero-accent)]/30 hover:bg-[var(--hero-accent)] hover:text-white transition-colors">
+                {queueingScore ? "Scoring..." : currentItem.suggestMetricNeedsMoreInfo ? "Need More Info" : "Re-score"}
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="flex-1 rounded-[1.2rem] bg-background/40 border border-[hsl(var(--border)_/_0.3)] p-3 text-center backdrop-blur-sm">
+                 <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold block mb-1">Base</span>
+                 <span className="text-xl font-bold font-mono tracking-tight">{currentItem.suggestMetricBase ?? "-"}</span>
+              </div>
+              <div className="flex-1 rounded-[1.2rem] bg-gradient-to-br from-[var(--hero-accent)]/20 to-[var(--hero-accent)]/5 border border-[var(--hero-accent)]/40 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-sm">
+                 <span className="text-[10px] text-[var(--hero-accent)] uppercase tracking-widest font-semibold block mb-1 opacity-90 drop-shadow-sm">Final</span>
+                 <span className="text-3xl font-bold font-mono tracking-tight text-[var(--hero-accent)] drop-shadow-sm">{currentItem.suggestMetricFinal ?? "-"}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 mt-2 relative z-10">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs opacity-80 font-medium">Hide Suggestion</Label>
+                <Button size="sm" variant={currentItem.hiddenFromRecommendations ? "default" : "outline"} className="h-7 text-xs rounded-full bg-background/50 border-transparent shadow-sm" onClick={() => updateItem({ id: currentItem.id, hiddenFromRecommendations: !currentItem.hiddenFromRecommendations })}>
+                  {currentItem.hiddenFromRecommendations ? "Hidden" : "Shown"}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs opacity-80 font-medium">Trending +100</Label>
+                <Button size="sm" variant={currentItem.trendingBoostEnabled ? "secondary" : "outline"} className={`h-7 text-xs rounded-full shadow-sm ${currentItem.trendingBoostEnabled ? 'bg-[var(--hero-accent)] text-white hover:bg-[var(--hero-accent)]/90' : 'bg-background/50 border-transparent'}`} onClick={() => updateItem({ id: currentItem.id, trendingBoostEnabled: !currentItem.trendingBoostEnabled })}>
+                  {currentItem.trendingBoostEnabled ? "Active" : "Off"}
+                </Button>
               </div>
 
               <div className="flex flex-col gap-2">
-                <SectionLabel>Manual boost</SectionLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  {[0, 50, 100, 200].map((boost) => (
-                    <Button
-                      key={boost}
-                      size="sm"
-                      variant={currentItem.manualBoost === boost ? "secondary" : "outline"}
-                      className={currentItem.manualBoost === boost ? "bg-violet-600 text-white hover:bg-violet-600" : ""}
-                      onClick={() => updateItem({ id: currentItem.id, manualBoost: boost })}
-                    >
-                      {boost === 0 ? "Off" : `+${boost}`}
-                    </Button>
+                <Label className="text-xs opacity-80 font-medium mb-1">Manual Boost</Label>
+                <div className="flex rounded-full overflow-hidden border border-[hsl(var(--border)_/_0.3)] shadow-sm bg-background/30 backdrop-blur-sm p-0.5">
+                  {[0, 50, 100, 200].map(val => (
+                    <button key={val} className={`flex-1 h-7 text-xs font-semibold rounded-full transition-colors ${currentItem.manualBoost === val ? 'bg-[var(--hero-accent)] text-white shadow-md' : 'text-foreground/70 hover:bg-background/50'}`} onClick={() => updateItem({ id: currentItem.id, manualBoost: val })}>
+                      {val === 0 ? '0' : `+${val}`}
+                    </button>
                   ))}
                 </div>
               </div>
-
-              <div className="flex flex-col gap-2">
-                <SectionLabel>Cooldown</SectionLabel>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="justify-between">
-                      {currentItem.cooldownUntil && currentItem.cooldownUntil > Date.now()
-                        ? `Until ${new Date(currentItem.cooldownUntil).toLocaleDateString()}`
-                        : "Set cooldown"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem
-                      onClick={() =>
-                        updateItem({
-                          id: currentItem.id,
-                          cooldownUntil: Date.now() + 7 * 24 * 60 * 60 * 1000,
-                        })
-                      }
-                    >
-                      Cooldown for 7 days
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        updateItem({
-                          id: currentItem.id,
-                          cooldownUntil: Date.now() + 30 * 24 * 60 * 60 * 1000,
-                        })
-                      }
-                    >
-                      Cooldown for 30 days
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => updateItem({ id: currentItem.id, cooldownUntil: null })}>
-                      Clear cooldown
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+            </div>
+            
+            {currentItem.suggestMetricReason ? (
+              <div className="mt-2 text-xs leading-5 text-foreground/80 bg-background/50 backdrop-blur-md rounded-[1.2rem] p-4 border border-[hsl(var(--border)_/_0.3)] relative z-10 shadow-sm">
+                <strong className="block mb-1 text-[var(--hero-accent)] font-semibold">AI Insight:</strong>
+                {currentItem.suggestMetricReason}
               </div>
-            </CardContent>
-          </Card>
+            ) : null}
+          </div>
 
-          <Card className="border-emerald-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(150_60%_98%)_100%)]">
-            <CardContent className="flex flex-col gap-4 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <SectionTitle>Lists</SectionTitle>
-                <Badge variant="outline">{currentLists.length}</Badge>
-              </div>
+          {/* Tags Widget */}
+          <div className="soft-panel rounded-3xl p-5 flex flex-col gap-4 shadow-none">
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground flex items-center justify-between">
+              Tags
+            </h3>
+            <div className="-mx-2 -my-1">
+              <InlineTagManager itemId={currentItem.id} suggestedTags={suggestedTags} onSuggestionsApplied={() => setSuggestedTags(null)} />
+            </div>
+          </div>
 
-              <div className="flex flex-wrap gap-2">
-                {currentLists.length > 0 ? (
-                  currentLists.map((list) => (
-                    <button
-                      key={list.id}
-                      type="button"
-                      onClick={() => removeItemFromList({ itemId: currentItem.id, listId: list.id })}
-                      disabled={removingFromList}
-                      className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.22)] px-3 py-1.5 text-xs font-medium text-foreground"
-                    >
-                      <span className="size-2 rounded-full" style={{ backgroundColor: list.color }} />
-                      {list.name}
-                      <span className="text-muted-foreground">×</span>
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground">No list memberships yet.</p>
-                )}
-              </div>
-
-              {addableLists.length > 0 ? (
+          {/* Lists Widget */}
+          <div className="soft-panel rounded-3xl p-5 flex flex-col gap-4 shadow-none">
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground flex items-center justify-between">
+              Lists <Badge variant="outline" className="text-[10px] scale-90">{currentLists.length}</Badge>
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {currentLists.length > 0 ? currentLists.map(list => (
+                 <button
+                   key={list.id}
+                   type="button"
+                   onClick={() => removeItemFromList({ itemId: currentItem.id, listId: list.id })}
+                   disabled={removingFromList}
+                   className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border)_/_0.6)] bg-card/50 px-3 py-1.5 text-[0.8rem] font-medium text-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors group"
+                 >
+                   <span className="size-2 rounded-full group-hover:hidden" style={{ backgroundColor: list.color }} />
+                   <Trash2 className="size-3 hidden group-hover:block" />
+                   {list.name}
+                 </button>
+              )) : <span className="text-xs text-muted-foreground/60 italic">No lists</span>}
+            </div>
+            
+            <div className="flex flex-col gap-2 mt-2">
+               {addableLists.length > 0 ? (
                 <div className="flex gap-2">
                   <Select value={listToAdd} onValueChange={setListToAdd}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Add to list" />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-8 bg-card/40 rounded-full border-[hsl(var(--border)_/_0.6)]"><SelectValue placeholder="Add to existing..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectGroup>
-                        {addableLists.map((list) => (
-                          <SelectItem key={list.id} value={list.id}>
-                            {list.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
+                      {addableLists.map((list) => <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Button
-                    variant="outline"
-                    disabled={!listToAdd || addingToList}
-                    onClick={() => addItemToList({ itemId: currentItem.id, listId: listToAdd })}
-                  >
-                    Add
-                  </Button>
+                  <Button variant="outline" size="sm" className="rounded-full h-8" disabled={!listToAdd || addingToList} onClick={() => addItemToList({ itemId: currentItem.id, listId: listToAdd })}>Add</Button>
                 </div>
-              ) : null}
+               ) : null}
+               <div className="flex gap-2">
+                  <Input value={newListName} onChange={(e) => setNewListName(e.target.value)} placeholder="New list name" className="h-8 rounded-full bg-card/40 text-xs border-[hsl(var(--border)_/_0.6)]" />
+                  <Button variant="outline" size="sm" onClick={handleCreateListAndAdd} disabled={creatingList || !newListName.trim()} className="rounded-full h-8">Create</Button>
+               </div>
+            </div>
+          </div>
 
-              <div className="flex gap-2">
-                <Input
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  placeholder="Create list and add"
-                />
-                <Button
-                  variant="outline"
-                  onClick={handleCreateListAndAdd}
-                  disabled={creatingList || !newListName.trim()}
-                >
-                  Create
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-orange-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(32_100%_98%)_100%)]">
-            <CardContent className="flex flex-col gap-2 p-4 text-sm text-muted-foreground">
-              {currentItem.releaseDate ? <div>Released: {currentItem.releaseDate.slice(0, 4)}</div> : null}
-              {currentItem.durationMins ? <div>Duration: {currentItem.durationMins} min</div> : null}
-              <div>Added {new Date(currentItem.createdAt).toLocaleDateString()}</div>
-              {currentItem.startedAt ? <div>Started {new Date(currentItem.startedAt).toLocaleDateString()}</div> : null}
-              {currentItem.finishedAt ? <div>Finished {new Date(currentItem.finishedAt).toLocaleDateString()}</div> : null}
-              {currentItem.sourceUrl ? (
-                <a
-                  href={currentItem.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
-                >
-                  Open source
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardContent className="flex flex-col gap-5 p-5 sm:p-6">
-            {editOpen ? (
-              <section className="rounded-[28px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.18)] p-5">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <SectionTitle>Edit Details</SectionTitle>
-                    <p className="text-sm text-muted-foreground">Adjust the stored metadata without leaving the item page.</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Title">
-                      <Input
-                        value={editForm.title}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
-                        placeholder="Title"
-                      />
-                    </Field>
-
-                    <Field label="Creator">
-                      <Input
-                        value={editForm.creator}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, creator: e.target.value }))}
-                        placeholder="Author, director, channel..."
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Content Type">
-                      <Select
-                        value={editForm.contentType}
-                        onValueChange={(value) =>
-                          setEditForm((prev) => ({
-                            ...prev,
-                            contentType: value as (typeof CONTENT_TYPES)[number]["id"],
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            {CONTENT_TYPES.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
-                    <Field label="Release Date">
-                      <Input
-                        type="date"
-                        value={editForm.releaseDate}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, releaseDate: e.target.value }))}
-                      />
-                    </Field>
-                  </div>
-
-                  <Field label="Cover URL">
-                    <Input
-                      value={editForm.coverUrl}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, coverUrl: e.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </Field>
-
-                  <Field label="Description">
-                    <Textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
-                      placeholder="Description"
-                    />
-                  </Field>
-
-                  <div className="flex flex-wrap justify-end gap-3">
-                    <Button variant="outline" onClick={() => setEditOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSaveDetails} disabled={!editForm.title.trim()}>
-                      Save changes
-                    </Button>
-                  </div>
-                </div>
-              </section>
+          {/* Metadata Snapshot */}
+          <div className="flex flex-col px-4 gap-2 text-[11px] text-muted-foreground/50 uppercase tracking-wider font-semibold">
+            {currentItem.durationMins ? <span>{currentItem.durationMins} minutes long</span> : null}
+            <span>Added {new Date(currentItem.createdAt).toLocaleDateString()}</span>
+            {currentItem.startedAt ? <span>Started {new Date(currentItem.startedAt).toLocaleDateString()}</span> : null}
+            {currentItem.finishedAt ? <span>Finished {new Date(currentItem.finishedAt).toLocaleDateString()}</span> : null}
+            {currentItem.sourceUrl ? (
+              <a href={currentItem.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-primary mt-1">
+                Source Link <ExternalLink className="size-3" />
+              </a>
             ) : null}
+          </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <TabsList className="w-full justify-start sm:w-auto">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="notebook">Notebook</TabsTrigger>
-                  <TabsTrigger value="scoring">Scoring</TabsTrigger>
-                </TabsList>
-                {activeTab === "scoring" && currentItem.suggestMetricModelUsed ? (
-                  <Badge className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-50" variant="outline">{currentItem.suggestMetricModelUsed}</Badge>
-                ) : null}
-              </div>
-
-              <TabsContent value="overview" className="space-y-5">
-                <SectionCard title="Description">
-                  {currentItem.description ? (
-                    <p className="text-sm leading-7 text-foreground">{currentItem.description}</p>
-                  ) : (
-                    <EmptyState
-                      title="No description yet"
-                      body="This item does not have a saved description yet. You can add one from Edit Details."
-                    />
-                  )}
-                </SectionCard>
-
-                <SectionCard title={progressMeta.summaryLabel}>
-                  <div className="rounded-[22px] border border-sky-200 bg-[linear-gradient(180deg,hsl(204_100%_99%)_0%,hsl(206_100%_97%)_100%)] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-foreground">{progressMeta.summaryLabel}</p>
-                      <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100" variant="secondary">{currentItem.progressPercent ?? 0}%</Badge>
-                    </div>
-                    <div className="mt-4 h-3 rounded-full bg-sky-100">
-                      <div
-                        className="h-full rounded-full bg-sky-500"
-                        style={{ width: `${Math.max(0, Math.min(100, currentItem.progressPercent ?? 0))}%` }}
-                      />
-                    </div>
-                    <p className="mt-3 text-xs text-muted-foreground">
-                      {currentItem.lastTouchedAt
-                        ? `Last touched ${new Date(currentItem.lastTouchedAt).toLocaleString()}`
-                        : "No progress recorded yet."}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Field label={progressMeta.currentLabel}>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={progressForm.current}
-                        onChange={(e) => setProgressForm((prev) => ({ ...prev, current: e.target.value }))}
-                        placeholder="0"
-                      />
-                    </Field>
-                    <Field label={progressMeta.totalLabel}>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={progressForm.total}
-                        onChange={(e) => setProgressForm((prev) => ({ ...prev, total: e.target.value }))}
-                        placeholder="0"
-                      />
-                    </Field>
-                    <Field label="Percent complete">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={progressForm.percent}
-                        onChange={(e) => setProgressForm((prev) => ({ ...prev, percent: e.target.value }))}
-                        placeholder="0"
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button onClick={saveProgress}>Save progress</Button>
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="AI Insights">
-                  <AIPanel item={currentItem} onSuggestTags={(tags) => setSuggestedTags(tags)} />
-                </SectionCard>
-
-                <SectionCard title="Tags">
-                  <InlineTagManager
-                    itemId={currentItem.id}
-                    suggestedTags={suggestedTags}
-                    onSuggestionsApplied={() => setSuggestedTags(null)}
-                  />
-                </SectionCard>
-              </TabsContent>
-
-              <TabsContent value="notebook" className="space-y-5">
-                <SectionCard title="Private Notes">
-                  {noteEditorOpen ? (
-                    <div className="space-y-3">
-                      <Textarea
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Private notes…"
-                        className="min-h-[160px]"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setNoteEditorOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={saveNotes}>Save note</Button>
-                      </div>
-                    </div>
-                  ) : currentItem.notes ? (
-                    <div className="space-y-3">
-                      <p className="whitespace-pre-wrap text-sm leading-7 text-foreground">{currentItem.notes}</p>
-                      <div className="flex justify-end">
-                        <Button variant="outline" size="sm" onClick={() => setNoteEditorOpen(true)}>
-                          Edit Note
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <EmptyState
-                      title="No private note yet"
-                      body="Capture one running note for personal context, ideas, or reminders."
-                      actionLabel="Add Note"
-                      onAction={() => setNoteEditorOpen(true)}
-                    />
-                  )}
-                </SectionCard>
-
-                <SectionCard title="Highlights & Quotes">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100" variant="secondary">{noteEntries.length} entries</Badge>
-                    <Button
-                      variant={entryComposerOpen ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setEntryComposerOpen((prev) => !prev)}
-                    >
-                      {entryComposerOpen ? "Close composer" : "Add Entry"}
-                    </Button>
-                  </div>
-
-                  {entryComposerOpen ? (
-                    <div className="grid gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.22)] p-4">
-                      <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
-                        <Field label="Entry type">
-                          <Select
-                            value={entryForm.entryType}
-                            onValueChange={(value) =>
-                              setEntryForm((prev) => ({
-                                ...prev,
-                                entryType: value as "highlight" | "quote" | "takeaway" | "reflection",
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectGroup>
-                                <SelectItem value="highlight">Highlight</SelectItem>
-                                <SelectItem value="quote">Quote</SelectItem>
-                                <SelectItem value="takeaway">Takeaway</SelectItem>
-                                <SelectItem value="reflection">Reflection</SelectItem>
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </Field>
-
-                        <Field label="Context">
-                          <Input
-                            value={entryForm.context}
-                            onChange={(e) => setEntryForm((prev) => ({ ...prev, context: e.target.value }))}
-                            placeholder="Chapter, timestamp, scene, page, or why it matters"
-                          />
-                        </Field>
-                      </div>
-
-                      <Field label="Content">
-                        <Textarea
-                          value={entryForm.content}
-                          onChange={(e) => setEntryForm((prev) => ({ ...prev, content: e.target.value }))}
-                          placeholder="Capture a quote, highlight, takeaway, or short reflection"
-                          className="min-h-[150px]"
-                        />
-                      </Field>
-
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setEntryComposerOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleCreateEntry} disabled={creatingNoteEntry || !entryForm.content.trim()}>
-                          {creatingNoteEntry ? "Adding…" : "Save entry"}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {noteEntries.length > 0 ? (
-                    <div className="grid gap-3">
-                      {noteEntries.map((entry) => (
-                        <div key={entry.id} className="rounded-[22px] border border-[hsl(var(--border))] bg-card/80 p-4">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline">{entry.entryType}</Badge>
-                              {entry.context ? <Badge variant="secondary">{entry.context}</Badge> : null}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={deletingNoteEntry}
-                              onClick={() => deleteNoteEntry(entry.id)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-foreground">{entry.content}</p>
-                          <p className="mt-3 text-xs text-muted-foreground">
-                            Added {new Date(entry.createdAt).toLocaleString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyState
-                      title="No structured entries yet"
-                      body="Use highlights, quotes, takeaways, and reflections to keep important moments separate from your raw notes."
-                      actionLabel={entryComposerOpen ? undefined : "Add Entry"}
-                      onAction={entryComposerOpen ? undefined : () => setEntryComposerOpen(true)}
-                    />
-                  )}
-                </SectionCard>
-              </TabsContent>
-
-              <TabsContent value="scoring" className="space-y-5">
-                <SectionCard title="Suggest Metric">
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => queueScore(currentItem.id)} disabled={queueingScore}>
-                      {queueingScore
-                        ? "Queueing Re-score…"
-                        : currentItem.suggestMetricNeedsMoreInfo
-                          ? "Re-score With More Info"
-                          : "Re-score"}
-                    </Button>
-                    {currentItem.suggestMetricModelUsed ? <Badge className="border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-50" variant="outline">{currentItem.suggestMetricModelUsed}</Badge> : null}
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <MetricStat
-                      label="Base score"
-                      value={currentItem.suggestMetricBase != null ? currentItem.suggestMetricBase : "Pending"}
-                    />
-                    <MetricStat
-                      label="Final score"
-                      value={currentItem.suggestMetricFinal != null ? currentItem.suggestMetricFinal : "Pending"}
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {scoreBadges.map((badge) => (
-                      <Badge
-                        key={badge.label}
-                        variant={badge.variant}
-                        className={badge.variant === "secondary" ? "bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-100" : ""}
-                      >
-                        {badge.label}
-                      </Badge>
-                    ))}
-                  </div>
-
-                  <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
-                    <SectionLabel>AI explanation</SectionLabel>
-                    <p className="mt-2 text-sm leading-7 text-foreground">
-                      {currentItem.suggestMetricReason ?? "No suggest metric has been generated for this item yet."}
-                    </p>
-                  </div>
-
-                  {currentItem.suggestMetricNeedsMoreInfo ? (
-                    <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
-                      <SectionLabel>More Info Requested</SectionLabel>
-                      <p className="mt-2 text-sm leading-7 text-foreground">
-                        {currentItem.suggestMetricMoreInfoRequest ??
-                          "The scorer needs more metadata before it can score this item confidently."}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.18)] p-4">
-                    <SectionLabel>Recommendation tuning</SectionLabel>
-                    <ul className="space-y-2 text-sm text-muted-foreground">
-                      <li>Hidden items are excluded from next-to-consume until you show them again.</li>
-                      <li>Manual boost and trending boost add directly to the final score.</li>
-                      <li>Cooldown temporarily removes an item from the recommendation pool.</li>
-                    </ul>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    {currentItem.suggestMetricUpdatedAt
-                      ? `Last scored ${new Date(currentItem.suggestMetricUpdatedAt).toLocaleString()}`
-                      : "Waiting for AI scoring."}
-                  </p>
-                </SectionCard>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+        </aside>
       </div>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label>{label}</Label>
-      {children}
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  const tone = getSectionTone(title);
-  return (
-    <section className={`rounded-[28px] border p-5 ${tone}`}>
-      <div className="mb-4">
-        <SectionTitle>{title}</SectionTitle>
-      </div>
-      <div className="space-y-4">{children}</div>
-    </section>
-  );
-}
-
-function getSectionTone(title: string) {
-  if (title.includes("AI")) {
-    return "border-fuchsia-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(304_100%_98%)_100%)]";
-  }
-  if (title.includes("Tracker")) {
-    return "border-sky-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(205_100%_98%)_100%)]";
-  }
-  if (title.includes("Tags")) {
-    return "border-emerald-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(148_50%_98%)_100%)]";
-  }
-  if (title.includes("Highlights") || title.includes("Notes")) {
-    return "border-rose-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(350_100%_98%)_100%)]";
-  }
-  if (title.includes("Suggest")) {
-    return "border-violet-200/70 bg-[linear-gradient(180deg,hsl(var(--card))_0%,hsl(268_100%_98%)_100%)]";
-  }
-  return "border-[hsl(var(--border))] bg-card/85";
-}
-
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-xl font-semibold tracking-[-0.04em] text-foreground">{children}</h2>;
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-      {children}
-    </div>
-  );
-}
-
-function EmptyState({
-  title,
-  body,
-  actionLabel,
-  onAction,
-}: {
-  title: string;
-  body: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <div className="rounded-[22px] border border-dashed border-[hsl(var(--border))] px-4 py-5">
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">{body}</p>
-      {actionLabel && onAction ? (
-        <div className="mt-4">
-          <Button size="sm" variant="outline" onClick={onAction}>
-            {actionLabel}
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function MetricStat({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</div>
-      <div className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-foreground">{value}</div>
-    </div>
-  );
-}
-
-function getProgressMeta(item: {
-  contentType: (typeof CONTENT_TYPES)[number]["id"];
-  durationMins: number | null;
-  metadata: string | null;
-}) {
-  let parsedMetadata: Record<string, unknown> = {};
-  try {
-    parsedMetadata = item.metadata ? (JSON.parse(item.metadata) as Record<string, unknown>) : {};
-  } catch {
-    parsedMetadata = {};
-  }
-
-  const presets = [
-    {
-      label: "25%",
-      percent: 25,
-      current: item.durationMins ? Math.round(item.durationMins * 0.25) : undefined,
-      total: item.durationMins ?? undefined,
-    },
-    {
-      label: "50%",
-      percent: 50,
-      current: item.durationMins ? Math.round(item.durationMins * 0.5) : undefined,
-      total: item.durationMins ?? undefined,
-    },
-    {
-      label: "75%",
-      percent: 75,
-      current: item.durationMins ? Math.round(item.durationMins * 0.75) : undefined,
-      total: item.durationMins ?? undefined,
-    },
-    { label: "Done", percent: 100, current: item.durationMins ?? undefined, total: item.durationMins ?? undefined },
-  ];
-
-  if (item.contentType === "book") {
-    return {
-      currentLabel: "Current page",
-      totalLabel: "Total pages",
-      summaryLabel: "Reading Tracker",
-      helperText:
-        "Track pages or percent for books. If you fill current and total pages, percent is recalculated automatically.",
-      presets,
-    };
-  }
-
-  if (item.contentType === "article") {
-    return {
-      currentLabel: "Current reading minutes",
-      totalLabel: "Estimated reading minutes",
-      summaryLabel: "Reading Tracker",
-      helperText:
-        "For articles, you can use minutes or just click a quick preset like 25%, 50%, or Done.",
-      presets,
-    };
-  }
-
-  if (item.contentType === "tv") {
-    const seasons = typeof parsedMetadata.seasons === "number" ? parsedMetadata.seasons : undefined;
-    return {
-      currentLabel: "Episodes watched",
-      totalLabel: seasons ? `Episodes / ${seasons} seasons` : "Total episodes",
-      summaryLabel: "Watch Tracker",
-      helperText:
-        "TV progress works best as episodes watched versus total episodes. Season-aware UI can build on this later.",
-      presets,
-    };
-  }
-
-  if (item.contentType === "podcast" || item.contentType === "youtube" || item.contentType === "movie") {
-    return {
-      currentLabel: "Minutes completed",
-      totalLabel: "Total minutes",
-      summaryLabel: "Playback Tracker",
-      helperText:
-        "Use minutes completed for long-form media. Quick presets are useful for partial watches and listens.",
-      presets,
-    };
-  }
-
-  return {
-    currentLabel: "Current progress",
-    totalLabel: "Total",
-    summaryLabel: "Progress Tracker",
-    helperText:
-      "Use the progress fields to track where you are. Percent can be entered directly or derived from current/total values.",
-    presets,
-  };
+function getProgressMeta(item: any) {
+  if (item.contentType === "book") return { currentLabel: "Current page", totalLabel: "Total pages", summaryLabel: "Reading Position" };
+  if (item.contentType === "article") return { currentLabel: "Mins read", totalLabel: "Total mins", summaryLabel: "Reading Position" };
+  if (item.contentType === "tv") return { currentLabel: "Episodes seen", totalLabel: "Total episodes", summaryLabel: "Watch Position" };
+  return { currentLabel: "Current", totalLabel: "Total", summaryLabel: "Media Tracking" };
 }

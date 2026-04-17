@@ -3,8 +3,7 @@ import { useItems } from "../../hooks/useItems";
 import { CONTENT_TYPES, type ContentTypeId } from "../../lib/constants";
 import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Bot, Loader2, Sparkles, AlertCircle } from "lucide-react";
 
 interface NextToConsumeProps {
   contentType?: ContentTypeId;
@@ -15,96 +14,82 @@ interface NextToConsumeProps {
 export function NextToConsume({
   contentType,
   title = "Next To Consume",
-  description = "Stored suggestion scores based on your interest profiles and active boosts.",
+  description = "AI recommended queue.",
 }: NextToConsumeProps) {
   const { data: aiData, isLoading } = useNextList(contentType);
   const { data: allItems = [] } = useItems();
 
   const ranked = aiData?.result ?? [];
   const itemMap = Object.fromEntries(allItems.map((i) => [i.id, i]));
-  const suggestionsCount = allItems.filter((item) =>
-    item.status === "suggestions" && (!contentType || item.contentType === contentType)
-  ).length;
+  
+  const getAiStatusBadge = () => {
+    if (isLoading) return <Badge variant="outline" className="border-primary/50 text-primary bg-primary/10 animate-pulse"><Loader2 className="mr-1.5 size-3 animate-spin"/> Syncing</Badge>;
+    if (!aiData?.job) return null;
+    
+    switch (aiData.job.status) {
+      case "queued": return <Badge variant="secondary" className="bg-card/50 backdrop-blur"><Bot className="mr-1.5 size-3"/> Queued</Badge>;
+      case "processing": return <Badge variant="outline" className="border-fuchsia-500/50 text-fuchsia-500 bg-fuchsia-500/10 animate-pulse"><Loader2 className="mr-1.5 size-3 animate-spin"/> Processing</Badge>;
+      case "failed": return <Badge variant="destructive" className="bg-destructive/20 text-destructive border-transparent"><AlertCircle className="mr-1.5 size-3"/> Scoring Failed</Badge>;
+      case "completed": return <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 bg-emerald-500/10"><Sparkles className="mr-1.5 size-3"/> Scored</Badge>;
+      default: return null;
+    }
+  };
+
+  if (!isLoading && ranked.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3">
-      {!aiData && !isLoading && (
-        <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
-          <div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">{title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-            </div>
+    <div className="flex flex-col gap-5 w-full">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+               {title}
+            </h2>
+            {getAiStatusBadge()}
           </div>
+          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
         </div>
-      )}
-
-      {isLoading && (
-        <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 text-sm text-muted-foreground">
-          Updating queue state…
-        </div>
-      )}
-
-      {aiData?.job ? (
-        <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 text-sm text-muted-foreground">
-          {aiData.job.status === "queued" ? `Queued for ${new Date(aiData.job.runAfter).toLocaleString()}.` : null}
-          {aiData.job.status === "processing" ? "AI scoring jobs are processing now." : null}
-          {aiData.job.status === "failed" ? `Last queue attempt failed: ${aiData.job.lastError ?? "Unknown error"}` : null}
-          {aiData.job.status === "completed" && aiData.savedAt ? `Latest score refresh completed ${new Date(aiData.savedAt).toLocaleString()}.` : null}
-        </div>
-      ) : null}
-
-      {aiData && !isLoading && ranked.length === 0 && (
-        <div className="rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4 text-sm text-muted-foreground">
-          {suggestionsCount === 0
-            ? "No items in Suggestions yet."
-            : "No stored scores available yet. Queue a refresh or wait for item scoring jobs to complete."}
-        </div>
-      )}
+      </div>
 
       {ranked.length > 0 && (
-        <>
-          <div className="flex flex-col gap-3">
-            {ranked.slice(0, 5).map((r) => {
-              const item = itemMap[r.id];
-              if (!item) return null;
-              const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
-              return (
-                <Link key={r.id} to="/item/$id" params={{ id: r.id }} className="block no-underline">
-                  <Card className="transition-transform hover:-translate-y-0.5">
-                    <CardContent className="flex items-start gap-4 p-4">
-                      <div className="flex min-h-10 min-w-10 shrink-0 flex-col items-center justify-center rounded-2xl bg-primary/10 px-2 text-primary">
-                        <span className="text-sm font-semibold">{r.score ?? "…"}</span>
-                        <span className="text-[10px] uppercase tracking-[0.08em]">{r.pending ? "pending" : "score"}</span>
-                      </div>
-                      <div className="cover-frame flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-[16px]">
-                        {item.coverUrl ? (
-                          <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="text-2xl">{ct?.icon ?? "📄"}</span>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-foreground">{item.title}</div>
-                        <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                          {r.explanation ?? "Waiting for AI score."}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {r.boosts.recent > 0 ? <Badge variant="secondary">Recent +50</Badge> : null}
-                          {r.boosts.trending > 0 ? <Badge variant="secondary">Trending +100</Badge> : null}
-                          {r.boosts.manual > 0 ? <Badge variant="secondary">Manual +{r.boosts.manual}</Badge> : null}
-                          {r.needsMoreInfo ? <Badge variant="outline">Needs more info</Badge> : null}
-                        </div>
-                        {r.moreInfoRequest ? <div className="mt-2 text-xs text-muted-foreground">{r.moreInfoRequest}</div> : null}
-                      </div>
-                      {ct ? <Badge variant="outline">{ct.label}</Badge> : null}
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
-        </>
+         <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+           {ranked.slice(0, 5).map((r) => {
+             const item = itemMap[r.id];
+             if (!item) return null;
+             const ct = CONTENT_TYPES.find((c) => c.id === item.contentType);
+             return (
+               <Link key={r.id} to="/item/$id" params={{ id: r.id }} className="block no-underline group h-full">
+                 <div className="paper-card h-full rounded-3xl p-4 flex flex-col gap-4 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 border border-[hsl(var(--border)_/_0.5)]">
+                   
+                   <div className="flex items-start gap-4">
+                     <div className="cover-frame flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-[1rem] shadow-sm">
+                       {item.coverUrl ? (
+                         <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                       ) : (
+                         <span className="text-2xl">{ct?.icon ?? "📄"}</span>
+                       )}
+                     </div>
+                     <div className="flex flex-col min-w-0">
+                       <span className="truncate text-sm font-bold text-foreground group-hover:text-primary transition-colors">{item.title}</span>
+                       <span className="text-xs text-muted-foreground truncate">{item.creator || ct?.label}</span>
+                     </div>
+                   </div>
+
+                   <div className="flex flex-col gap-2 mt-auto">
+                     <div className="text-[11.5px] leading-relaxed text-muted-foreground line-clamp-3">
+                       {r.explanation ?? "Waiting for AI score."}
+                     </div>
+                     <div className="flex items-center justify-between mt-1 pt-3 border-t border-[hsl(var(--border)_/_0.4)]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground/70">AI Score</span>
+                        <span className="text-lg font-bold font-mono text-primary">{r.score ?? "…"}</span>
+                     </div>
+                   </div>
+
+                 </div>
+               </Link>
+             );
+           })}
+         </div>
       )}
     </div>
   );
