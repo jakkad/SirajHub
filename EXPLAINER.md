@@ -4511,11 +4511,15 @@ The first V3.1 usage-layer pass is now complete.
 
 ### V3.2 — Convenience Layer
 
-V3.2 is underway. What has been started:
+V3.2 is underway. What has been completed so far:
 
 - Background metadata resync for imports ✅ done
 - Bulk Deletion and Selection UI (`POST /api/items/bulk-delete`, `isSelectionMode` context in `TypePageLayout.tsx`, floating action bar, `SelectionOverlay` wrappers in all 7 content grids) ✅ done
 - Bug fix: Resolved single-item dropdown deletion focus glitch in `ItemCard.tsx` ✅ done
+- V3.21: Metadata resync option added to import dialog + extended bulk actions ✅ done
+- V3.22: UI polish and layout fixes ✅ done
+- V3.23: Import pipeline bug fixes ✅ done
+- V3.24: Progress and date tracking improvements — see below ✅ done
 
 Still remaining:
 
@@ -4526,16 +4530,52 @@ Still remaining:
 
 ---
 
+### V3.24 — Progress and Finished Date Improvements
+
+Three related improvements to how progress and completion dates are tracked.
+
+**1. Finished Date is now user-editable**
+
+Previously `finishedAt` was a read-only auto-stamp — it was set automatically when you moved an item to "Finished" status and was only displayed in the metadata footer, not editable.
+
+Now it is a first-class editable field:
+
+- In the **Add Item dialog** (manual mode), a "Finished Date" date input appears when you select "Finished" as the status. This lets you backfill the correct date when logging something you already finished.
+- In the **Edit Metadata dialog** on the item detail page, a "Finished Date" field is always visible and editable. You can set, change, or clear it at any time regardless of status.
+
+The auto-stamp behaviour is preserved: if no date is provided and status is set to "Finished", the current date is used.
+
+**2. Movie progress works differently from other types**
+
+For books, articles, and TV shows it makes sense to track granular progress: what page are you on, how many episodes have you watched, etc. For movies there is nothing to track — you either watched it or you didn't.
+
+V3.24 formalises this:
+
+- Movies never store `progressCurrent` or `progressTotal`. Those fields are always null.
+- `progressPercent` for a movie is **100 when status is "Finished"** and **0 for everything else**. This is calculated automatically by the server whenever the status changes — you never set it manually.
+- The progress input fields (Current / Total) are **hidden** on the item detail page for movies. The progress bar still renders, showing 0% or 100% cleanly.
+- This rule applies to all paths: direct create, PATCH status update, and bulk CSV import.
+
+**3. Percent input removed for all types**
+
+The old progress section had three inputs: Current, Total, and Percent. The Percent field was confusing because the server already auto-calculates it from Current ÷ Total. Having a manual override created a situation where the three fields could contradict each other.
+
+V3.24 removes the Percent input. You now only enter Current and Total, and the server always derives the percentage from those two values. The progress bar and percentage display update accordingly on save.
+
+---
+
 ## Important Interface / Data Additions
 
 The following fields and entities are now real in the V3 data model.
 
 Item fields now in place:
 
-- `progressPercent`
+- `progressPercent` — auto-calculated from current ÷ total; for movies: 100 when finished, 0 otherwise
 - `progressCurrent`
 - `progressTotal`
 - `lastTouchedAt`
+- `startedAt` — auto-stamped when item first moves to in_progress
+- `finishedAt` — auto-stamped when finished, now also user-editable in AddItemDialog and Edit Metadata dialog
 - `hiddenFromRecommendations`
 - `manualBoost`
 - `cooldownUntil`

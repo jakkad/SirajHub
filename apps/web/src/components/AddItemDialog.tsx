@@ -133,6 +133,7 @@ export function AddItemDialog({ open, onClose }: Props) {
       description: meta.description ?? "",
       coverUrl: meta.coverUrl ?? "",
       releaseDate: meta.releaseDate ?? "",
+      finishedDate: "",
       rating: "",
       notes: "",
       sourceUrl: meta.sourceUrl ?? fallbackSource ?? "",

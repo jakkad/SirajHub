@@ -1819,3 +1819,26 @@ apps/web/src/index.css
 | ------ | ----------------------------------------- | ------- |
 | V3.2–1 | Add background metadata resync capability | ✅ Done |
 | V3.2–2 | Add Selection Mode UI and bulk deletion   | ✅ Done |
+
+## V3.24 Files Changed
+
+### Modified
+
+```text
+worker/src/routes/items.ts
+apps/web/src/lib/api.ts
+apps/web/src/components/AddItemDialog.tsx
+apps/web/src/routes/item.$id.tsx
+```
+
+## V3.24 Summary Table
+
+| Step     | Focus                                                                                  | Status  |
+| -------- | -------------------------------------------------------------------------------------- | ------- |
+| V3.24–1  | Add editable Finished Date to AddItemDialog (shown when status = finished)             | ✅ Done |
+| V3.24–2  | Add editable Finished Date to Edit Metadata dialog on item detail page                 | ✅ Done |
+| V3.24–3  | Pass finishedAt through POST /api/items body type and insert                           | ✅ Done |
+| V3.24–4  | Movie progress: auto 100% when finished, 0% otherwise — no current/total tracking     | ✅ Done |
+| V3.24–5  | Apply movie progress logic to import job route (bulk CSV)                              | ✅ Done |
+| V3.24–6  | Remove manual Percent input from progress section — percent is always auto-calculated  | ✅ Done |
+| V3.24–7  | Progress inputs hidden entirely for movies on item detail page                         | ✅ Done |
