@@ -615,18 +615,64 @@ export const itemsApi = {
     return request<Item>("/api/items", { method: "POST", body: JSON.stringify(data) });
   },
 
-  importCsv(rows: ImportRowInput[], resyncMetadata?: boolean): Promise<BulkImportResult> {
-    return request<BulkImportResult>("/api/items/import/csv", {
-      method: "POST",
-      body: JSON.stringify({ rows, resyncMetadata }),
-    });
+  async importCsv(rows: ImportRowInput[], resyncMetadata?: boolean): Promise<BulkImportResult> {
+    const CHUNK_SIZE = 50;
+    const combined: BulkImportResult = {
+      created: [],
+      createdCount: 0,
+      duplicateCount: 0,
+      failedCount: 0,
+      duplicates: [],
+      errors: [],
+      importJobId: "",
+    };
+
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + CHUNK_SIZE);
+      const res = await request<BulkImportResult>("/api/items/import/csv", {
+        method: "POST",
+        body: JSON.stringify({ rows: chunk, resyncMetadata }),
+      });
+      combined.created.push(...res.created);
+      combined.createdCount += res.createdCount;
+      combined.duplicateCount += res.duplicateCount;
+      combined.failedCount += res.failedCount;
+      // Adjust row numbers to be absolute instead of relative to chunk
+      combined.duplicates.push(...res.duplicates.map(d => ({ ...d, row: i + d.row })));
+      combined.errors.push(...res.errors.map(e => ({ ...e, row: i + e.row })));
+      combined.importJobId = res.importJobId;
+    }
+    return combined;
   },
 
-  importSource(source: string, rows: ImportRowInput[], resyncMetadata?: boolean): Promise<BulkImportResult> {
-    return request<BulkImportResult>("/api/items/import/source", {
-      method: "POST",
-      body: JSON.stringify({ source, rows, resyncMetadata }),
-    });
+  async importSource(source: string, rows: ImportRowInput[], resyncMetadata?: boolean): Promise<BulkImportResult> {
+    const CHUNK_SIZE = 50;
+    const combined: BulkImportResult = {
+      created: [],
+      createdCount: 0,
+      duplicateCount: 0,
+      failedCount: 0,
+      duplicates: [],
+      errors: [],
+      importJobId: "",
+    };
+
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + CHUNK_SIZE);
+      const res = await request<BulkImportResult>("/api/items/import/source", {
+        method: "POST",
+        body: JSON.stringify({ source, rows: chunk, resyncMetadata }),
+      });
+      combined.created.push(...res.created);
+      combined.createdCount += res.createdCount;
+      combined.duplicateCount += res.duplicateCount;
+      combined.failedCount += res.failedCount;
+      // Adjust row numbers to be absolute instead of relative to chunk
+      combined.duplicates.push(...res.duplicates.map(d => ({ ...d, row: i + d.row })));
+      combined.errors.push(...res.errors.map(e => ({ ...e, row: i + e.row })));
+      combined.importJobId = res.importJobId;
+    }
+    return combined;
   },
 
   listImportSources(): Promise<{ sources: ImportSourceDescriptor[] }> {

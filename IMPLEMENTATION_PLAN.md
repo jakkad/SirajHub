@@ -15,7 +15,7 @@ Before any code is written, you need these accounts and keys set up. Everything 
   - Needed for: Google Books API + YouTube Data API v3
 - [ ] **TMDB account** — themoviedb.org/signup
   - Needed for: Movies & TV metadata
-- [ ] **Podcast Index account** — api.podcastindex.org
+- [x] **Podcast Index account** — api.podcastindex.org
   - Needed for: Podcast metadata
 - [ ] **Google AI Studio account** — aistudio.google.com
   - Needed for: Gemini 2.5 Flash-Lite API key
@@ -32,9 +32,9 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 ### Cloudflare Resources to Create (via Dashboard or Wrangler CLI)
 
-- [ ] **D1 Database** — name it `sirajhub-db`
+- [x] **D1 Database** — name it `sirajhub-db`
   - Cloudflare Dashboard → Workers & Pages → D1 → Create database
-- [ ] **KV Namespace** — name it `SIRAJHUB_KV`
+- [x] **KV Namespace** — name it `SIRAJHUB_KV`
   - Cloudflare Dashboard → Workers & Pages → KV → Create namespace
 - [ ] **Worker** — will be created automatically on first `wrangler deploy`, but note the subdomain
 
@@ -42,7 +42,7 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 - [x] **Node.js 20+** — nodejs.org
 - [x] **pnpm** — `npm install -g pnpm`
-- [ ] **Wrangler CLI** — `npm install -g wrangler` then `wrangler login`
+- [x] **Wrangler CLI** — `npm install -g wrangler` then `wrangler login`
 - [x] **Git** — already installed
 
 ---
@@ -368,11 +368,7 @@ Before any code is written, you need these accounts and keys set up. Everything 
 
 ### 6.6 — Final Deployment
 
-- [ ] Run `wrangler d1 migrations apply sirajhub-db --remote` (production D1)
-- [ ] Set all secrets: `wrangler secret put GEMINI_API_KEY` · `TMDB_API_KEY` · `YOUTUBE_API_KEY` · `GOOGLE_BOOKS_API_KEY` · `PODCAST_INDEX_KEY` · `PODCAST_INDEX_SECRET` · `AUTH_SECRET`
-- [ ] `wrangler deploy` → verify live Worker URL
-- [ ] Add custom domain in Cloudflare Dashboard → Workers & Pages → your worker → Custom Domains
-- [ ] Smoke test: add one item of each type, verify AI analysis, verify drag-drop, verify search, verify settings save
+(Carried forward to Phase 7.5)
 
 **Phase 6 complete when:** All views work on mobile. Search works. Tags filter correctly. Settings save. App is live at your custom domain. ✅ (code complete — deployment is a manual step)
 
@@ -437,15 +433,15 @@ The `started_at` and `finished_at` columns exist in the `items` schema and are s
 
 ## V1 Summary Table
 
-| Phase               | Goal                                                      | Estimated Files |
-| ------------------- | --------------------------------------------------------- | --------------- |
-| 1 — Foundation ✅   | Monorepo, Worker skeleton, D1 schema, React scaffold, CI  | 28 files — done |
-| 2 — Auth ✅         | Better Auth, login page, session middleware               | ~8 files — done |
-| 3 — Core CRUD ✅    | Items API, Board view, ItemCard, Add dialog               | ~10 files — done |
-| 4 — Ingest Pipeline ✅ | URL dispatcher + 6 fetchers, caching                   | ~10 files — done |
-| 5 — AI Features ✅  | Gemini service, item analysis, next list panel            | ~6 files — done |
-| 6 — Polish ✅       | Grid, tags, search, settings, mobile, deploy              | ~12 files — done |
-| 7 — Deferred Requirements ✅ | Within-column sort, auto-categorize, suggest tags, timestamps, deploy | ~5 files — done |
+| Phase                        | Goal                                                                  | Estimated Files  |
+| ---------------------------- | --------------------------------------------------------------------- | ---------------- |
+| 1 — Foundation ✅            | Monorepo, Worker skeleton, D1 schema, React scaffold, CI              | 28 files — done  |
+| 2 — Auth ✅                  | Better Auth, login page, session middleware                           | ~8 files — done  |
+| 3 — Core CRUD ✅             | Items API, Board view, ItemCard, Add dialog                           | ~10 files — done |
+| 4 — Ingest Pipeline ✅       | URL dispatcher + 6 fetchers, caching                                  | ~10 files — done |
+| 5 — AI Features ✅           | Gemini service, item analysis, next list panel                        | ~6 files — done  |
+| 6 — Polish ✅                | Grid, tags, search, settings, mobile, deploy                          | ~12 files — done |
+| 7 — Deferred Requirements ✅ | Within-column sort, auto-categorize, suggest tags, timestamps, deploy | ~5 files — done  |
 
 ---
 
@@ -479,26 +475,29 @@ The `started_at` and `finished_at` columns exist in the `items` schema and are s
 > Goal: Replace the sticky top header with a collapsible sidebar + slim topbar.
 
 ### `apps/web/src/routes/__root.tsx` — full rewrite
+
 Two-column layout: `<AppSidebar /> + <div flex-1><AppTopbar /><Outlet /></div>`. Keep all existing state (addItemOpen, searchOpen, searchSelectedItem) and all existing overlay components (AddItemDialog, SearchCommand, ItemDetailPanel).
 
 ### Create `apps/web/src/components/AppSidebar.tsx`
+
 shadcn `Sidebar` + `SidebarProvider`. Nav items with `lucide-react` icons and per-type color dots:
 
-| Label     | Route      | Icon              | Color var             |
-|-----------|------------|-------------------|-----------------------|
-| Dashboard | `/`        | `LayoutDashboard` | —                     |
-| Books     | `/books`   | `BookOpen`        | `var(--color-book)`   |
-| Movies    | `/movies`  | `Film`            | `var(--color-movie)`  |
-| TV Shows  | `/tv`      | `Tv`              | `var(--color-tv)`     |
-| Podcasts  | `/podcasts`| `Mic`             | `var(--color-podcast)`|
-| Videos    | `/videos`  | `Play`            | `var(--color-youtube)`|
-| Articles  | `/articles`| `FileText`        | `var(--color-article)`|
-| Tweets    | `/tweets`  | `MessageSquare`   | `var(--color-tweet)`  |
-| Settings  | `/settings`| `Settings`        | —                     |
+| Label     | Route       | Icon              | Color var              |
+| --------- | ----------- | ----------------- | ---------------------- |
+| Dashboard | `/`         | `LayoutDashboard` | —                      |
+| Books     | `/books`    | `BookOpen`        | `var(--color-book)`    |
+| Movies    | `/movies`   | `Film`            | `var(--color-movie)`   |
+| TV Shows  | `/tv`       | `Tv`              | `var(--color-tv)`      |
+| Podcasts  | `/podcasts` | `Mic`             | `var(--color-podcast)` |
+| Videos    | `/videos`   | `Play`            | `var(--color-youtube)` |
+| Articles  | `/articles` | `FileText`        | `var(--color-article)` |
+| Tweets    | `/tweets`   | `MessageSquare`   | `var(--color-tweet)`   |
+| Settings  | `/settings` | `Settings`        | —                      |
 
 Active state: accent tint background. Mobile: sidebar renders as a `Sheet` drawer, triggered by topbar hamburger.
 
 ### Create `apps/web/src/components/AppTopbar.tsx`
+
 Slim bar (h-14): hamburger (mobile only) → search button (Cmd+K) → `+ Add` → user avatar `DropdownMenu` (Settings, Log out).
 
 **Complete when:** Sidebar visible on all routes, mobile drawer works, existing routes `/`, `/settings`, `/login` still render.
@@ -510,35 +509,44 @@ Slim bar (h-14): hamburger (mobile only) → search button (Cmd+K) → `+ Add` �
 > Goal: Let users store their own API keys and choose their AI model via Settings.
 
 ### Schema change — `worker/src/db/schema.ts`
+
 Add to `user` table:
+
 ```ts
 apiKeys: text("api_keys"),
 // JSON shape: { gemini?, tmdb?, youtube?, googleBooks?, podcastIndexKey?, podcastIndexSecret?, aiModel? }
 ```
 
 ### Create `worker/src/db/migrations/0002_user_api_keys.sql`
+
 ```sql
 ALTER TABLE `user` ADD `api_keys` text;
 ```
+
 Run: `wrangler d1 migrations apply sirajhub-db --local` (and `--remote` for prod)
 
 ### New API endpoints — `worker/src/routes/user.ts`
+
 - `GET /api/user/settings` → returns `{ gemini: "set"|null, tmdb: "set"|null, ... }` — **never returns raw key values**
 - `PATCH /api/user/settings` → body `{ service: string, key: string }`, merges into `apiKeys` JSON column
 
 ### Key resolution helper — `worker/src/routes/ai.ts` + `ingest.ts`
+
 ```ts
 async function resolveGeminiKey(c): Promise<string> {
   // Read user.apiKeys JSON, return keys.gemini if set
   // Fall back to c.env.GEMINI_API_KEY
 }
 ```
+
 Apply same pattern for TMDB, YouTube, Books, Podcast keys in `ingest.ts`.
 
 ### Model resolution — `worker/src/services/ai.ts`
+
 Change `callGemini(apiKey, prompt, schema)` → `callGemini(apiKey, model, prompt, schema)`. Resolve model from `apiKeys.aiModel` in each AI route handler, defaulting to `"gemini-2.5-flash"`.
 
 ### Frontend additions
+
 - `apps/web/src/lib/api.ts` — add `userSettingsApi.getSettings()` and `userSettingsApi.updateKey(service, key)`
 - `apps/web/src/hooks/useUser.ts` — add `useUserSettings()` and `useUpdateApiKey()` hooks
 
@@ -553,20 +561,24 @@ Change `callGemini(apiKey, prompt, schema)` → `callGemini(apiKey, model, promp
 ### `apps/web/src/routes/settings.tsx` — restructure with shadcn `Tabs`
 
 **Tabs:**
+
 ```
 [Profile]  [API Keys]  [AI Model]  [Tags]  [Data]
 ```
 
 **Profile tab** (existing content, minimal changes)
+
 - Display name (editable), email (read-only), AI taste preferences textarea
 
 **API Keys tab** (new)
+
 - One row per service: label | masked input | Save button | Test button
 - Services: Gemini, TMDB, YouTube, Google Books, Podcast Index Key, Podcast Index Secret
 - Saved keys render `••••••••` — input shows placeholder "Enter key to update"
 - Save calls `useUpdateApiKey(service, value)`
 
 **AI Model tab** (new)
+
 - `RadioGroup` with options: `gemini-2.5-flash` (default, recommended), `gemini-2.0-flash-lite` (fast/free), `gemini-2.5-pro` (best quality)
 - Each option shows name + short description
 - Saves to `apiKeys.aiModel` via `useUpdateApiKey("aiModel", model)`
@@ -585,6 +597,7 @@ Change `callGemini(apiKey, prompt, schema)` → `callGemini(apiKey, model, promp
 ### `apps/web/src/routes/index.tsx` — full replacement
 
 Layout:
+
 ```
 [TypeStats — 7 colored tiles]
 [InProgress — horizontal scroll row]
@@ -592,15 +605,19 @@ Layout:
 ```
 
 ### Create `apps/web/src/components/dashboard/TypeStats.tsx`
+
 7 shadcn `Card` tiles in a responsive grid. Each: colored icon + type label + total item count. Click navigates to that type's route. Data from `useItems()` filtered client-side.
 
 ### Create `apps/web/src/components/dashboard/RecentlyAdded.tsx`
+
 Last 8 items by `createdAt` desc. Horizontal scroll row of small cards: cover thumbnail + title + type badge. Click opens `/item/:id`.
 
 ### Create `apps/web/src/components/dashboard/InProgressItems.tsx`
+
 All `status === "in_progress"` items. Compact card list: cover + title + creator + elapsed time since `startedAt`. Click opens `/item/:id`.
 
 ### Create `apps/web/src/components/dashboard/NextToConsume.tsx`
+
 Inline version of `NextListPanel` — no modal wrapper. Renders the AI-ranked suggestions list directly. Reuses `useNextList()` hook. "Refresh" button included.
 
 **Complete when:** Dashboard loads with real data, all 4 widgets render, type stat tiles navigate correctly.
@@ -612,9 +629,11 @@ Inline version of `NextListPanel` — no modal wrapper. Renders the AI-ranked su
 > Goal: Full-page item view with inline editing and AI actions. Replaces the slide-over for direct navigation.
 
 ### Create `apps/web/src/routes/item.$id.tsx`
+
 TanStack Router dynamic route. Reads `id` param, finds item in `useItems()` cache.
 
 **Two-column layout:**
+
 - **Left:** Large cover image + core metadata display (title, creator, release date, duration, status badge, star rating, source link)
 - **Right:** Inline edit form + AI panel + tags + notes
 
@@ -623,11 +642,14 @@ TanStack Router dynamic route. Reads `id` param, finds item in `useItems()` cach
 **Back navigation:** `window.history.back()` button, shows "← Back to [type]" label.
 
 ### Create `apps/web/src/components/AIPanel.tsx`
+
 Reusable panel (used by both the detail page and `ItemDetailPanel` slide-over):
+
 - "Analyze" button → `useAnalyzeItem(id)` → renders summary, key points, mood badge, recommendation
 - "Suggest Tags" button → `useCategorizeItem()` → renders addable tag chips
 
 ### Create `apps/web/src/components/InlineTagManager.tsx`
+
 Extract tag management from `ItemDetailPanel` into a standalone component used by both the detail page and the slide-over.
 
 **Complete when:** `/item/:id` opens with all data, fields are editable and auto-save, AI panel works, back nav returns to correct type page.
@@ -641,25 +663,33 @@ Extract tag management from `ItemDetailPanel` into a standalone component used b
 All views use `useItems({ content_type: X })`. Status filter tabs at top (shadcn `Tabs` or pills: All / Suggestions / In Progress / Finished / Archived). Cards link to `/item/${item.id}`.
 
 ### `apps/web/src/routes/articles.tsx` + `components/views/ArticleList.tsx`
+
 Text-first reading list. Each row: domain favicon pill | bold title | creator | date | reading time (`durationMins`). Grouped by status.
 
 ### `apps/web/src/routes/tweets.tsx` + `components/views/TweetFeed.tsx`
+
 Single-column centered feed (max-w-[600px]). Card per tweet: avatar circle + author name | tweet text (`description`) | date | external link.
 
 ### `apps/web/src/routes/podcasts.tsx` + `components/views/PodcastGrid.tsx`
+
 Square album art tiles: `repeat(auto-fill, minmax(160px, 1fr))`. Hover overlay: episode count + publisher from `metadata` JSON.
 
 ### `apps/web/src/routes/videos.tsx` + `components/views/VideoGrid.tsx`
+
 16:9 thumbnail tiles. Below: title (2-line clamp), channel name, duration. Hover: play button overlay.
 
 ### `apps/web/src/routes/movies.tsx` + `components/views/MoviePosterGrid.tsx`
+
 Dense 2:3 poster grid: `repeat(auto-fill, minmax(140px, 1fr))`. Hover: dark overlay slides up with title + year + star rating. Fallback tile: colored gradient + emoji.
 
 ### `apps/web/src/routes/tv.tsx` + `components/views/TVPosterGrid.tsx`
+
 Same as MoviePosterGrid + season count badge top-right (from `metadata.seasons`).
 
 ### `apps/web/src/routes/books.tsx` + `components/views/BookshelfView.tsx`
+
 Three horizontal shelves (Suggestions / In Progress / Finished). Books as vertical spines:
+
 - Spine: `width: 32px, height: 140px`, `writing-mode: vertical-rl`, rotated title text
 - Hover: expands to show cover + tooltip
 - Drag-to-reorder via dnd-kit `horizontalListSortingStrategy` (same drag logic as `BoardView.tsx`)
@@ -672,6 +702,7 @@ Three horizontal shelves (Suggestions / In Progress / Finished). Books as vertic
 ## V2 Files Changed
 
 ### Created (frontend)
+
 ```
 apps/web/components.json
 apps/web/src/lib/utils.ts
@@ -702,6 +733,7 @@ apps/web/src/routes/item.$id.tsx
 ```
 
 ### Modified (frontend)
+
 ```
 apps/web/tsconfig.app.json              ← @/* alias
 apps/web/vite.config.ts                 ← resolve.alias
@@ -714,11 +746,13 @@ apps/web/src/hooks/useUser.ts           ← useUserSettings, useUpdateApiKey
 ```
 
 ### Created (backend)
+
 ```
 worker/src/db/migrations/0002_user_api_keys.sql
 ```
 
 ### Modified (backend)
+
 ```
 worker/src/db/schema.ts                 ← apiKeys column on user table
 worker/src/routes/user.ts               ← GET/PATCH /api/user/settings
@@ -731,15 +765,15 @@ worker/src/services/ai.ts              ← model param in callGemini()
 
 ## V2 Summary Table
 
-| Phase | Goal | Status |
-|-------|------|--------|
-| V2–1 — shadcn Setup | Install component library, configure aliases, bridge tokens | ✅ Done |
-| V2–2 — Navigation | Sidebar + topbar, replace sticky header | ✅ Done |
-| V2–3 — Backend Keys | Per-user API keys + model in DB + endpoints | ✅ Done |
-| V2–4 — Settings | Tabs: Profile / API Keys / AI Model / Tags / Data | ✅ Done |
-| V2–5 — Dashboard | TypeStats, RecentlyAdded, InProgress, NextToConsume widgets | ✅ Done |
-| V2–6 — Item Detail Page | `/item/$id` full-page view + inline edit + AI panel | ✅ Done |
-| V2–7 — Artistic Views | 7 per-type pages: shelf, posters, grid, feed, list | ✅ Done |
+| Phase                   | Goal                                                        | Status  |
+| ----------------------- | ----------------------------------------------------------- | ------- |
+| V2–1 — shadcn Setup     | Install component library, configure aliases, bridge tokens | ✅ Done |
+| V2–2 — Navigation       | Sidebar + topbar, replace sticky header                     | ✅ Done |
+| V2–3 — Backend Keys     | Per-user API keys + model in DB + endpoints                 | ✅ Done |
+| V2–4 — Settings         | Tabs: Profile / API Keys / AI Model / Tags / Data           | ✅ Done |
+| V2–5 — Dashboard        | TypeStats, RecentlyAdded, InProgress, NextToConsume widgets | ✅ Done |
+| V2–6 — Item Detail Page | `/item/$id` full-page view + inline edit + AI panel         | ✅ Done |
+| V2–7 — Artistic Views   | 7 per-type pages: shelf, posters, grid, feed, list          | ✅ Done |
 
 ---
 
@@ -777,12 +811,14 @@ worker/src/services/ai.ts              ← model param in callGemini()
 > Goal: Fix the layout regressions discovered immediately after the redesign.
 
 ### Sidebar correction
+
 - [x] Remove the large descriptive block from the top sidebar card
 - [x] Compress the branding header so navigation fits without unnecessary scrolling
 - [x] Simplify the bottom workspace card and shorten the action label from "Workspace Preferences" to "Preferences"
 - [x] Preserve the same routes and navigation behavior while reducing vertical footprint
 
 ### Dashboard correction
+
 - [x] Remove the type stats grid from the narrow hero card
 - [x] Create a dedicated full-width `Library Types` card below the hero row
 - [x] Redesign each type stat into a wider horizontal tile with icon, label, count, and badge
@@ -793,6 +829,7 @@ worker/src/services/ai.ts              ← model param in callGemini()
 ## V2.1 Files Changed
 
 ### Modified
+
 ```text
 apps/web/src/index.css
 apps/web/src/routes/__root.tsx
@@ -819,10 +856,10 @@ apps/web/src/components/ui/*
 
 ## V2.1 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.1–1 — Theme Pass | Replace the first redesign with a soft analytics visual system | ✅ Done |
-| V2.1–2 — Layout Fixes | Simplify sidebar and move/readjust squeezed dashboard stats | ✅ Done |
+| Step                  | Goal                                                           | Status  |
+| --------------------- | -------------------------------------------------------------- | ------- |
+| V2.1–1 — Theme Pass   | Replace the first redesign with a soft analytics visual system | ✅ Done |
+| V2.1–2 — Layout Fixes | Simplify sidebar and move/readjust squeezed dashboard stats    | ✅ Done |
 
 ---
 
@@ -862,6 +899,7 @@ apps/web/src/components/ui/*
 ## V2.2 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 worker/src/db/schema.ts
@@ -883,6 +921,7 @@ wrangler.toml
 ```
 
 ### Created
+
 ```text
 worker/src/db/migrations/0003_ai_jobs.sql
 worker/src/lib/user-settings.ts
@@ -891,12 +930,12 @@ worker/src/services/ai-queue.ts
 
 ## V2.2 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.2–1 — Saved Analysis | Persist and reuse the latest AI analysis per item | ✅ Done |
+| Step                        | Goal                                                               | Status  |
+| --------------------------- | ------------------------------------------------------------------ | ------- |
+| V2.2–1 — Saved Analysis     | Persist and reuse the latest AI analysis per item                  | ✅ Done |
 | V2.2–2 — Search Suggestions | Return and resolve the top 5 external-source matches before adding | ✅ Done |
-| V2.2–3 — Source Tips | Explain which URLs can be auto-detected, with examples | ✅ Done |
-| V2.2–4 — AI Queue | Add scheduled, persistent AI jobs with a configurable interval | ✅ Done |
+| V2.2–3 — Source Tips        | Explain which URLs can be auto-detected, with examples             | ✅ Done |
+| V2.2–4 — AI Queue           | Add scheduled, persistent AI jobs with a configurable interval     | ✅ Done |
 
 ---
 
@@ -931,6 +970,7 @@ worker/src/services/ai-queue.ts
 ## V2.3 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 worker/src/services/ai-queue.ts
@@ -941,12 +981,12 @@ apps/web/src/components/ui/select.tsx
 
 ## V2.3 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.3–1 — Article Feed | Improve the articles page into a cleaner editorial feed | ✅ Done |
-| V2.3–2 — Edit Actions | Make editing obvious from both article rows and the item page | ✅ Done |
-| V2.3–3 — Select Fix | Fix the status dropdown layout issue at the shared component level | ✅ Done |
-| V2.3–4 — Queue Timing | Run small queues immediately and retry failures after 60 minutes | ✅ Done |
+| Step                  | Goal                                                               | Status  |
+| --------------------- | ------------------------------------------------------------------ | ------- |
+| V2.3–1 — Article Feed | Improve the articles page into a cleaner editorial feed            | ✅ Done |
+| V2.3–2 — Edit Actions | Make editing obvious from both article rows and the item page      | ✅ Done |
+| V2.3–3 — Select Fix   | Fix the status dropdown layout issue at the shared component level | ✅ Done |
+| V2.3–4 — Queue Timing | Run small queues immediately and retry failures after 60 minutes   | ✅ Done |
 
 ---
 
@@ -988,6 +1028,7 @@ apps/web/src/components/ui/select.tsx
 ## V2.4 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 apps/web/src/components/AddItemDialog.tsx
@@ -997,17 +1038,18 @@ worker/src/routes/items.ts
 ```
 
 ### Created
+
 ```text
 apps/web/src/lib/csv.ts
 ```
 
 ## V2.4 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.4–1 — CSV Flow | Add a dedicated CSV import path inside the Add Item dialog | ✅ Done |
-| V2.4–2 — Preview + Validation | Preview rows, validate input, and support partial imports | ✅ Done |
-| V2.4–3 — Bulk Create API | Add a worker route that creates items in bulk and returns import results | ✅ Done |
+| Step                          | Goal                                                                     | Status  |
+| ----------------------------- | ------------------------------------------------------------------------ | ------- |
+| V2.4–1 — CSV Flow             | Add a dedicated CSV import path inside the Add Item dialog               | ✅ Done |
+| V2.4–2 — Preview + Validation | Preview rows, validate input, and support partial imports                | ✅ Done |
+| V2.4–3 — Bulk Create API      | Add a worker route that creates items in bulk and returns import results | ✅ Done |
 
 ---
 
@@ -1045,6 +1087,7 @@ apps/web/src/lib/csv.ts
 ## V2.5 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 apps/web/src/main.tsx
@@ -1059,16 +1102,17 @@ apps/web/src/routes/login.tsx
 ```
 
 ### Created
+
 ```text
 apps/web/src/components/ThemeProvider.tsx
 ```
 
 ## V2.5 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.5–1 — Theme System | Add persisted light/dark theme state and visible switchers | ✅ Done |
-| V2.5–2 — Dark Tokens | Create a distinct dark visual language inspired by the reference | ✅ Done |
+| Step                  | Goal                                                              | Status  |
+| --------------------- | ----------------------------------------------------------------- | ------- |
+| V2.5–1 — Theme System | Add persisted light/dark theme state and visible switchers        | ✅ Done |
+| V2.5–2 — Dark Tokens  | Create a distinct dark visual language inspired by the reference  | ✅ Done |
 | V2.5–3 — Surface Pass | Adapt the shell and major surfaces so dark mode feels intentional | ✅ Done |
 
 ---
@@ -1130,6 +1174,7 @@ apps/web/src/components/ThemeProvider.tsx
 ## V2.6 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 worker/src/db/schema.ts
@@ -1151,19 +1196,20 @@ apps/web/src/components/views/TypePageLayout.tsx
 ```
 
 ### Created
+
 ```text
 worker/src/db/migrations/0004_suggest_metric.sql
 ```
 
 ## V2.6 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.6–1 — Interest Profiles | Add per-type weighted interest chips in settings | ✅ Done |
-| V2.6–2 — Stored Metrics | Persist base and final suggest scores on items | ✅ Done |
-| V2.6–3 — Score Jobs | Queue AI scoring for new and refreshed items | ✅ Done |
-| V2.6–4 — Ranked Views | Rebuild next-to-consume around stored scores globally and per type | ✅ Done |
-| V2.6–5 — Visibility | Show trending, score details, and score jobs in the UI | ✅ Done |
+| Step                       | Goal                                                               | Status  |
+| -------------------------- | ------------------------------------------------------------------ | ------- |
+| V2.6–1 — Interest Profiles | Add per-type weighted interest chips in settings                   | ✅ Done |
+| V2.6–2 — Stored Metrics    | Persist base and final suggest scores on items                     | ✅ Done |
+| V2.6–3 — Score Jobs        | Queue AI scoring for new and refreshed items                       | ✅ Done |
+| V2.6–4 — Ranked Views      | Rebuild next-to-consume around stored scores globally and per type | ✅ Done |
+| V2.6–5 — Visibility        | Show trending, score details, and score jobs in the UI             | ✅ Done |
 
 ---
 
@@ -1212,6 +1258,7 @@ worker/src/db/migrations/0004_suggest_metric.sql
 ## V2.7 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 apps/web/src/components/AppSidebar.tsx
@@ -1232,13 +1279,13 @@ apps/web/src/routes/item.$id.tsx
 
 ## V2.7 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.7–1 — Sidebar | Simplify the sidebar header and footer chrome | ✅ Done |
-| V2.7–2 — Top Bar | Move next-to-consume into the top bar and remove extra label clutter | ✅ Done |
-| V2.7–3 — Shared Layout | Flatten collection pages into a simpler title / filters / content structure | ✅ Done |
-| V2.7–4 — Internal Pages | Simplify Settings and item detail page framing | ✅ Done |
-| V2.7–5 — Header Icons | Remove decorative header emojis/icons from internal pages | ✅ Done |
+| Step                    | Goal                                                                        | Status  |
+| ----------------------- | --------------------------------------------------------------------------- | ------- |
+| V2.7–1 — Sidebar        | Simplify the sidebar header and footer chrome                               | ✅ Done |
+| V2.7–2 — Top Bar        | Move next-to-consume into the top bar and remove extra label clutter        | ✅ Done |
+| V2.7–3 — Shared Layout  | Flatten collection pages into a simpler title / filters / content structure | ✅ Done |
+| V2.7–4 — Internal Pages | Simplify Settings and item detail page framing                              | ✅ Done |
+| V2.7–5 — Header Icons   | Remove decorative header emojis/icons from internal pages                   | ✅ Done |
 
 ---
 
@@ -1312,6 +1359,7 @@ apps/web/src/routes/item.$id.tsx
 ## V2.8 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 worker/src/db/schema.ts
@@ -1334,19 +1382,20 @@ apps/web/src/components/NextListPanel.tsx
 ```
 
 ### Created
+
 ```text
 worker/src/db/migrations/0005_ai_surface_tightening.sql
 ```
 
 ## V2.8 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.8–1 — Feature Reduction | Reduce AI to Analyze and Scoring only | ✅ Done |
-| V2.8–2 — Analysis | Replace saved analysis with one structured per-item analysis result | ✅ Done |
-| V2.8–3 — Scoring | Replace scoring output with structured score/explanation/info-needed fields | ✅ Done |
-| V2.8–4 — Queue | Make the queue the visible operational layer for all AI work | ✅ Done |
-| V2.8–5 — Model + Prompts | Validate selected models, add saved prompt templates, and tighten backend model support | ✅ Done |
+| Step                       | Goal                                                                                    | Status  |
+| -------------------------- | --------------------------------------------------------------------------------------- | ------- |
+| V2.8–1 — Feature Reduction | Reduce AI to Analyze and Scoring only                                                   | ✅ Done |
+| V2.8–2 — Analysis          | Replace saved analysis with one structured per-item analysis result                     | ✅ Done |
+| V2.8–3 — Scoring           | Replace scoring output with structured score/explanation/info-needed fields             | ✅ Done |
+| V2.8–4 — Queue             | Make the queue the visible operational layer for all AI work                            | ✅ Done |
+| V2.8–5 — Model + Prompts   | Validate selected models, add saved prompt templates, and tighten backend model support | ✅ Done |
 
 ---
 
@@ -1403,6 +1452,7 @@ worker/src/db/migrations/0005_ai_surface_tightening.sql
 ## V2.9 Files Changed
 
 ### Modified
+
 ```text
 IMPLEMENTATION_PLAN.md
 package.json
@@ -1418,56 +1468,26 @@ apps/web/src/routes/settings.tsx
 ```
 
 ### Created
+
 ```text
 scripts/smoke-api.mjs
 ```
 
 ## V2.9 Summary Table
 
-| Step | Goal | Status |
-|------|------|--------|
-| V2.9–1 — Validation | Align item create/update validation with CSV import rules | ✅ Done |
-| V2.9–2 — Operations | Make health public and remove stale operational leftovers | ✅ Done |
-| V2.9–3 — Model Registry | Move AI model definitions to a backend-owned source of truth | ✅ Done |
-| V2.9–4 — AI Hardening | Improve model validation, Gemma handling, and queue metadata | ✅ Done |
-| V2.9–5 — Maintainability | Add smoke-test tooling and reduce root-shell bundle weight | ✅ Done |
+| Step                     | Goal                                                         | Status  |
+| ------------------------ | ------------------------------------------------------------ | ------- |
+| V2.9–1 — Validation      | Align item create/update validation with CSV import rules    | ✅ Done |
+| V2.9–2 — Operations      | Make health public and remove stale operational leftovers    | ✅ Done |
+| V2.9–3 — Model Registry  | Move AI model definitions to a backend-owned source of truth | ✅ Done |
+| V2.9–4 — AI Hardening    | Improve model validation, Gemma handling, and queue metadata | ✅ Done |
+| V2.9–5 — Maintainability | Add smoke-test tooling and reduce root-shell bundle weight   | ✅ Done |
 
 ---
 
 # V3 — Product Expansion Roadmap
 
 > **Motivation:** V1 and V2 established the product core: capture, organize, analyze, score, and queue. V3 is about increasing daily usefulness by making the library easier to fill, easier to act on, and more valuable over time.
-
-## V3 Current Progress
-
-### V3.0 Foundation Slice — Completed
-
-- [x] Add progress tracking fields to `items`
-- [x] Add item-page progress editing and dashboard progress visibility
-- [x] Add duplicate-aware item create / update / CSV import checks
-- [x] Add item merge endpoint for duplicate cleanup foundations
-- [x] Add duplicate review UI in Settings with merge actions
-- [x] Add import source registry and import job tracking
-- [x] Add `saved_views` storage and API
-- [x] Add smart-view UI foundations on collection pages and dashboard
-- [x] Expand smart views into richer filters and editing flows
-- [x] Add real non-CSV source importers
-- [x] Add deeper type-specific progress UX
-
-### V3.1 Usage Slice — Completed
-
-- [x] Add user-owned custom lists / collections
-- [x] Add ordering within lists and within list items
-- [x] Keep lists distinct from tags conceptually and structurally
-- [x] Add reminder + resurfacing flows for stale, stalled, and high-score items
-- [x] Add dismiss and snooze controls for reminders
-- [x] Expand notes into structured highlights / quotes / takeaways / reflections
-- [x] Keep existing freeform notes while adding structured note entries
-- [x] Add recommendation controls:
-  - hide from recommendations
-  - manual boost
-  - cooldown for 7 / 30 days
-- [x] Reflect recommendation controls directly in next-to-consume ranking behavior
 
 ## Priority 0 — Must-Have / Highest ROI
 
@@ -1556,6 +1576,18 @@ scripts/smoke-api.mjs
   - manual boost
   - cooldown for 7 / 30 days
 - [x] Reflect those controls directly in next-to-consume ranking behavior
+
+## V3.2 — Convenience Layer (Underway)
+
+### Completed in V3.2
+
+- [x] Background metadata resync functionality for imports (queued via background AI job to avoid API rate limits)
+- [x] Bulk Deletion and Selection UI:
+  - `POST /api/items/bulk-delete` route on the worker backend
+  - `isSelectionMode` context introduced in `TypePageLayout.tsx`
+  - Floating action bar for bulk deletion at the bottom of the viewport
+  - `SelectionOverlay` wrappers in all 7 content grids (movies, tv, books, videos, podcasts, articles, tweets)
+- [x] Bug fix: Resolved single-item dropdown deletion focus glitch in `ItemCard.tsx` conflicting with Radix UI states
 
 ## Priority 2 — Strong Quality-of-Life Features
 
@@ -1673,12 +1705,12 @@ scripts/smoke-api.mjs
 
 ## V3 Summary Table
 
-| Priority | Focus | Outcome |
-|------|------|--------|
-| Priority 0 | Import, dedupe, progress, smart views | Faster onboarding and more useful library state |
-| Priority 1 | Lists, reminders, richer notes, recommendation controls | Stronger day-to-day usage loop |
-| Priority 2 | Quick capture, timeline, analytics, linking, soft delete | Better quality of life and insight |
-| Priority 3 | Sharing, public views, multi-user, offline-first, AI knowledge layer | Longer-term expansion options |
+| Priority   | Focus                                                                | Outcome                                         |
+| ---------- | -------------------------------------------------------------------- | ----------------------------------------------- |
+| Priority 0 | Import, dedupe, progress, smart views                                | Faster onboarding and more useful library state |
+| Priority 1 | Lists, reminders, richer notes, recommendation controls              | Stronger day-to-day usage loop                  |
+| Priority 2 | Quick capture, timeline, analytics, linking, soft delete             | Better quality of life and insight              |
+| Priority 3 | Sharing, public views, multi-user, offline-first, AI knowledge layer | Longer-term expansion options                   |
 
 ## V3.0 Files Changed
 
@@ -1706,15 +1738,15 @@ scripts/smoke-api.mjs
 
 ## V3.0 Summary Table
 
-| Step | Focus | Status |
-|------|------|--------|
-| V3.0–1 | Add progress fields, persistence, and first UI surfaces | ✅ Done |
+| Step   | Focus                                                         | Status  |
+| ------ | ------------------------------------------------------------- | ------- |
+| V3.0–1 | Add progress fields, persistence, and first UI surfaces       | ✅ Done |
 | V3.0–2 | Add duplicate-aware create/import logic and merge foundations | ✅ Done |
-| V3.0–3 | Add import source registry and import job tracking | ✅ Done |
-| V3.0–4 | Add saved-view storage and richer smart-view UI | ✅ Done |
-| V3.0–5 | Add duplicate review UI in Settings | ✅ Done |
-| V3.0–6 | Add real external importers and source-mapping metadata | ✅ Done |
-| V3.0–7 | Add deeper type-specific progress UX | ✅ Done |
+| V3.0–3 | Add import source registry and import job tracking            | ✅ Done |
+| V3.0–4 | Add saved-view storage and richer smart-view UI               | ✅ Done |
+| V3.0–5 | Add duplicate review UI in Settings                           | ✅ Done |
+| V3.0–6 | Add real external importers and source-mapping metadata       | ✅ Done |
+| V3.0–7 | Add deeper type-specific progress UX                          | ✅ Done |
 
 ## V3.1 Files Changed
 
@@ -1750,17 +1782,18 @@ scripts/smoke-api.mjs
 
 ## V3.1 Summary Table
 
-| Step | Focus | Status |
-|------|------|--------|
-| V3.1–1 | Add custom lists / collections | ✅ Done |
-| V3.1–2 | Add list ordering and item ordering within lists | ✅ Done |
-| V3.1–3 | Add reminder + resurfacing inbox with snooze/dismiss | ✅ Done |
+| Step   | Focus                                                                         | Status  |
+| ------ | ----------------------------------------------------------------------------- | ------- |
+| V3.1–1 | Add custom lists / collections                                                | ✅ Done |
+| V3.1–2 | Add list ordering and item ordering within lists                              | ✅ Done |
+| V3.1–3 | Add reminder + resurfacing inbox with snooze/dismiss                          | ✅ Done |
 | V3.1–4 | Add structured note entries for highlights / quotes / takeaways / reflections | ✅ Done |
-| V3.1–5 | Add recommendation controls and wire them into ranking | ✅ Done |
+| V3.1–5 | Add recommendation controls and wire them into ranking                        | ✅ Done |
 
 ## V3.2 Files Changed
 
 ### Modified
+
 ```text
 worker/src/services/ai-queue.ts
 worker/src/routes/items.ts
@@ -1782,7 +1815,7 @@ apps/web/src/index.css
 
 ## V3.2 Summary Table
 
-| Step | Focus | Status |
-|------|------|--------|
+| Step   | Focus                                     | Status  |
+| ------ | ----------------------------------------- | ------- |
 | V3.2–1 | Add background metadata resync capability | ✅ Done |
-| V3.2–2 | Add Selection Mode UI and bulk deletion | ✅ Done |
+| V3.2–2 | Add Selection Mode UI and bulk deletion   | ✅ Done |

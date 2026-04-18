@@ -12,6 +12,7 @@ It focuses on the current understanding of the system while still preserving the
 Before writing any real features, we had to set up the "skeleton" of the project — the structure, tools, and infrastructure that everything else will be built on top of. Think of it like laying the foundation and framework of a house before adding rooms.
 
 By the end of Phase 1 we had:
+
 - A working project structure on your computer
 - A live (but mostly empty) app deployed on the internet
 - A database ready to store data
@@ -38,6 +39,7 @@ Cloudflare (hosts everything)
 ```
 
 When someone visits your app:
+
 1. Their browser loads the React frontend from Cloudflare's global network
 2. The React app talks to the Hono Worker API to get/save data
 3. The Worker reads/writes to the D1 database
@@ -50,6 +52,7 @@ When someone visits your app:
 A monorepo is one git repository that contains multiple related projects. Instead of having separate repos for "the frontend" and "the backend", everything lives together. This makes it easier to share code and keep things in sync.
 
 **Our structure:**
+
 ```
 SirajHub/              ← one git repo
 ├── apps/
@@ -61,6 +64,7 @@ SirajHub/              ← one git repo
 `pnpm` is a package manager (like `npm` but faster and smarter). It handles installing all the JavaScript libraries the project needs. The `pnpm-workspace.yaml` file tells pnpm "these two folders (`apps/web` and `worker`) are separate packages, manage them together."
 
 **Key files created:**
+
 - `package.json` (root) — defines the workspace and shared scripts like `pnpm dev` and `pnpm build`
 - `pnpm-workspace.yaml` — tells pnpm which folders are packages
 - `.gitignore` — tells git which files to ignore (like `node_modules/` which can be hundreds of thousands of files)
@@ -74,12 +78,15 @@ A Worker is a small piece of server-side code that runs on Cloudflare's network 
 
 **What is Hono?**
 Hono is a web framework for Workers. Instead of writing raw request/response handling, Hono lets you define routes cleanly:
+
 ```ts
-app.get("/api/health", (c) => c.json({ ok: true }))
+app.get("/api/health", (c) => c.json({ ok: true }));
 ```
+
 That one line means: "when someone visits `/api/health`, return `{ ok: true }` as JSON."
 
 **What we built:**
+
 - `worker/src/index.ts` — the entry point. Hono app with one test route (`GET /api/health`) that confirms the Worker is alive
 - `worker/src/types.ts` — defines the `Env` type, which lists all the things the Worker has access to (D1 database, KV store, and secret API keys). TypeScript uses this to catch mistakes at build time
 
@@ -95,30 +102,37 @@ D1 is Cloudflare's database service. Under the hood it's SQLite — a simple, fa
 
 **What is Drizzle ORM?**
 ORM stands for "Object Relational Mapper". Instead of writing raw SQL like:
+
 ```sql
 SELECT * FROM items WHERE user_id = '123' AND status = 'in_progress'
 ```
+
 Drizzle lets you write TypeScript:
+
 ```ts
-db.select().from(items).where(and(eq(items.userId, '123'), eq(items.status, 'in_progress')))
+db.select()
+  .from(items)
+  .where(and(eq(items.userId, "123"), eq(items.status, "in_progress")));
 ```
+
 The big benefit: TypeScript knows the shape of your data, so it catches typos and wrong column names before you run the code.
 
 **The Schema (`worker/src/db/schema.ts`)**
 The schema is the blueprint of your database — it defines every table and column. We created 7 tables:
 
-| Table | What it stores |
-|---|---|
-| `user` | Your account (email, name, AI taste preferences) |
-| `session` | Login sessions (so you stay logged in) |
-| `items` | Every book/movie/show/etc. you track |
-| `tags` | Labels you can attach to items (e.g. "sci-fi", "must-read") |
-| `item_tags` | Links items to their tags (one item can have many tags) |
-| `ai_cache` | Saved AI analysis results (so you don't call Gemini twice for the same item) |
-| `url_cache` | Saved metadata from external APIs (so you don't re-fetch the same URL) |
+| Table       | What it stores                                                               |
+| ----------- | ---------------------------------------------------------------------------- |
+| `user`      | Your account (email, name, AI taste preferences)                             |
+| `session`   | Login sessions (so you stay logged in)                                       |
+| `items`     | Every book/movie/show/etc. you track                                         |
+| `tags`      | Labels you can attach to items (e.g. "sci-fi", "must-read")                  |
+| `item_tags` | Links items to their tags (one item can have many tags)                      |
+| `ai_cache`  | Saved AI analysis results (so you don't call Gemini twice for the same item) |
+| `url_cache` | Saved metadata from external APIs (so you don't re-fetch the same URL)       |
 
 **What is a migration?**
 A migration is a SQL file that describes a change to the database structure. Instead of manually editing the database, you write a migration file and run it. This means:
+
 - You can track database changes in git history
 - You can apply the same changes to local dev, staging, and production
 - You can roll back if something goes wrong
@@ -140,9 +154,14 @@ It handles navigation within the app (moving between pages without full browser 
 
 **What is TanStack Query?**
 It manages fetching data from the API. Instead of writing fetch + loading state + error state every time, you write:
+
 ```ts
-const { data, isLoading } = useQuery({ queryKey: ['items'], queryFn: fetchItems })
+const { data, isLoading } = useQuery({
+  queryKey: ["items"],
+  queryFn: fetchItems,
+});
 ```
+
 It handles caching, background refetching, and keeping the UI in sync automatically.
 
 **What is Tailwind CSS v4?**
@@ -155,6 +174,7 @@ OKLCH is a modern color format that's more "perceptually uniform" than the old h
 This is the glue between the frontend and the Worker during development. When you run `pnpm dev`, this plugin starts both the Vite dev server (for the React app) and the Worker (for the API) together. API calls from the React app are automatically forwarded to the Worker — no separate terminal windows needed.
 
 **Key files created:**
+
 - `apps/web/vite.config.ts` — configures Vite and its plugins
 - `apps/web/index.html` — the single HTML file the browser loads (React takes over from there)
 - `apps/web/src/main.tsx` — the entry point; sets up the router and query client, mounts React to the page
@@ -196,15 +216,19 @@ The `not_found_handling = "single-page-application"` line is critical. When a us
 Before deploying, two resources were created on Cloudflare:
 
 **D1 Database**
+
 ```
 npx wrangler d1 create sirajhub-db
 ```
+
 This created an actual database on Cloudflare's infrastructure and gave back a unique ID (`1107d722-cbe2-4ab8-a031-0da570e4bc8b`). That ID was pasted into `wrangler.toml` so the Worker knows which database to connect to.
 
 **KV Namespace**
+
 ```
 npx wrangler kv namespace create SIRAJHUB_KV
 ```
+
 KV (Key-Value) is like a fast dictionary in the cloud. You store a key (`"session:abc123"`) and retrieve its value later. We'll use it for storing login sessions (Phase 2) and caching metadata from external APIs (Phase 4). The ID returned was also pasted into `wrangler.toml`.
 
 ---
@@ -229,6 +253,7 @@ This file defines the steps that run in sequence on a GitHub-managed computer:
 
 **Secrets**
 The deploy step needs to authenticate with Cloudflare. We can't put the API token directly in the file (it would be visible to anyone on GitHub). Instead, we added two **repository secrets** in GitHub:
+
 - `CF_API_TOKEN` — a Cloudflare API token with permission to deploy Workers and manage D1
 - `CF_ACCOUNT_ID` — your Cloudflare account identifier
 
@@ -241,17 +266,15 @@ The `pnpm-lock.yaml` file records the exact version of every dependency. `--froz
 
 ## Phase 1 Summary
 
-| What | How | Why |
-|---|---|---|
-| Code structure | pnpm monorepo | Keep frontend and backend together in one repo |
-| Backend | Hono on Cloudflare Workers | Free, fast, globally distributed API |
-| Database | Cloudflare D1 (SQLite) | Free, integrated with Workers, no server to manage |
-| Cache | Cloudflare KV | Fast key-value store for sessions and metadata |
-| Frontend | React 19 + Vite + TanStack Router | Modern SPA with file-based routing |
-| Styles | Tailwind v4 + OKLCH tokens | Dark-mode-first, maintainable design system |
-| Deployment | GitHub Actions → Wrangler | Every push to `main` auto-deploys |
-
----
+| What           | How                               | Why                                                |
+| -------------- | --------------------------------- | -------------------------------------------------- |
+| Code structure | pnpm monorepo                     | Keep frontend and backend together in one repo     |
+| Backend        | Hono on Cloudflare Workers        | Free, fast, globally distributed API               |
+| Database       | Cloudflare D1 (SQLite)            | Free, integrated with Workers, no server to manage |
+| Cache          | Cloudflare KV                     | Fast key-value store for sessions and metadata     |
+| Frontend       | React 19 + Vite + TanStack Router | Modern SPA with file-based routing                 |
+| Styles         | Tailwind v4 + OKLCH tokens        | Dark-mode-first, maintainable design system        |
+| Deployment     | GitHub Actions → Wrangler         | Every push to `main` auto-deploys                  |
 
 ---
 
@@ -262,6 +285,7 @@ The `pnpm-lock.yaml` file records the exact version of every dependency. `--froz
 Before Phase 2, anyone who knew the URL could see the app. Phase 2 adds a login wall — the entire app is locked behind a username/password, and your session persists across browser refreshes until you log out.
 
 By the end of Phase 2 we had:
+
 - A `/login` page that handles both sign-up and sign-in
 - A session cookie that keeps you logged in
 - Automatic redirect to `/login` for any unauthenticated visit
@@ -307,9 +331,9 @@ Those services add a third-party dependency and cost money at scale. Better Auth
 
 **New database tables (added in `0001_stale_ogun.sql`)**
 
-| Table | What it stores |
-|---|---|
-| `account` | One row per auth method per user. For email/password, it stores the hashed password. Later you could add Google login and get a second row. |
+| Table          | What it stores                                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account`      | One row per auth method per user. For email/password, it stores the hashed password. Later you could add Google login and get a second row.                         |
 | `verification` | Temporary tokens for actions like "verify your email" or "reset password". Not used yet (email verification is disabled), but Better Auth needs the table to exist. |
 
 ---
@@ -348,6 +372,7 @@ export const requireAuth = createMiddleware(async (c, next) => {
 ```
 
 **What this does line by line:**
+
 1. Create the auth instance (reads the D1 binding from `c.env`)
 2. Ask Better Auth "is there a valid session cookie in these request headers?"
 3. If not → return 401 immediately, don't touch the actual route handler
@@ -374,11 +399,11 @@ The login page has two modes: **sign in** and **create account**, with a toggle 
 
 ```ts
 beforeLoad: async ({ location }) => {
-  if (location.pathname === "/login") return;          // login page is always public
+  if (location.pathname === "/login") return; // login page is always public
   const { data: session } = await authClient.getSession();
-  if (!session) throw redirect({ to: "/login" });      // not logged in → redirect
-  return { user: session.user };                       // pass user to child routes
-}
+  if (!session) throw redirect({ to: "/login" }); // not logged in → redirect
+  return { user: session.user }; // pass user to child routes
+};
 ```
 
 `beforeLoad` is TanStack Router's hook that runs before a route renders. If it throws a `redirect(...)`, the router navigates there instead of rendering the page. This runs on every navigation, so you can never "sneak past" the login by typing a URL directly.
@@ -396,15 +421,18 @@ export const authClient = createAuthClient();
 ## Part 5: The D1 State Directory Gotcha
 
 During development, there are two processes involved:
+
 - `wrangler d1 migrations apply --local` — applies migrations from the **project root** terminal
 - `@cloudflare/vite-plugin` — runs Miniflare (the local Cloudflare emulator) from the **`apps/web/`** directory
 
 Each process stores its D1 database in a `.wrangler/state/v3/d1/` folder **relative to where it runs**. So migrations applied from the project root land in `/SirajHub/.wrangler/state/` but the Vite plugin looks in `/SirajHub/apps/web/.wrangler/state/` — a completely different file.
 
 The fix: always run local migrations with:
+
 ```
 pnpm db:migrate:local
 ```
+
 which is wired to: `wrangler d1 migrations apply sirajhub-db --local --persist-to ./apps/web/.wrangler/state`
 
 This targets the same SQLite file that the Vite dev server reads from.
@@ -413,18 +441,14 @@ This targets the same SQLite file that the Vite dev server reads from.
 
 ## Phase 2 Summary
 
-| What | How | Why |
-|---|---|---|
-| Auth library | Better Auth | Self-hosted, open-source, handles session security correctly |
-| Session storage | Cloudflare D1 | Same database as everything else, no extra service |
-| Password storage | `account` table (hashed) | Better Auth hashes with scrypt — never stores plaintext |
-| Auth handler mount | `/api/auth/*` | Better Auth's default base path — client and server agree automatically |
-| Route protection | Hono middleware | One central place to enforce auth — no per-route boilerplate |
-| Login UI | TanStack Router `beforeLoad` | Runs before render, so unauthenticated users never see a flash of protected content |
-
----
-
----
+| What               | How                          | Why                                                                                 |
+| ------------------ | ---------------------------- | ----------------------------------------------------------------------------------- |
+| Auth library       | Better Auth                  | Self-hosted, open-source, handles session security correctly                        |
+| Session storage    | Cloudflare D1                | Same database as everything else, no extra service                                  |
+| Password storage   | `account` table (hashed)     | Better Auth hashes with scrypt — never stores plaintext                             |
+| Auth handler mount | `/api/auth/*`                | Better Auth's default base path — client and server agree automatically             |
+| Route protection   | Hono middleware              | One central place to enforce auth — no per-route boilerplate                        |
+| Login UI           | TanStack Router `beforeLoad` | Runs before render, so unauthenticated users never see a flash of protected content |
 
 ---
 
@@ -435,6 +459,7 @@ This targets the same SQLite file that the Vite dev server reads from.
 Phase 3 is where the app becomes usable. We built the ability to manually add items (books, movies, shows, etc.), see them on a Kanban board organised by status, and drag cards between columns to update their status. Every change persists to D1.
 
 By the end of Phase 3 we had:
+
 - A full items API (create, read, update, delete)
 - A Kanban board with four columns: Suggestions / In Progress / Finished / Archived
 - Drag-and-drop between columns
@@ -478,12 +503,12 @@ As the Worker grows it would get unwieldy to define every route in `index.ts`. H
 
 **The four routes:**
 
-| Method | Path | What it does |
-|---|---|---|
-| `GET /api/items` | list | Returns all items for the logged-in user, optionally filtered by `?status=` or `?content_type=` |
-| `POST /api/items` | create | Inserts a new item row; generates a ULID for the id, sets `createdAt`/`updatedAt` to `Date.now()` |
-| `PATCH /api/items/:id` | update | Updates any subset of fields; verifies the item belongs to the current user before touching it |
-| `DELETE /api/items/:id` | delete | Hard-deletes the row after verifying ownership |
+| Method                  | Path   | What it does                                                                                      |
+| ----------------------- | ------ | ------------------------------------------------------------------------------------------------- |
+| `GET /api/items`        | list   | Returns all items for the logged-in user, optionally filtered by `?status=` or `?content_type=`   |
+| `POST /api/items`       | create | Inserts a new item row; generates a ULID for the id, sets `createdAt`/`updatedAt` to `Date.now()` |
+| `PATCH /api/items/:id`  | update | Updates any subset of fields; verifies the item belongs to the current user before touching it    |
+| `DELETE /api/items/:id` | delete | Hard-deletes the row after verifying ownership                                                    |
 
 **What is a ULID?**
 A ULID (Universally Unique Lexicographically Sortable Identifier) is like a UUID but it encodes a timestamp in the first part. That means items sort chronologically when sorted by ID, which is useful for ordering. Example: `01JQVHZ3B4KRNM2P5QGWXY8D7F`.
@@ -512,10 +537,12 @@ The `as const` tells TypeScript to infer the exact string literals (e.g. `"book"
 
 **`apps/web/src/lib/api.ts`**
 This file defines:
+
 1. The `Item` interface — the shape of a row from the `items` table, typed on the frontend
 2. The `itemsApi` object — thin wrappers around `fetch` for each CRUD operation
 
 The `request<T>()` helper that powers all four functions:
+
 - Always sends `Content-Type: application/json` and `credentials: "include"` (so the session cookie is sent)
 - On non-OK responses, parses the JSON error message and throws it as an `Error` — this lets TanStack Query and the UI display meaningful error messages
 
@@ -543,11 +570,11 @@ const byStatus = useMemo(() => {
 
 `@dnd-kit` is the drag-and-drop library. It has three packages at play here:
 
-| Package | What it provides |
-|---|---|
-| `@dnd-kit/core` | `DndContext`, `useDraggable`, `useDroppable`, `DragOverlay`, sensor system |
-| `@dnd-kit/sortable` | Installed and available for within-column reordering (Phase 6) |
-| `@dnd-kit/utilities` | CSS transform helpers |
+| Package              | What it provides                                                           |
+| -------------------- | -------------------------------------------------------------------------- |
+| `@dnd-kit/core`      | `DndContext`, `useDraggable`, `useDroppable`, `DragOverlay`, sensor system |
+| `@dnd-kit/sortable`  | Installed and available for within-column reordering (Phase 6)             |
+| `@dnd-kit/utilities` | CSS transform helpers                                                      |
 
 The interaction model:
 
@@ -558,13 +585,14 @@ The interaction model:
 5. **`DragOverlay`** renders a "ghost" copy of the dragged card that follows the pointer. The original card turns invisible (`opacity: 0`) while dragging, creating the effect of a card "lifting off" and floating to its destination.
 
 **The `onDragEnd` handler:**
+
 ```ts
 function handleDragEnd({ active, over }) {
-  if (!over) return;                         // dropped outside any column
+  if (!over) return; // dropped outside any column
   const sourceColumn = findItemColumn(active.id);
   const destColumn = STATUS_IDS.has(over.id)
-    ? over.id                                // dropped on an empty column area
-    : findItemColumn(over.id);               // dropped on another card → find its column
+    ? over.id // dropped on an empty column area
+    : findItemColumn(over.id); // dropped on another card → find its column
   if (sourceColumn !== destColumn) {
     updateItem({ id: active.id, status: destColumn });
   }
@@ -581,6 +609,7 @@ Each card displays: cover image (or a large emoji icon if no URL), title, creato
 
 **The 3-dot menu:**
 A small `···` button in the top-right corner reveals a dropdown with "Archive" and "Delete". Building this without a component library required two things:
+
 1. A fixed-position invisible overlay div behind the menu — clicking it closes the menu (the "click outside to close" pattern)
 2. A `onPointerDown: e.stopPropagation()` on both the `···` button and all menu buttons — @dnd-kit activates drag on `pointerdown`, so without stopping propagation, clicking the menu would start a drag instead
 
@@ -594,6 +623,7 @@ A controlled modal dialog built with a fixed-position overlay div. The form stat
 The dialog and its open/close state live in `__root.tsx` (the persistent layout), not inside `index.tsx`. This means the "+ Add Item" button can live in the nav bar and the dialog works from any page, not just the board view.
 
 **Form submit flow:**
+
 1. `handleSubmit` calls `createItem(formData, { onSuccess: () => { resetForm(); onClose(); } })`
 2. The `onSuccess` callback fires only after the Worker responds with 201
 3. `useCreateItem` internally calls `qc.invalidateQueries({ queryKey: ["items"] })` on success
@@ -603,22 +633,18 @@ The dialog and its open/close state live in `__root.tsx` (the persistent layout)
 
 ## Phase 3 Summary
 
-| What | How | Why |
-|---|---|---|
-| Items API | Hono sub-router mounted at `/api/items` | Keeps route files small and focused |
-| IDs | ULIDs from `ulidx` | Sortable by creation time, no DB auto-increment needed |
-| User scoping | `eq(items.userId, userId)` on every query | Prevents users from touching each other's data |
-| Typed frontend | `Item` interface in `api.ts` | One source of truth for the item shape across all components |
-| Shared constants | `lib/constants.ts` | Content types and statuses defined once, used everywhere |
-| Data fetching | TanStack Query + `itemsApi` helpers | Caching, invalidation, and loading states handled automatically |
-| Board layout | CSS grid, 4 equal columns | Simple and responsive without a layout library |
-| Drag and drop | `@dnd-kit/core` | Accessible, pointer-based drag with no Flash-of-Unstyled-Drag |
-| Drag overlay | `DragOverlay` component | Card appears to "lift" during drag rather than stretch in place |
-| Add item dialog | Controlled form in `__root.tsx` | Global nav button works from any page |
-
----
-
----
+| What             | How                                       | Why                                                             |
+| ---------------- | ----------------------------------------- | --------------------------------------------------------------- |
+| Items API        | Hono sub-router mounted at `/api/items`   | Keeps route files small and focused                             |
+| IDs              | ULIDs from `ulidx`                        | Sortable by creation time, no DB auto-increment needed          |
+| User scoping     | `eq(items.userId, userId)` on every query | Prevents users from touching each other's data                  |
+| Typed frontend   | `Item` interface in `api.ts`              | One source of truth for the item shape across all components    |
+| Shared constants | `lib/constants.ts`                        | Content types and statuses defined once, used everywhere        |
+| Data fetching    | TanStack Query + `itemsApi` helpers       | Caching, invalidation, and loading states handled automatically |
+| Board layout     | CSS grid, 4 equal columns                 | Simple and responsive without a layout library                  |
+| Drag and drop    | `@dnd-kit/core`                           | Accessible, pointer-based drag with no Flash-of-Unstyled-Drag   |
+| Drag overlay     | `DragOverlay` component                   | Card appears to "lift" during drag rather than stretch in place |
+| Add item dialog  | Controlled form in `__root.tsx`           | Global nav button works from any page                           |
 
 ---
 
@@ -629,6 +655,7 @@ The dialog and its open/close state live in `__root.tsx` (the persistent layout)
 Before Phase 4, adding an item meant typing every field by hand. Phase 4 makes that a fallback. Now you paste a URL (or type a title) and the app fetches the metadata automatically — title, cover image, creator, description, release date — from the relevant external service. Results are cached in the database so the same URL never gets re-fetched within 24 hours.
 
 By the end of Phase 4 we had:
+
 - A `POST /api/ingest` endpoint that accepts a URL or a search query
 - Six metadata fetchers: YouTube, TMDB (movies + TV), Open Library / Google Books, iTunes / Podcast Index, Cloudflare HTMLRewriter article scraper, Twitter oEmbed
 - All fetchers returning the same normalised shape
@@ -683,15 +710,22 @@ Every fetcher returns the same interface regardless of source:
 ```ts
 interface FetchedMetadata {
   title: string;
-  contentType: "book" | "movie" | "tv" | "podcast" | "youtube" | "article" | "tweet";
-  creator?: string;        // author / director / channel / artist
+  contentType:
+    | "book"
+    | "movie"
+    | "tv"
+    | "podcast"
+    | "youtube"
+    | "article"
+    | "tweet";
+  creator?: string; // author / director / channel / artist
   description?: string;
-  coverUrl?: string;       // book cover / movie poster / video thumbnail
-  releaseDate?: string;    // YYYY-MM-DD or YYYY
-  durationMins?: number;   // runtime for movies/videos
-  sourceUrl?: string;      // canonical URL for the item
-  externalId?: string;     // TMDB ID / YouTube video ID / iTunes collection ID
-  metadata?: string;       // JSON blob for type-specific extras (genres, ISBN, etc.)
+  coverUrl?: string; // book cover / movie poster / video thumbnail
+  releaseDate?: string; // YYYY-MM-DD or YYYY
+  durationMins?: number; // runtime for movies/videos
+  sourceUrl?: string; // canonical URL for the item
+  externalId?: string; // TMDB ID / YouTube video ID / iTunes collection ID
+  metadata?: string; // JSON blob for type-specific extras (genres, ISBN, etc.)
 }
 ```
 
@@ -705,12 +739,13 @@ The dispatcher uses simple regex patterns to figure out which fetcher to call:
 
 ```ts
 function detectFromUrl(url: string): ContentType {
-  if (/youtube\.com\/watch|youtu\.be\//.test(url))    return "youtube";
-  if (/themoviedb\.org\/movie\//.test(url))            return "movie";
-  if (/themoviedb\.org\/tv\//.test(url))               return "tv";
-  if (/twitter\.com\/.+\/status\/|x\.com\/.+\/status\//.test(url)) return "tweet";
-  if (/goodreads\.com|openlibrary\.org/.test(url))     return "book";
-  if (/podcasts\.apple\.com|anchor\.fm/.test(url))     return "podcast";
+  if (/youtube\.com\/watch|youtu\.be\//.test(url)) return "youtube";
+  if (/themoviedb\.org\/movie\//.test(url)) return "movie";
+  if (/themoviedb\.org\/tv\//.test(url)) return "tv";
+  if (/twitter\.com\/.+\/status\/|x\.com\/.+\/status\//.test(url))
+    return "tweet";
+  if (/goodreads\.com|openlibrary\.org/.test(url)) return "book";
+  if (/podcasts\.apple\.com|anchor\.fm/.test(url)) return "podcast";
   return "article"; // default — try to scrape OG tags
 }
 ```
@@ -735,6 +770,7 @@ GET https://www.googleapis.com/youtube/v3/videos
 ```
 
 YouTube returns video duration in **ISO 8601 format**: `PT1H23M45S` (1 hour, 23 minutes, 45 seconds). A small parser converts this to minutes:
+
 ```ts
 function parseDuration(iso: string): number {
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -745,6 +781,7 @@ function parseDuration(iso: string): number {
 ### TMDB — Movies and TV (`movies.ts`)
 
 Handles two input shapes:
+
 1. **TMDB URL** (e.g. `themoviedb.org/movie/157336-interstellar`) — extract the numeric ID and media type directly from the URL
 2. **Title string** — call the search endpoint, take the first result, then fetch its detail page
 
@@ -768,9 +805,12 @@ The Podcast Index uses an unusual auth scheme: instead of HMAC, they want a plai
 
 ```ts
 async function sha1Hex(input: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(input));
+  const buf = await crypto.subtle.digest(
+    "SHA-1",
+    new TextEncoder().encode(input),
+  );
   return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, "0"))
+    .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
 ```
@@ -784,12 +824,16 @@ The article scraper uses **Cloudflare HTMLRewriter** — a streaming HTML parser
 ```ts
 const rewriter = new HTMLRewriter()
   .on('meta[property="og:title"]', {
-    element(el) { ogTitle = el.getAttribute("content") ?? ""; },
+    element(el) {
+      ogTitle = el.getAttribute("content") ?? "";
+    },
   })
   .on('meta[property="og:description"]', {
-    element(el) { ogDesc = el.getAttribute("content") ?? ""; },
-  })
-  // ... more selectors
+    element(el) {
+      ogDesc = el.getAttribute("content") ?? "";
+    },
+  });
+// ... more selectors
 ```
 
 `HTMLRewriter` uses CSS selectors just like `document.querySelector` in the browser. This approach is memory-efficient, fast, and works correctly even on very large pages.
@@ -820,8 +864,13 @@ if (cached && Date.now() - cached.fetchedAt < 24 * 60 * 60 * 1000) {
 After a fresh fetch, the result is upserted (inserted or replaced if the URL already exists) using Drizzle's `.onConflictDoUpdate()`:
 
 ```ts
-await db.insert(urlCache).values({ url, metadata, fetchedAt, source })
-  .onConflictDoUpdate({ target: urlCache.url, set: { metadata, fetchedAt, source } });
+await db
+  .insert(urlCache)
+  .values({ url, metadata, fetchedAt, source })
+  .onConflictDoUpdate({
+    target: urlCache.url,
+    set: { metadata, fetchedAt, source },
+  });
 ```
 
 This means the second time you add the same YouTube video, the API response comes back instantly from the local D1 database with no external network call.
@@ -844,25 +893,19 @@ The state machine is still simple: `mode` is `"url" | "search" | "manual"`. The 
 
 ## Phase 4 Summary
 
-| What | How | Why |
-|---|---|---|
-| Ingest route | `POST /api/ingest` in a Hono sub-router | Keeps all fetching logic server-side (API keys never exposed to client) |
-| URL detection | Regex pattern matching | Simple, fast, zero dependencies |
-| YouTube | YouTube Data API v3 | Official, rich metadata including duration |
-| Movies/TV | TMDB API | Comprehensive metadata, high-quality posters |
-| Books | Open Library (primary) → Google Books (fallback) | Open Library has no rate limits; Google Books covers more obscure titles |
-| Podcasts | iTunes Search (primary) → Podcast Index (fallback) | iTunes covers the mainstream; Podcast Index has a broader catalogue |
-| Articles | Cloudflare HTMLRewriter | Streaming HTML parser built into Workers; handles large pages efficiently |
-| Tweets | Twitter oEmbed API | Free, no auth, officially supported |
-| Caching | `url_cache` D1 table, 24h TTL | Avoids redundant API calls; stays within free-tier rate limits |
-| Auth for Podcast Index | SHA-1 via `crypto.subtle` (Web Crypto API) | No external crypto library needed in Workers |
-| Dialog URL mode | Three-mode UI (`url` / `search` / `manual`) | Fetch is opt-in; manual mode always available as fallback |
-
----
-
----
-
----
+| What                   | How                                                | Why                                                                       |
+| ---------------------- | -------------------------------------------------- | ------------------------------------------------------------------------- |
+| Ingest route           | `POST /api/ingest` in a Hono sub-router            | Keeps all fetching logic server-side (API keys never exposed to client)   |
+| URL detection          | Regex pattern matching                             | Simple, fast, zero dependencies                                           |
+| YouTube                | YouTube Data API v3                                | Official, rich metadata including duration                                |
+| Movies/TV              | TMDB API                                           | Comprehensive metadata, high-quality posters                              |
+| Books                  | Open Library (primary) → Google Books (fallback)   | Open Library has no rate limits; Google Books covers more obscure titles  |
+| Podcasts               | iTunes Search (primary) → Podcast Index (fallback) | iTunes covers the mainstream; Podcast Index has a broader catalogue       |
+| Articles               | Cloudflare HTMLRewriter                            | Streaming HTML parser built into Workers; handles large pages efficiently |
+| Tweets                 | Twitter oEmbed API                                 | Free, no auth, officially supported                                       |
+| Caching                | `url_cache` D1 table, 24h TTL                      | Avoids redundant API calls; stays within free-tier rate limits            |
+| Auth for Podcast Index | SHA-1 via `crypto.subtle` (Web Crypto API)         | No external crypto library needed in Workers                              |
+| Dialog URL mode        | Three-mode UI (`url` / `search` / `manual`)        | Fetch is opt-in; manual mode always available as fallback                 |
 
 ---
 
@@ -875,6 +918,7 @@ Phase 5 adds three AI-powered capabilities on top of the existing app: on-demand
 This section explains the original AI architecture introduced in Phase 5. Later, V2.2 upgraded part of that design into a persistent AI job queue with saved analysis reads, scheduled processing, retry support, and queue monitoring in Settings.
 
 By the end of Phase 5 we had:
+
 - A `POST /api/ai/analyze/:id` endpoint that generates a rich summary for any item and caches it for 7 days
 - A `GET /api/ai/next` endpoint that asks Gemini to rank your Suggestions and caches the result in KV for 6 hours
 - An "Analyze" option in every item card's 3-dot menu, with the result expanding inline on the card
@@ -937,9 +981,9 @@ const res = await fetch(`${GEMINI_BASE}?key=${apiKey}`, {
   body: JSON.stringify({
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      responseMimeType: "application/json",  // ← tells Gemini to respond in JSON
-      responseSchema: schema,                // ← the exact shape we want
-      temperature: 0.3,                      // ← lower = more predictable, less creative
+      responseMimeType: "application/json", // ← tells Gemini to respond in JSON
+      responseSchema: schema, // ← the exact shape we want
+      temperature: 0.3, // ← lower = more predictable, less creative
       maxOutputTokens: 1024,
     },
   }),
@@ -949,13 +993,16 @@ const res = await fetch(`${GEMINI_BASE}?key=${apiKey}`, {
 `temperature: 0.3` is a dial between 0 (completely deterministic, always picks the most likely next token) and 1 (more varied and creative). For factual analysis and ranking tasks we want consistency, so 0.3 keeps it grounded.
 
 The response looks like:
+
 ```json
 {
-  "candidates": [{
-    "content": {
-      "parts": [{ "text": "{ \"summary\": \"...\", \"key_points\": [...] }" }]
+  "candidates": [
+    {
+      "content": {
+        "parts": [{ "text": "{ \"summary\": \"...\", \"key_points\": [...] }" }]
+      }
     }
-  }]
+  ]
 }
 ```
 
@@ -980,7 +1027,7 @@ Return the best matching type, your confidence (0-1), 1-4 short lowercase tags, 
 
 Returns: `{ content_type: "movie", confidence: 0.99, suggested_tags: ["sci-fi", "christopher-nolan"], suggested_status: "suggestions" }`
 
-This function is implemented and ready but not yet wired into the item creation flow — Phase 6 will connect it to the tags system (suggested tags need the tags table fully built out first).
+This function was wired into the Add Item dialog in Phase 7 and connected to the tag suggestion flow. It was later removed as a standalone user-facing AI path in V2.8, when AI was reduced to two features: Analyze and Scoring.
 
 ---
 
@@ -990,17 +1037,20 @@ Builds a content-type-aware prompt so the analysis is relevant to what the item 
 
 ```ts
 const TYPE_GUIDE: Record<string, string> = {
-  book:    "Focus on: main themes, writing style, key insights, and who would most enjoy it.",
-  movie:   "Focus on: premise, tone, cinematography, themes (no spoilers).",
-  tv:      "Focus on: premise, pacing, season count/commitment, what makes it worth watching.",
-  podcast: "Focus on: topics covered, host style, episode quality, target audience.",
+  book: "Focus on: main themes, writing style, key insights, and who would most enjoy it.",
+  movie: "Focus on: premise, tone, cinematography, themes (no spoilers).",
+  tv: "Focus on: premise, pacing, season count/commitment, what makes it worth watching.",
+  podcast:
+    "Focus on: topics covered, host style, episode quality, target audience.",
   youtube: "Focus on: content type, production quality, creator style.",
-  article: "Focus on: main argument, key takeaways, source credibility, reading time value.",
-  tweet:   "Focus on: the core idea, significance, and context.",
+  article:
+    "Focus on: main argument, key takeaways, source credibility, reading time value.",
+  tweet: "Focus on: the core idea, significance, and context.",
 };
 ```
 
 The schema returned:
+
 ```ts
 {
   summary: string;       // 2-3 sentences
@@ -1032,6 +1082,8 @@ Return all 12 items ranked. Each needs its exact id, rank number, and a 1-senten
 
 The structured output schema is an array of `{ id, rank, reason }` objects. Gemini returns all items, ranked, without hallucinating extra ones or dropping any.
 
+**Note:** `rankNextList` was removed in V2.8 when the AI surface was tightened. Next To Consume now reads directly from stored per-item suggest scores computed by `score_item` jobs, rather than making a one-shot Gemini ranking call.
+
 ---
 
 ## Part 3: Caching Strategy
@@ -1043,13 +1095,14 @@ AI calls are expensive (even on the free tier — you have a daily budget). Two 
 ```ts
 const isFresh =
   cached &&
-  Date.now() - cached.createdAt < CACHE_MAX_AGE_MS &&  // < 7 days old
-  item.updatedAt <= cached.createdAt;                   // item not changed since cache
+  Date.now() - cached.createdAt < CACHE_MAX_AGE_MS && // < 7 days old
+  item.updatedAt <= cached.createdAt; // item not changed since cache
 ```
 
 The second condition is the smart part. If a user edits the item's description or title after it was analysed, the cached analysis is now about an old version of the item. By comparing `item.updatedAt` against `cached.createdAt`, the cache is automatically invalidated when the item changes — no manual "refresh analysis" needed.
 
 If the cache is stale, the worker calls Gemini and then does an **upsert**:
+
 - If there's an existing cache row: `UPDATE ai_cache SET result = ..., createdAt = ... WHERE id = ...`
 - If there isn't: `INSERT INTO ai_cache ...`
 
@@ -1063,9 +1116,9 @@ D1 is a relational database — good for structured data you need to query and f
 
 ```ts
 await c.env.SIRAJHUB_KV.put(
-  `next_list:v1:${userId}`,     // key
-  JSON.stringify(ranked),        // value (the full ranked array as JSON)
-  { expirationTtl: 21600 }       // 6 hours in seconds — KV deletes it automatically
+  `next_list:v1:${userId}`, // key
+  JSON.stringify(ranked), // value (the full ranked array as JSON)
+  { expirationTtl: 21600 }, // 6 hours in seconds — KV deletes it automatically
 );
 ```
 
@@ -1084,6 +1137,7 @@ The AI router follows the same pattern as the items and ingest routers: a separa
 
 **The original `?refresh=1` parameter on `GET /api/ai/next`:**
 Rather than a separate `DELETE /api/ai/next/cache` endpoint, the refresh is just a query parameter on the same `GET`. The logic:
+
 ```ts
 if (!refresh) {
   const cached = await c.env.SIRAJHUB_KV.get(kvKey, "json");
@@ -1091,6 +1145,7 @@ if (!refresh) {
 }
 // ... fetch fresh from D1 + Gemini
 ```
+
 When `refresh=1`, the KV check is skipped entirely. The fresh result from Gemini overwrites the KV entry, so the next normal request sees the updated ranking.
 
 This is no longer the latest design. V2.2 replaced the one-shot refresh model with queue-backed endpoints that expose saved results, queued state, failure state, and retry behavior.
@@ -1118,13 +1173,14 @@ All elements inside the analysis panel need `onPointerDown: e.stopPropagation()`
 The panel is a modal overlay, not a full page route. This keeps the interaction lightweight — you click the button, see your ranking, close it, and drag an item straight into "In Progress" without a navigation. The nav button itself shows the suggestion count as a badge so you can see at a glance how many items are waiting.
 
 The `useNextList()` hook is configured with `enabled: false`:
+
 ```ts
 useQuery({
   queryKey: ["ai-next"],
   queryFn: () => aiApi.getNextList(),
-  enabled: false,           // don't auto-fetch on mount
-  staleTime: 6 * 60 * 60 * 1000,  // treat as fresh for 6 hours
-})
+  enabled: false, // don't auto-fetch on mount
+  staleTime: 6 * 60 * 60 * 1000, // treat as fresh for 6 hours
+});
 ```
 
 `enabled: false` means TanStack Query won't fire this query automatically when the component mounts. It only fetches when `refetch()` is called manually (triggered by the panel opening). `staleTime` matches the KV cache TTL — the browser won't re-request if you close and reopen the panel within 6 hours, because the cached data is considered fresh.
@@ -1137,22 +1193,18 @@ Later in V2.2 this UI was reshaped around queue state rather than a direct "run 
 
 ## Phase 5 Summary
 
-| What | How | Why |
-|---|---|---|
-| AI model | `gemini-2.0-flash-lite` | Free tier (1,000 req/day), structured output support |
-| Structured output | `responseSchema` in Gemini config | Guarantees valid JSON with the exact shape we need — no parsing fragility |
-| Item analysis | `POST /api/ai/analyze/:id` in Hono | Server-side keeps the API key private; easy to add rate limiting later |
-| Analysis cache | `ai_cache` D1 table, 7-day TTL | Avoids re-calling Gemini on every card open; auto-invalidates when item is edited |
-| Next list cache | Cloudflare KV, 6-hour TTL with `expirationTtl` | KV is the right tool for whole-blob caching; auto-expiry handled by the platform |
-| Stale cache detection | `item.updatedAt <= cached.createdAt` | Analysis automatically refreshes when the item changes, without manual intervention |
-| UI: analyze button | Inline panel on the ItemCard | Keeps spatial context; no navigation needed |
-| UI: next list | Modal panel from nav bar button | Lightweight interaction; doesn't disrupt the board view |
-| Drag safety | `onPointerDown: stopPropagation` on panel elements | Prevents @dnd-kit from treating clicks inside the panel as drag starts |
-| Content-type prompts | Different guide text per `content_type` | The analysis is relevant to what the item actually is, not a generic summary |
-
----
-
----
+| What                  | How                                                | Why                                                                                 |
+| --------------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| AI model              | `gemini-2.0-flash-lite`                            | Free tier (1,000 req/day), structured output support                                |
+| Structured output     | `responseSchema` in Gemini config                  | Guarantees valid JSON with the exact shape we need — no parsing fragility           |
+| Item analysis         | `POST /api/ai/analyze/:id` in Hono                 | Server-side keeps the API key private; easy to add rate limiting later              |
+| Analysis cache        | `ai_cache` D1 table, 7-day TTL                     | Avoids re-calling Gemini on every card open; auto-invalidates when item is edited   |
+| Next list cache       | Cloudflare KV, 6-hour TTL with `expirationTtl`     | KV is the right tool for whole-blob caching; auto-expiry handled by the platform    |
+| Stale cache detection | `item.updatedAt <= cached.createdAt`               | Analysis automatically refreshes when the item changes, without manual intervention |
+| UI: analyze button    | Inline panel on the ItemCard                       | Keeps spatial context; no navigation needed                                         |
+| UI: next list         | Modal panel from nav bar button                    | Lightweight interaction; doesn't disrupt the board view                             |
+| Drag safety           | `onPointerDown: stopPropagation` on panel elements | Prevents @dnd-kit from treating clicks inside the panel as drag starts              |
+| Content-type prompts  | Different guide text per `content_type`            | The analysis is relevant to what the item actually is, not a generic summary        |
 
 ---
 
@@ -1163,6 +1215,7 @@ Later in V2.2 this UI was reshaped around queue state rather than a direct "run 
 Phase 6 is the layer that makes the app feel finished. The core features (add items, view them, AI analysis) were all working, but the app had one view, no search, no way to organise by tag, no settings, and no real mobile experience. Phase 6 adds all of that.
 
 By the end of Phase 6 we had:
+
 - A masonry Grid view alongside the Kanban Board, with a toggle that remembers your preference
 - Content-type filter pills above both views so you can focus on just books, or just movies
 - A full tags system: create tags, assign them to items, filter the board/grid by tag
@@ -1217,6 +1270,7 @@ ItemDetailPanel (right slide-over)
 The Grid view is a masonry layout — cards stack in columns and each card is as tall as its content, creating an organic magazine-like layout rather than uniform rows.
 
 **CSS `columns` — the right tool for masonry:**
+
 ```css
 .grid-view {
   column-count: 4;
@@ -1229,16 +1283,32 @@ The Grid view is a masonry layout — cards stack in columns and each card is as
 Compare this to a CSS Grid approach (which requires JavaScript to measure card heights and calculate placement) — the pure CSS `columns` approach does it all natively with zero JavaScript.
 
 **Responsive breakpoints in `index.css`:**
+
 ```css
-.grid-view { column-count: 4; }
-@media (max-width: 1100px) { .grid-view { column-count: 3; } }
-@media (max-width: 720px)  { .grid-view { column-count: 2; } }
-@media (max-width: 480px)  { .grid-view { column-count: 1; } }
+.grid-view {
+  column-count: 4;
+}
+@media (max-width: 1100px) {
+  .grid-view {
+    column-count: 3;
+  }
+}
+@media (max-width: 720px) {
+  .grid-view {
+    column-count: 2;
+  }
+}
+@media (max-width: 480px) {
+  .grid-view {
+    column-count: 1;
+  }
+}
 ```
 
 This is set in a CSS class rather than inline styles because inline styles can't contain media queries — they apply unconditionally regardless of screen width.
 
 **View toggle persisted to `localStorage`:**
+
 ```ts
 const [view, setView] = useState<ViewMode>(() => {
   return (localStorage.getItem("sirajhub-view") as ViewMode) ?? "board";
@@ -1263,23 +1333,24 @@ item_tags table: item_id, tag_id  ← the join table
 
 **Tag CRUD:**
 
-| Route | What it does |
-|---|---|
-| `GET /api/tags` | Returns all tags owned by the current user |
-| `POST /api/tags` | Creates a new tag `{ name, color }` |
+| Route                  | What it does                                                                                 |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| `GET /api/tags`        | Returns all tags owned by the current user                                                   |
+| `POST /api/tags`       | Creates a new tag `{ name, color }`                                                          |
 | `DELETE /api/tags/:id` | Deletes a tag — cascades to `item_tags` via FK, so all assignments are removed automatically |
 
 **Item-tag assignment:**
 
-| Route | What it does |
-|---|---|
-| `GET /api/tags/item/:itemId` | Returns all tags currently on an item (JOIN query) |
-| `POST /api/tags/item/:itemId` | Adds a tag to an item `{ tagId }` |
-| `DELETE /api/tags/item/:itemId/:tagId` | Removes a specific tag from an item |
+| Route                                  | What it does                                       |
+| -------------------------------------- | -------------------------------------------------- |
+| `GET /api/tags/item/:itemId`           | Returns all tags currently on an item (JOIN query) |
+| `POST /api/tags/item/:itemId`          | Adds a tag to an item `{ tagId }`                  |
+| `DELETE /api/tags/item/:itemId/:tagId` | Removes a specific tag from an item                |
 
 The POST assignment uses `.onConflictDoNothing()` so adding a tag that's already there is silently ignored — it's idempotent, no error if you click "add" twice.
 
 **The JOIN query to get an item's tags:**
+
 ```ts
 const rows = await db
   .select({ tag: tags })
@@ -1312,6 +1383,7 @@ Clicking any card's title opens a right-side slide-over panel. It's not a new ro
 A page navigation would lose the board's drag state and require loading the item data again. The slide-over keeps everything in context — you can see which column the item is in, close the panel, and immediately drag it somewhere else.
 
 **Auto-save on notes:**
+
 ```ts
 <textarea
   value={notes}
@@ -1323,6 +1395,7 @@ A page navigation would lose the board's drag state and require loading the item
 Notes are stored in local `useState` while the user types (so every keystroke doesn't trigger a PATCH request). `onBlur` fires when the user clicks away from the textarea — at that point we compare the current value to `item.notes` and only call `updateItem` if something actually changed. This pattern is called "save on blur" and feels natural for notes fields.
 
 **Star rating — click to set, click same star to clear:**
+
 ```ts
 onClick={() => updateItem({ id: item.id, rating: item.rating === n ? null : n })}
 ```
@@ -1358,14 +1431,17 @@ useEffect(() => {
 The items are already in the TanStack Query cache from the board/grid load. Filtering that array is instant — zero network latency, no loading spinner. For a personal library that tops out at a few hundred items, JavaScript can filter the entire list in under a millisecond.
 
 ```ts
-const results = q.length < 1
-  ? []
-  : allItems.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        (item.creator ?? "").toLowerCase().includes(q) ||
-        (item.description ?? "").toLowerCase().includes(q)
-    ).slice(0, 20);
+const results =
+  q.length < 1
+    ? []
+    : allItems
+        .filter(
+          (item) =>
+            item.title.toLowerCase().includes(q) ||
+            (item.creator ?? "").toLowerCase().includes(q) ||
+            (item.description ?? "").toLowerCase().includes(q),
+        )
+        .slice(0, 20);
 ```
 
 `slice(0, 20)` caps results to 20 to keep the list navigable. The `?? ""` handles nullable fields — `item.creator` can be `null`, and calling `.toLowerCase()` on `null` would crash.
@@ -1373,6 +1449,7 @@ const results = q.length < 1
 The API-side `?q=` support was added to the items GET route (`LIKE %query%` on title and creator) for completeness and any future use case where you want server-side filtered results.
 
 **Results grouped by content type:**
+
 ```ts
 const grouped: Record<string, Item[]> = {};
 for (const item of results) {
@@ -1395,18 +1472,23 @@ The Phase 6 version of Settings was the first full settings page. Later versions
 Each section has its own "Save" button that calls `updateProfile({ name })` or `updateProfile({ preferences })`. They share the same `PATCH /api/user/me` endpoint which only updates fields that are provided. This avoids a race condition where saving name and saving preferences simultaneously could overwrite each other.
 
 **The "Saved ✓" flash pattern:**
+
 ```ts
-updateProfile({ name }, {
-  onSuccess: () => {
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2000);
-  }
-});
+updateProfile(
+  { name },
+  {
+    onSuccess: () => {
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    },
+  },
+);
 ```
 
 The button text changes to "Saved ✓" for 2 seconds then reverts. `setTimeout` inside `onSuccess` is a simple, reliable way to implement this without a library. No toast component needed.
 
 **JSON export — triggering a download from JavaScript:**
+
 ```ts
 async function handleExport() {
   const res = await userApi.exportItems();  // fetch with credentials
@@ -1425,6 +1507,7 @@ The Worker sets `Content-Disposition: attachment; filename="..."` on the export 
 `URL.revokeObjectURL` releases the temporary object URL from memory. Without it, the URL would persist until the page unloads.
 
 **Clearing AI cache — the modern version clears multiple AI state layers:**
+
 ```ts
 // D1: delete all ai_cache rows for this user's items
 await db.delete(aiCache).where(inArray(aiCache.contentId, itemIds));
@@ -1437,6 +1520,7 @@ await c.env.SIRAJHUB_KV.delete(`next_list:v1:${userId}`);
 ```
 
 The AI state now lives in three places:
+
 - per-item analyses in D1
 - queued AI jobs in D1
 - the fast next-list cache in KV
@@ -1448,6 +1532,7 @@ All three need to be cleared together or the app can show stale saved results, s
 ## Part 6: Responsive Mobile
 
 **Board view — horizontal scroll:**
+
 ```ts
 style={{
   display: "grid",
@@ -1459,6 +1544,7 @@ style={{
 `minmax(200px, 1fr)` means each column is at least 200px wide and grows to fill available space on larger screens. On a 375px phone screen, 4 × 200px = 800px — wider than the viewport — so the container becomes horizontally scrollable. The four columns stay intact and the user swipes left/right to reveal them. No JavaScript needed.
 
 **Nav — hiding elements by screen size:**
+
 ```tsx
 <div className="hidden sm:flex items-center gap-2">
   {/* Desktop nav items */}
@@ -1476,27 +1562,23 @@ The mobile hamburger menu renders as a dropdown below the nav bar when open, lis
 
 ## Phase 6 Summary
 
-| What | How | Why |
-|---|---|---|
-| Grid view | CSS `column-count` masonry | Zero JavaScript, native browser layout, naturally responsive |
-| View preference | `localStorage` in lazy `useState` initialiser | Read once on mount, not on every render |
-| Tags DB | `tags` + `item_tags` join table, FK cascade | Standard many-to-many; cascade delete keeps data consistent |
-| Tags API | Separate `tags.ts` router, idempotent `.onConflictDoNothing()` | Clean separation; safe to call add-tag multiple times |
-| Item detail | Right slide-over, not a route | Keeps board context visible; no re-fetch needed |
-| Notes | Controlled textarea + save on blur | Natural UX; avoids a PATCH on every keystroke |
-| Star rating | Click same star to clear | Ternary in the onClick — one line for set and unset |
-| Search | Client-side filter over TanStack Query cache | Instant; no API call needed for personal-scale data |
-| Cmd+K | Global `keydown` listener in root layout | Available from any page; cleanup on unmount prevents leaks |
-| Search results | Grouped by content type | Easier to scan when you roughly know the type |
-| Settings | Independent save buttons per section | Avoids race conditions; clear feedback per field group |
-| JSON export | `fetch` → blob → `URL.createObjectURL` → `<a>.click()` | Standard browser pattern for downloading API responses |
-| Clear cache | Deletes saved AI analysis, queued AI jobs, and the next-list cache | All AI state layers must be cleared together or state is inconsistent |
-| Mobile board | `minmax(200px, 1fr)` + `overflowX: auto` | Columns stay intact; horizontal scroll is native and free |
-| Mobile nav | `hidden sm:flex` / `flex sm:hidden` Tailwind classes | Pure CSS — no resize listeners or JavaScript state |
-
----
-
----
+| What            | How                                                                | Why                                                                   |
+| --------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Grid view       | CSS `column-count` masonry                                         | Zero JavaScript, native browser layout, naturally responsive          |
+| View preference | `localStorage` in lazy `useState` initialiser                      | Read once on mount, not on every render                               |
+| Tags DB         | `tags` + `item_tags` join table, FK cascade                        | Standard many-to-many; cascade delete keeps data consistent           |
+| Tags API        | Separate `tags.ts` router, idempotent `.onConflictDoNothing()`     | Clean separation; safe to call add-tag multiple times                 |
+| Item detail     | Right slide-over, not a route                                      | Keeps board context visible; no re-fetch needed                       |
+| Notes           | Controlled textarea + save on blur                                 | Natural UX; avoids a PATCH on every keystroke                         |
+| Star rating     | Click same star to clear                                           | Ternary in the onClick — one line for set and unset                   |
+| Search          | Client-side filter over TanStack Query cache                       | Instant; no API call needed for personal-scale data                   |
+| Cmd+K           | Global `keydown` listener in root layout                           | Available from any page; cleanup on unmount prevents leaks            |
+| Search results  | Grouped by content type                                            | Easier to scan when you roughly know the type                         |
+| Settings        | Independent save buttons per section                               | Avoids race conditions; clear feedback per field group                |
+| JSON export     | `fetch` → blob → `URL.createObjectURL` → `<a>.click()`             | Standard browser pattern for downloading API responses                |
+| Clear cache     | Deletes saved AI analysis, queued AI jobs, and the next-list cache | All AI state layers must be cleared together or state is inconsistent |
+| Mobile board    | `minmax(200px, 1fr)` + `overflowX: auto`                           | Columns stay intact; horizontal scroll is native and free             |
+| Mobile nav      | `hidden sm:flex` / `flex sm:hidden` Tailwind classes               | Pure CSS — no resize listeners or JavaScript state                    |
 
 ---
 
@@ -1521,7 +1603,7 @@ Phase 3 used `useDraggable` from `@dnd-kit/core` for each card. `useDraggable` o
 
 ```ts
 // Old handleDragEnd — early-returned for within-column drops
-if (sourceColumn === destColumn) return;  // ← just gave up
+if (sourceColumn === destColumn) return; // ← just gave up
 ```
 
 The `@dnd-kit/sortable` package (which was installed but unused) adds the concept of a **sortable list**: items know their position in the list, and dropping one item onto another reorders them.
@@ -1530,12 +1612,19 @@ The `@dnd-kit/sortable` package (which was installed but unused) adds the concep
 
 ```tsx
 // Old: plain list of DraggableCards
-{items.map((item) => <DraggableCard key={item.id} item={item} />)}
+{
+  items.map((item) => <DraggableCard key={item.id} item={item} />);
+}
 
 // New: items wrapped in a SortableContext
-<SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
-  {items.map((item) => <SortableCard key={item.id} item={item} />)}
-</SortableContext>
+<SortableContext
+  items={items.map((i) => i.id)}
+  strategy={verticalListSortingStrategy}
+>
+  {items.map((item) => (
+    <SortableCard key={item.id} item={item} />
+  ))}
+</SortableContext>;
 ```
 
 `SortableContext` takes an ordered array of IDs. When a drag ends, `@dnd-kit/sortable` knows the old index and new index of the moved item within that list. `verticalListSortingStrategy` tells it the items are stacked vertically — this affects the "snap" ghost animation during the drag.
@@ -1544,10 +1633,10 @@ The `@dnd-kit/sortable` package (which was installed but unused) adds the concep
 
 `useSortable` is a superset of `useDraggable`. It gives you everything `useDraggable` gives (listeners, attributes, setNodeRef, isDragging) plus two new things:
 
-| Extra from useSortable | What it does |
-|---|---|
-| `transform` | The CSS translate to apply during sorting — animates the card to its new position |
-| `transition` | The CSS transition string for smooth animation |
+| Extra from useSortable | What it does                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `transform`            | The CSS translate to apply during sorting — animates the card to its new position |
+| `transition`           | The CSS transition string for smooth animation                                    |
 
 ```tsx
 const { attributes, listeners, setNodeRef, isDragging, transform, transition } = useSortable({ id: item.id });
@@ -1572,11 +1661,16 @@ const reordered = arrayMove(columnItems, oldIndex, newIndex);
 // reordered is the new desired order
 
 const updates = reordered
-  .map((item, i) => ({ id: item.id, newPos: i * 1000, oldPos: item.position ?? 0 }))
-  .filter(({ newPos, oldPos }) => newPos !== oldPos);  // skip items that didn't move
+  .map((item, i) => ({
+    id: item.id,
+    newPos: i * 1000,
+    oldPos: item.position ?? 0,
+  }))
+  .filter(({ newPos, oldPos }) => newPos !== oldPos); // skip items that didn't move
 
-Promise.all(updates.map(({ id, newPos }) => itemsApi.update(id, { position: newPos })))
-  .then(() => qc.invalidateQueries({ queryKey: ['items'] }));
+Promise.all(
+  updates.map(({ id, newPos }) => itemsApi.update(id, { position: newPos })),
+).then(() => qc.invalidateQueries({ queryKey: ["items"] }));
 ```
 
 **Why index × 1000 instead of midpoint?**
@@ -1674,16 +1768,19 @@ When a chip is clicked, the logic checks whether a tag with that name already ex
 
 ```ts
 function handleApplySuggestedTag(name: string) {
-  const match = allTags.find(t => t.name.toLowerCase() === name.toLowerCase());
+  const match = allTags.find(
+    (t) => t.name.toLowerCase() === name.toLowerCase(),
+  );
   if (match) {
-    addTag(match.id);               // reuse existing tag
+    addTag(match.id); // reuse existing tag
   } else {
-    createTag(                      // create new tag, then add it
+    createTag(
+      // create new tag, then add it
       { name, color: randomColor },
-      { onSuccess: tag => addTag(tag.id) }
+      { onSuccess: (tag) => addTag(tag.id) },
     );
   }
-  setAiTagSuggestions(prev => prev?.filter(s => s !== name) ?? null);  // remove from chips
+  setAiTagSuggestions((prev) => prev?.filter((s) => s !== name) ?? null); // remove from chips
 }
 ```
 
@@ -1717,16 +1814,25 @@ Then, after building the update object from the request body:
 if ("status" in body && body.status !== existing.status) {
   // Status is actually changing (not just sending the same value)
 
-  if (body.status === "in_progress" && existing.startedAt == null && !("startedAt" in body)) {
-    update.startedAt = now;   // first time entering "in progress" — record it
+  if (
+    body.status === "in_progress" &&
+    existing.startedAt == null &&
+    !("startedAt" in body)
+  ) {
+    update.startedAt = now; // first time entering "in progress" — record it
   }
-  if (body.status === "finished" && existing.finishedAt == null && !("finishedAt" in body)) {
-    update.finishedAt = now;  // first time finishing — record it
+  if (
+    body.status === "finished" &&
+    existing.finishedAt == null &&
+    !("finishedAt" in body)
+  ) {
+    update.finishedAt = now; // first time finishing — record it
   }
 }
 ```
 
 **Three guards on each timestamp:**
+
 1. `body.status !== existing.status` — only fire on real status changes
 2. `existing.startedAt == null` — only set once (the first time you start it)
 3. `!("startedAt" in body)` — if the caller explicitly provides the timestamp, respect it
@@ -1743,9 +1849,15 @@ The `ItemDetailPanel` timestamps row now shows all four dates when present:
 ```tsx
 <div>
   Added {new Date(item.createdAt).toLocaleDateString()}
-  {item.updatedAt !== item.createdAt && <> · Updated {new Date(item.updatedAt).toLocaleDateString()}</>}
-  {item.startedAt && <> · Started {new Date(item.startedAt).toLocaleDateString()}</>}
-  {item.finishedAt && <> · Finished {new Date(item.finishedAt).toLocaleDateString()}</>}
+  {item.updatedAt !== item.createdAt && (
+    <> · Updated {new Date(item.updatedAt).toLocaleDateString()}</>
+  )}
+  {item.startedAt && (
+    <> · Started {new Date(item.startedAt).toLocaleDateString()}</>
+  )}
+  {item.finishedAt && (
+    <> · Finished {new Date(item.finishedAt).toLocaleDateString()}</>
+  )}
 </div>
 ```
 
@@ -1755,17 +1867,17 @@ The `ItemDetailPanel` timestamps row now shows all four dates when present:
 
 ## Phase 7 Summary
 
-| What | How | Why |
-|---|---|---|
-| Within-column sort | `SortableContext` + `useSortable` + `arrayMove` | `useDraggable` only supports drag, not list reordering |
-| Position persistence | Normalise entire column to `index * 1000` | Midpoint approach breaks when all positions are 0 (the default) |
-| Batch position update | `Promise.all` + one `invalidateQueries` | All PATCHes fire in parallel; one refetch at the end |
-| AI categorize endpoint | `POST /api/ai/categorize` — no caching | Fast one-shot call; caching adds complexity for no benefit |
-| Type hint in dialog | Shows chip only if confidence > 0.7 AND type differs | Low-confidence or redundant suggestions are noise |
-| Tag suggestions | Same categorize endpoint, filtered against existing item tags | Reuses existing endpoint; filters prevent duplicate-tag confusion |
-| Apply suggested tag | Match existing tag by name or create new one | Prevents duplicate tags in the user's library |
-| Auto-timestamps | Worker reads existing row, sets timestamp on first transition | Client never needs to know about the timestamp logic |
-| Timestamp display | `item.startedAt` / `item.finishedAt` in detail panel | Historical record alongside the existing created/updated dates |
+| What                   | How                                                           | Why                                                               |
+| ---------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Within-column sort     | `SortableContext` + `useSortable` + `arrayMove`               | `useDraggable` only supports drag, not list reordering            |
+| Position persistence   | Normalise entire column to `index * 1000`                     | Midpoint approach breaks when all positions are 0 (the default)   |
+| Batch position update  | `Promise.all` + one `invalidateQueries`                       | All PATCHes fire in parallel; one refetch at the end              |
+| AI categorize endpoint | `POST /api/ai/categorize` — no caching                        | Fast one-shot call; caching adds complexity for no benefit        |
+| Type hint in dialog    | Shows chip only if confidence > 0.7 AND type differs          | Low-confidence or redundant suggestions are noise                 |
+| Tag suggestions        | Same categorize endpoint, filtered against existing item tags | Reuses existing endpoint; filters prevent duplicate-tag confusion |
+| Apply suggested tag    | Match existing tag by name or create new one                  | Prevents duplicate tags in the user's library                     |
+| Auto-timestamps        | Worker reads existing row, sets timestamp on first transition | Client never needs to know about the timestamp logic              |
+| Timestamp display      | `item.startedAt` / `item.finishedAt` in detail panel          | Historical record alongside the existing created/updated dates    |
 
 ---
 
@@ -1776,6 +1888,7 @@ The `ItemDetailPanel` timestamps row now shows all four dates when present:
 V1 made SirajHub functional. You could track items, fetch metadata, use AI features, and move things through a workflow. But the UI still felt like one general-purpose app screen. V2 was about turning that working product into a more intentional product experience.
 
 The main idea of V2 was:
+
 - give the app a stronger design system
 - make navigation feel like a real product shell
 - create dedicated pages for each media type
@@ -1846,13 +1959,13 @@ That gives the redesign consistency.
 
 ### V2 Phase 1 Summary
 
-| What | How | Why |
-|---|---|---|
-| UI foundation | shadcn/ui setup | Gives V2 a reusable component system |
-| Import cleanup | `@/*` alias | Makes component imports cleaner and easier to manage |
-| Class helper | `cn()` utility | Safely combines Tailwind classes |
-| Theme bridge | OKLCH → shadcn tokens | Preserves the existing palette while enabling shadcn |
-| Generated primitives | buttons, tabs, sheets, dialogs, inputs, etc. | Speeds up all later UI work |
+| What                 | How                                          | Why                                                  |
+| -------------------- | -------------------------------------------- | ---------------------------------------------------- |
+| UI foundation        | shadcn/ui setup                              | Gives V2 a reusable component system                 |
+| Import cleanup       | `@/*` alias                                  | Makes component imports cleaner and easier to manage |
+| Class helper         | `cn()` utility                               | Safely combines Tailwind classes                     |
+| Theme bridge         | OKLCH → shadcn tokens                        | Preserves the existing palette while enabling shadcn |
+| Generated primitives | buttons, tabs, sheets, dialogs, inputs, etc. | Speeds up all later UI work                          |
 
 ---
 
@@ -1907,6 +2020,7 @@ On mobile, the sidebar is not always visible. Instead, it appears inside a shadc
 This is more than a visual cleanup. It creates a framework for the rest of V2.
 
 Later phases depend on this shell:
+
 - dashboard widgets need a stable homepage layout
 - settings need a real place in navigation
 - media-specific pages need consistent route-to-route movement
@@ -1914,13 +2028,13 @@ Later phases depend on this shell:
 
 ### V2 Phase 2 Summary
 
-| What | How | Why |
-|---|---|---|
-| App shell | Sidebar + topbar layout | Separates navigation from actions |
-| Primary nav | `AppSidebar` | Gives each major section a permanent home |
-| Global actions | `AppTopbar` | Keeps search/add/account actions easy to reach |
-| Mobile nav | Sidebar inside `Sheet` | Preserves navigation on small screens |
-| Root overlays | Kept in `__root.tsx` | Search, add-item, and detail tools still work everywhere |
+| What           | How                     | Why                                                      |
+| -------------- | ----------------------- | -------------------------------------------------------- |
+| App shell      | Sidebar + topbar layout | Separates navigation from actions                        |
+| Primary nav    | `AppSidebar`            | Gives each major section a permanent home                |
+| Global actions | `AppTopbar`             | Keeps search/add/account actions easy to reach           |
+| Mobile nav     | Sidebar inside `Sheet`  | Preserves navigation on small screens                    |
+| Root overlays  | Kept in `__root.tsx`    | Search, add-item, and detail tools still work everywhere |
 
 ---
 
@@ -1937,6 +2051,7 @@ V2 Phase 3 adds that flexibility.
 The `user` table gained an `apiKeys` JSON field. Instead of creating many new columns, the app stores related user-owned secrets and preferences in one structured blob.
 
 That JSON can hold values like:
+
 - `gemini`
 - `tmdb`
 - `youtube`
@@ -1973,13 +2088,13 @@ This phase makes the app more personal and more scalable:
 
 ### V2 Phase 3 Summary
 
-| What | How | Why |
-|---|---|---|
-| User-owned secrets | `user.apiKeys` JSON field | Lets each user store their own API config |
-| DB update | migration for `api_keys` | Keeps schema and database aligned |
-| Settings endpoints | `GET/PATCH /api/user/settings` | Lets the frontend manage keys safely |
-| Key resolution | user key first, env fallback second | Makes the app flexible without breaking defaults |
-| Model choice | `aiModel` stored per user | Lets AI features use different Gemini models |
+| What               | How                                 | Why                                              |
+| ------------------ | ----------------------------------- | ------------------------------------------------ |
+| User-owned secrets | `user.apiKeys` JSON field           | Lets each user store their own API config        |
+| DB update          | migration for `api_keys`            | Keeps schema and database aligned                |
+| Settings endpoints | `GET/PATCH /api/user/settings`      | Lets the frontend manage keys safely             |
+| Key resolution     | user key first, env fallback second | Makes the app flexible without breaking defaults |
+| Model choice       | `aiModel` stored per user           | Lets AI features use different Gemini models     |
 
 ---
 
@@ -2004,23 +2119,28 @@ This is a usability improvement more than a technical one. Instead of one long p
 ### What each tab does
 
 **Profile**
+
 - display name
 - read-only email
 - AI taste preferences
 
 **API Keys**
+
 - one row per external service
 - masked saved state
 - update flow without exposing raw secrets
 
 **AI Model**
+
 - lets the user choose which Gemini model to use
 - stores that choice using the same settings backend
 
 **Tags**
+
 - moves tag management into its own clearer area
 
 **Data**
+
 - keeps export and AI cache maintenance actions together
 
 ### Why this matters
@@ -2029,12 +2149,12 @@ This phase turns settings from a utility page into a control center. That become
 
 ### V2 Phase 4 Summary
 
-| What | How | Why |
-|---|---|---|
-| Settings layout | shadcn `Tabs` | Organises settings into clear sections |
-| API key management | masked key rows + save actions | Lets users manage secrets safely |
-| Model selection | `RadioGroup` for AI models | Makes AI behavior user-configurable |
-| Existing features moved | Tags and Data tabs | Reduces clutter and improves discoverability |
+| What                    | How                            | Why                                          |
+| ----------------------- | ------------------------------ | -------------------------------------------- |
+| Settings layout         | shadcn `Tabs`                  | Organises settings into clear sections       |
+| API key management      | masked key rows + save actions | Lets users manage secrets safely             |
+| Model selection         | `RadioGroup` for AI models     | Makes AI behavior user-configurable          |
+| Existing features moved | Tags and Data tabs             | Reduces clutter and improves discoverability |
 
 ---
 
@@ -2057,19 +2177,23 @@ The homepage is rebuilt into four main widgets:
 ### What each widget does
 
 **TypeStats**
+
 - one tile per media type
 - shows how many items exist in that category
 - links into the dedicated route for that type
 
 **InProgress**
+
 - shows what the user is currently consuming
 - highlights active work rather than all work
 
 **RecentlyAdded**
+
 - surfaces the newest additions
 - helps the user reconnect with things they just saved
 
 **NextToConsume**
+
 - puts AI ranking directly on the homepage
 - removes the need to open a separate panel first
 
@@ -2079,13 +2203,13 @@ This phase changes the homepage from "one more page" into the command center of 
 
 ### V2 Phase 5 Summary
 
-| What | How | Why |
-|---|---|---|
-| Homepage redesign | widget-based dashboard | Makes `/` useful at a glance |
-| Type overview | `TypeStats` cards | Gives quick access to each media category |
-| Current activity | `InProgressItems` | Highlights active items |
-| Fresh context | `RecentlyAdded` | Surfaces the newest saved content |
-| AI guidance | inline `NextToConsume` | Makes recommendations visible immediately |
+| What              | How                    | Why                                       |
+| ----------------- | ---------------------- | ----------------------------------------- |
+| Homepage redesign | widget-based dashboard | Makes `/` useful at a glance              |
+| Type overview     | `TypeStats` cards      | Gives quick access to each media category |
+| Current activity  | `InProgressItems`      | Highlights active items                   |
+| Fresh context     | `RecentlyAdded`        | Surfaces the newest saved content         |
+| AI guidance       | inline `NextToConsume` | Makes recommendations visible immediately |
 
 ---
 
@@ -2110,11 +2234,13 @@ Instead of opening only a side panel, users can now navigate directly to a dedic
 The item page is split into two major areas:
 
 **Left side**
+
 - cover or poster
 - title and creator
 - release date, duration, status, rating, source link
 
 **Right side**
+
 - editable fields
 - notes
 - tag manager
@@ -2140,13 +2266,13 @@ This phase upgrades SirajHub from a dashboard-centric app into a route-centric a
 
 ### V2 Phase 6 Summary
 
-| What | How | Why |
-|---|---|---|
-| Item route | `/item/$id` | Makes individual items directly navigable |
-| Editing UX | inline field editing | Lets the user update details without modal friction |
-| Shared AI UI | `AIPanel` | Reuses analysis and suggestion features cleanly |
-| Shared tag UI | `InlineTagManager` | Prevents tag logic duplication |
-| Better navigation | back flow + direct routes | Makes item exploration feel more natural |
+| What              | How                       | Why                                                 |
+| ----------------- | ------------------------- | --------------------------------------------------- |
+| Item route        | `/item/$id`               | Makes individual items directly navigable           |
+| Editing UX        | inline field editing      | Lets the user update details without modal friction |
+| Shared AI UI      | `AIPanel`                 | Reuses analysis and suggestion features cleanly     |
+| Shared tag UI     | `InlineTagManager`        | Prevents tag logic duplication                      |
+| Better navigation | back flow + direct routes | Makes item exploration feel more natural            |
 
 ---
 
@@ -2159,6 +2285,7 @@ This is the most visually ambitious V2 phase. In V1, different media types mostl
 ### The core idea
 
 Each media type gets:
+
 - its own route
 - its own layout component
 - the same underlying data source
@@ -2169,29 +2296,36 @@ So the data model stays consistent, but the visual language changes based on the
 ### The seven views
 
 **Articles**
+
 - a text-first reading list
 - emphasizes title, source, author, date, and reading time
 
 **Tweets**
+
 - a centered feed
 - emphasizes short-form text and social-post rhythm
 
 **Podcasts**
+
 - square artwork grid
 - emphasizes cover art and show identity
 
 **Videos**
+
 - wide thumbnail grid
 - emphasizes 16:9 imagery and duration
 
 **Movies**
+
 - dense poster wall
 - emphasizes visual browsing like a film catalog
 
 **TV**
+
 - similar to movies, but with season-aware metadata
 
 **Books**
+
 - a shelf-based presentation with spines
 - the most custom layout of the set
 
@@ -2203,13 +2337,13 @@ That makes the product feel less like a spreadsheet and more like a curated medi
 
 ### V2 Phase 7 Summary
 
-| What | How | Why |
-|---|---|---|
-| Dedicated type routes | one route per media type | Gives each category its own home |
-| Custom view components | separate layout per medium | Matches UI style to content style |
-| Shared filtering idea | status tabs/pills | Keeps interaction patterns familiar |
-| Bookshelf / poster / feed / list layouts | medium-specific presentation | Gives the app a stronger identity |
-| Item linking | cards lead to `/item/$id` | Connects browsing views to deeper detail |
+| What                                     | How                          | Why                                      |
+| ---------------------------------------- | ---------------------------- | ---------------------------------------- |
+| Dedicated type routes                    | one route per media type     | Gives each category its own home         |
+| Custom view components                   | separate layout per medium   | Matches UI style to content style        |
+| Shared filtering idea                    | status tabs/pills            | Keeps interaction patterns familiar      |
+| Bookshelf / poster / feed / list layouts | medium-specific presentation | Gives the app a stronger identity        |
+| Item linking                             | cards lead to `/item/$id`    | Connects browsing views to deeper detail |
 
 ---
 
@@ -2252,15 +2386,15 @@ The backend changes are smaller than the frontend redesign, but still important:
 
 ## V2 Summary Table
 
-| Phase | Goal | Status |
-|---|---|---|
-| V2 Phase 1 | Install shadcn/ui and prepare the design system | Complete |
+| Phase      | Goal                                                           | Status   |
+| ---------- | -------------------------------------------------------------- | -------- |
+| V2 Phase 1 | Install shadcn/ui and prepare the design system                | Complete |
 | V2 Phase 2 | Replace the header-only shell with sidebar + topbar navigation | Complete |
-| V2 Phase 3 | Add per-user API keys and AI model selection | Complete |
-| V2 Phase 4 | Rebuild Settings into a tabbed control center | Complete |
-| V2 Phase 5 | Turn `/` into a real dashboard | Complete |
-| V2 Phase 6 | Add a full-page item detail route | Complete |
-| V2 Phase 7 | Build artistic per-type views for all media categories | Complete |
+| V2 Phase 3 | Add per-user API keys and AI model selection                   | Complete |
+| V2 Phase 4 | Rebuild Settings into a tabbed control center                  | Complete |
+| V2 Phase 5 | Turn `/` into a real dashboard                                 | Complete |
+| V2 Phase 6 | Add a full-page item detail route                              | Complete |
+| V2 Phase 7 | Build artistic per-type views for all media categories         | Complete |
 
 ---
 
@@ -2278,6 +2412,7 @@ Two issues showed up immediately:
 So V2.1 is not a brand-new product phase. It is a refinement phase.
 
 Its job was:
+
 - replace the earlier playful/hand-drawn visual language
 - move the app toward a softer analytics-dashboard feel
 - fix the usability regressions caused by the first pass
@@ -2306,6 +2441,7 @@ V2.1
 ```
 
 This means V2.1 is both:
+
 - a design-system correction
 - a layout-polish pass
 
@@ -2380,13 +2516,13 @@ That gives SirajHub a more polished product feeling instead of a "homepage plus 
 
 ### V2.1 Step 1 Summary
 
-| What | How | Why |
-|---|---|---|
-| New visual direction | soft analytics look | Matches the intended reference more closely |
-| Typography reset | modern sans system | Removes the hand-drawn look that felt off |
-| Surface redesign | lighter cards + softer borders/shadows | Makes the app feel calmer and more premium |
-| Shared primitive update | retheme shadcn UI components | Keeps styling consistent across screens |
-| Whole-app rollout | auth + shell + pages + overlays | Prevents the redesign from feeling partial |
+| What                    | How                                    | Why                                         |
+| ----------------------- | -------------------------------------- | ------------------------------------------- |
+| New visual direction    | soft analytics look                    | Matches the intended reference more closely |
+| Typography reset        | modern sans system                     | Removes the hand-drawn look that felt off   |
+| Surface redesign        | lighter cards + softer borders/shadows | Makes the app feel calmer and more premium  |
+| Shared primitive update | retheme shadcn UI components           | Keeps styling consistent across screens     |
+| Whole-app rollout       | auth + shell + pages + overlays        | Prevents the redesign from feeling partial  |
 
 ---
 
@@ -2448,12 +2584,12 @@ V2.1 fixes that by giving the app more visual restraint.
 
 ### V2.1 Step 2 Summary
 
-| What | How | Why |
-|---|---|---|
-| Sidebar simplification | remove extra copy, compress header/footer cards | Gives the nav more space and prevents clipping |
-| Footer cleanup | shorter settings label and less text | Makes the lower card fit comfortably |
-| Dashboard rebalance | move type stats into their own card | Prevents the hero from becoming overcrowded |
-| Stat tile redesign | wider horizontal tiles | Makes counts and labels readable on laptop widths |
+| What                   | How                                             | Why                                               |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| Sidebar simplification | remove extra copy, compress header/footer cards | Gives the nav more space and prevents clipping    |
+| Footer cleanup         | shorter settings label and less text            | Makes the lower card fit comfortably              |
+| Dashboard rebalance    | move type stats into their own card             | Prevents the hero from becoming overcrowded       |
+| Stat tile redesign     | wider horizontal tiles                          | Makes counts and labels readable on laptop widths |
 
 ---
 
@@ -2480,10 +2616,10 @@ The most important updated areas are:
 
 ## V2.1 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
+| Step        | Goal                                                                     | Status   |
+| ----------- | ------------------------------------------------------------------------ | -------- |
 | V2.1 Step 1 | Replace the earlier redesign with a softer analytics-style visual system | Complete |
-| V2.1 Step 2 | Simplify the sidebar and make dashboard type stats readable | Complete |
+| V2.1 Step 2 | Simplify the sidebar and make dashboard type stats readable              | Complete |
 
 ---
 
@@ -2702,12 +2838,12 @@ The most important areas are:
 
 ## V2.2 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.2 Step 1 | Persist and reuse the latest AI analysis per item | Complete |
+| Step        | Goal                                                               | Status   |
+| ----------- | ------------------------------------------------------------------ | -------- |
+| V2.2 Step 1 | Persist and reuse the latest AI analysis per item                  | Complete |
 | V2.2 Step 2 | Return and resolve the top 5 external-source matches before adding | Complete |
-| V2.2 Step 3 | Explain which URLs can be auto-detected, with examples | Complete |
-| V2.2 Step 4 | Add scheduled, persistent AI jobs with queue monitoring and retry | Complete |
+| V2.2 Step 3 | Explain which URLs can be auto-detected, with examples             | Complete |
+| V2.2 Step 4 | Add scheduled, persistent AI jobs with queue monitoring and retry  | Complete |
 
 ---
 
@@ -2834,12 +2970,12 @@ The most important updated areas are:
 
 ## V2.3 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.3 Step 1 | Improve the articles page into a cleaner editorial feed | Complete |
-| V2.3 Step 2 | Make editing obvious from both article rows and the item page | Complete |
+| Step        | Goal                                                               | Status   |
+| ----------- | ------------------------------------------------------------------ | -------- |
+| V2.3 Step 1 | Improve the articles page into a cleaner editorial feed            | Complete |
+| V2.3 Step 2 | Make editing obvious from both article rows and the item page      | Complete |
 | V2.3 Step 3 | Fix the status dropdown layout issue at the shared component level | Complete |
-| V2.3 Step 4 | Run small queues immediately and retry failures after 60 minutes | Complete |
+| V2.3 Step 4 | Run small queues immediately and retry failures after 60 minutes   | Complete |
 
 ---
 
@@ -2979,10 +3115,10 @@ The most important updated areas are:
 
 ## V2.4 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.4 Step 1 | Add a dedicated CSV import path inside the Add Item dialog | Complete |
-| V2.4 Step 2 | Preview rows, validate input, and support partial imports | Complete |
+| Step        | Goal                                                                     | Status   |
+| ----------- | ------------------------------------------------------------------------ | -------- |
+| V2.4 Step 1 | Add a dedicated CSV import path inside the Add Item dialog               | Complete |
+| V2.4 Step 2 | Preview rows, validate input, and support partial imports                | Complete |
 | V2.4 Step 3 | Add a worker route that creates items in bulk and returns import results | Complete |
 
 ---
@@ -3116,10 +3252,10 @@ The most important updated areas are:
 
 ## V2.5 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.5 Step 1 | Add persisted light/dark theme state and visible switchers | Complete |
-| V2.5 Step 2 | Create a distinct dark visual language inspired by the reference | Complete |
+| Step        | Goal                                                              | Status   |
+| ----------- | ----------------------------------------------------------------- | -------- |
+| V2.5 Step 1 | Add persisted light/dark theme state and visible switchers        | Complete |
+| V2.5 Step 2 | Create a distinct dark visual language inspired by the reference  | Complete |
 | V2.5 Step 3 | Adapt the shell and major surfaces so dark mode feels intentional | Complete |
 
 ---
@@ -3364,13 +3500,13 @@ The most important updated areas are:
 
 ## V2.6 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.6 Step 1 | Add per-type weighted interest chips in settings | Complete |
-| V2.6 Step 2 | Persist base and final suggest scores on items | Complete |
-| V2.6 Step 3 | Queue AI scoring for new and refreshed items | Complete |
+| Step        | Goal                                                               | Status   |
+| ----------- | ------------------------------------------------------------------ | -------- |
+| V2.6 Step 1 | Add per-type weighted interest chips in settings                   | Complete |
+| V2.6 Step 2 | Persist base and final suggest scores on items                     | Complete |
+| V2.6 Step 3 | Queue AI scoring for new and refreshed items                       | Complete |
 | V2.6 Step 4 | Rebuild next-to-consume around stored scores globally and per type | Complete |
-| V2.6 Step 5 | Show trending, score details, and score jobs in the UI | Complete |
+| V2.6 Step 5 | Show trending, score details, and score jobs in the UI             | Complete |
 
 ---
 
@@ -3578,13 +3714,13 @@ The most important updated areas are:
 
 ## V2.7 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.7 Step 1 | Simplify the sidebar header and footer chrome | Complete |
-| V2.7 Step 2 | Move next-to-consume into the top bar and remove extra label clutter | Complete |
+| Step        | Goal                                                                        | Status   |
+| ----------- | --------------------------------------------------------------------------- | -------- |
+| V2.7 Step 1 | Simplify the sidebar header and footer chrome                               | Complete |
+| V2.7 Step 2 | Move next-to-consume into the top bar and remove extra label clutter        | Complete |
 | V2.7 Step 3 | Flatten collection pages into a simpler title / filters / content structure | Complete |
-| V2.7 Step 4 | Simplify Settings and item detail page framing | Complete |
-| V2.7 Step 5 | Remove decorative header emojis/icons from internal pages | Complete |
+| V2.7 Step 4 | Simplify Settings and item detail page framing                              | Complete |
+| V2.7 Step 5 | Remove decorative header emojis/icons from internal pages                   | Complete |
 
 ---
 
@@ -3860,12 +3996,12 @@ The most important updated areas are:
 
 ## V2.8 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.8 Step 1 | Reduce AI to Analyze and Scoring only | Complete |
-| V2.8 Step 2 | Replace saved analysis with one structured per-item analysis result | Complete |
-| V2.8 Step 3 | Replace scoring output with structured score/explanation/info-needed fields | Complete |
-| V2.8 Step 4 | Make the queue the visible operational layer for all AI work | Complete |
+| Step        | Goal                                                                                       | Status   |
+| ----------- | ------------------------------------------------------------------------------------------ | -------- |
+| V2.8 Step 1 | Reduce AI to Analyze and Scoring only                                                      | Complete |
+| V2.8 Step 2 | Replace saved analysis with one structured per-item analysis result                        | Complete |
+| V2.8 Step 3 | Replace scoring output with structured score/explanation/info-needed fields                | Complete |
+| V2.8 Step 4 | Make the queue the visible operational layer for all AI work                               | Complete |
 | V2.8 Step 5 | Validate selected models, add saved prompt templates, and harden per-model backend support | Complete |
 
 ---
@@ -4048,13 +4184,13 @@ The most important updated areas are:
 
 ## V2.9 Summary Table
 
-| Step | Goal | Status |
-|---|---|---|
-| V2.9 Step 1 | Align item create/update validation with CSV import rules | Complete |
-| V2.9 Step 2 | Make health public and remove stale operational leftovers | Complete |
+| Step        | Goal                                                         | Status   |
+| ----------- | ------------------------------------------------------------ | -------- |
+| V2.9 Step 1 | Align item create/update validation with CSV import rules    | Complete |
+| V2.9 Step 2 | Make health public and remove stale operational leftovers    | Complete |
 | V2.9 Step 3 | Move AI model definitions to a backend-owned source of truth | Complete |
 | V2.9 Step 4 | Improve model validation, Gemma handling, and queue metadata | Complete |
-| V2.9 Step 5 | Add smoke-test tooling and reduce root-shell bundle weight | Complete |
+| V2.9 Step 5 | Add smoke-test tooling and reduce root-shell bundle weight   | Complete |
 
 ---
 
@@ -4075,29 +4211,6 @@ The strongest V3 theme is:
 3. make the library more valuable over time
 
 Instead of spreading out in too many directions at once, the roadmap is organized around priority levels.
-
----
-
-## What Has Already Started In V3
-
-V3 is no longer just a future idea. The first V3.0 foundation slice has already been implemented.
-
-What is live now:
-
-- progress tracking fields now exist on items
-- the item page can now save progress directly
-- in-progress cards on the dashboard can now show progress visually
-- item creation and CSV import now detect likely duplicates instead of blindly creating them
-- the backend now has a merge endpoint for duplicate cleanup foundations
-- CSV import now runs through a real import-job model instead of being treated like a one-off helper
-- the system now has saved-view storage and first smart-view UI on collection pages and the dashboard
-- the import system now supports real file-based sources beyond plain CSV, including Goodreads, Letterboxd, IMDb, Trakt, Pocket, Raindrop, YouTube history, Apple Podcasts OPML, and X bookmarks
-- import jobs now persist source-mapping metadata so imported records can be traced back to their source rows
-- the item page now uses type-aware progress labels and quick presets so books, articles, TV, and duration-based media no longer all feel like the same generic progress form
-
-What this means in practice is that V3.0 is no longer just a foundation slice. Priority 0 is now completed in a first full pass, and the next meaningful work moves into V3.1 rather than leaving the core onboarding loop half-finished.
-
-The next slice, V3.1, is also no longer theoretical. The first full usage-layer pass is now implemented too.
 
 ---
 
@@ -4389,23 +4502,22 @@ That means V3.0 Priority 0 is now complete, and the next work belongs to V3.1 in
 
 This should deepen everyday product usage:
 
-- collections
-- reminder / resurfacing
-- rich notes / highlights
-- recommendation controls
+- collections ✅ done
+- reminder / resurfacing ✅ done
+- rich notes / highlights ✅ done
+- recommendation controls ✅ done
 
-The current state is:
-
-- collections / custom lists are implemented
-- reminder / resurfacing is implemented
-- rich notes / highlights are implemented
-- recommendation controls are implemented
-
-That means the first V3.1 usage-layer pass is now complete too.
+The first V3.1 usage-layer pass is now complete.
 
 ### V3.2 — Convenience Layer
 
-This should improve speed, insight, and overall usability:
+V3.2 is underway. What has been started:
+
+- Background metadata resync for imports ✅ done
+- Bulk Deletion and Selection UI (`POST /api/items/bulk-delete`, `isSelectionMode` context in `TypePageLayout.tsx`, floating action bar, `SelectionOverlay` wrappers in all 7 content grids) ✅ done
+- Bug fix: Resolved single-item dropdown deletion focus glitch in `ItemCard.tsx` ✅ done
+
+Still remaining:
 
 - browser quick capture
 - dashboard analytics
@@ -4416,9 +4528,9 @@ This should improve speed, insight, and overall usability:
 
 ## Important Interface / Data Additions
 
-The roadmap implies several likely additions.
+The following fields and entities are now real in the V3 data model.
 
-Items may need fields such as:
+Item fields now in place:
 
 - `progressPercent`
 - `progressCurrent`
@@ -4427,42 +4539,27 @@ Items may need fields such as:
 - `hiddenFromRecommendations`
 - `manualBoost`
 - `cooldownUntil`
+
+Item fields still pending:
+
 - `deletedAt`
 
-The system may also need new entities such as:
+New entities now in place:
 
 - `lists`
 - `list_items`
 - `saved_views`
-- `item_links`
-- optional reminder/resurfacing tables
-
-And the import layer likely needs more formal infrastructure, such as:
-
-- importer registry
-- import jobs
-- duplicate review state
-- source mapping metadata
-
-Some of these are already real now:
-
-- `progressPercent`
-- `progressCurrent`
-- `progressTotal`
-- `lastTouchedAt`
-- `saved_views`
-- importer registry
-- import jobs
-- source mapping metadata
-- `lists`
-- `list_items`
 - `note_entries`
 - reminder state storage
-- `hiddenFromRecommendations`
-- `manualBoost`
-- `cooldownUntil`
+- importer registry
+- import jobs
+- source mapping metadata
+- duplicate review state
 
-So the V3 data model has already started moving in the direction the roadmap described.
+New entities still pending:
+
+- `item_links`
+- `deletedAt`-backed archive/restore structures
 
 ---
 
@@ -4497,66 +4594,11 @@ This roadmap assumes a few things about the direction of the product:
 
 ## V3 Summary Table
 
-| Priority | Focus | Outcome |
-|---|---|---|
-| Priority 0 | Import, dedupe, progress, smart views | Faster onboarding and a more usable library |
-| Priority 1 | Lists, reminders, richer notes, recommendation controls | Stronger day-to-day usage |
-| Priority 2 | Quick capture, timeline, analytics, linking, soft delete | Better quality-of-life and insight |
-| Priority 3 | Sharing, public views, multi-user, offline-first, AI knowledge layer | Longer-term expansion options |
+| Priority   | Focus                                                                | Outcome                                     |
+| ---------- | -------------------------------------------------------------------- | ------------------------------------------- |
+| Priority 0 | Import, dedupe, progress, smart views                                | Faster onboarding and a more usable library |
+| Priority 1 | Lists, reminders, richer notes, recommendation controls              | Stronger day-to-day usage                   |
+| Priority 2 | Quick capture, timeline, analytics, linking, soft delete             | Better quality-of-life and insight          |
+| Priority 3 | Sharing, public views, multi-user, offline-first, AI knowledge layer | Longer-term expansion options               |
 
 ---
-
-## V3.0 Progress Summary
-
-V3.0 Priority 0 is now complete in its first full pass.
-
-Completed pieces:
-
-1. progress persistence and item/dashboard progress UI
-2. duplicate-aware create/import behavior plus merge foundations
-3. duplicate review UI inside Settings
-4. import source registry and import-job tracking
-5. real file-based importers beyond CSV
-6. source mapping metadata for imported rows
-7. saved-view storage and richer smart-view filters
-8. deeper type-specific progress UX on the item page
-
-What remains next is no longer unfinished Priority 0 work. The next meaningful roadmap step is V3.1:
-
-1. collections / custom lists
-2. reminder + resurfacing flows
-3. rich notes / highlights / quotes
-4. stronger recommendation controls
-
-## V3.1 Progress Summary
-
-V3.1 is now complete in its first full pass too.
-
-Completed pieces:
-
-1. custom lists / collections
-2. ordering for lists and list items
-3. reminder + resurfacing inboxes on dashboard and Settings
-4. structured note entries for highlights, quotes, takeaways, and reflections
-5. direct recommendation controls for hiding, boosting, and cooling down items
-
-What remains next is no longer unfinished V3.1 work. The next meaningful roadmap step is V3.2:
-
-1. quick capture tools
-2. richer dashboard analytics
-3. timeline / calendar
-4. item linking
-
-## V3.2 Progress Summary
-
-V3.2 is now underway.
-
-Completed pieces:
-
-1. Background metadata resync functionality for imports (avoids API rate limits by using the background AI queue).
-2. Bulk Deletion and Selection UI Context:
-   - Added a `POST /api/items/bulk-delete` route to the worker backend.
-   - Introduced a native `isSelectionMode` context into `TypePageLayout.tsx`.
-   - Built a sleek, floating action bar for bulk deletion at the bottom of the viewport.
-   - Added `SelectionOverlay` wrappers to all 7 content grids (movies, tv, books, videos, podcasts, articles, tweets) to seamlessly toggle select states directly from the visual timeline without triggering link propagation.
-3. Bug fixes: Resolved single-item dropdown deletion focus glitch in `ItemCard.tsx` conflicting with Radix UI states.
