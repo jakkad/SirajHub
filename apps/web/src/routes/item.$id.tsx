@@ -78,13 +78,13 @@ function ItemDetailPage() {
     creator: "",
     description: "",
     releaseDate: "",
+    finishedDate: "",
     coverUrl: "",
     contentType: "book" as typeof CONTENT_TYPES[number]["id"],
   });
   const [progressForm, setProgressForm] = useState({
     current: "",
     total: "",
-    percent: "",
   });
   const [entryForm, setEntryForm] = useState<{
     entryType: "highlight" | "quote" | "takeaway" | "reflection";
@@ -104,13 +104,13 @@ function ItemDetailPage() {
       creator: item.creator ?? "",
       description: item.description ?? "",
       releaseDate: item.releaseDate ?? "",
+      finishedDate: item.finishedAt ? new Date(item.finishedAt).toISOString().slice(0, 10) : "",
       coverUrl: item.coverUrl ?? "",
       contentType: item.contentType,
     });
     setProgressForm({
       current: item.progressCurrent?.toString() ?? "",
       total: item.progressTotal?.toString() ?? "",
-      percent: item.progressPercent?.toString() ?? "",
     });
     setNoteEditorOpen(false);
     setEntryComposerOpen(false);
@@ -196,6 +196,7 @@ function ItemDetailPage() {
         creator: editForm.creator.trim() || null,
         description: editForm.description.trim() || null,
         releaseDate: editForm.releaseDate || null,
+        finishedAt: editForm.finishedDate ? new Date(editForm.finishedDate).getTime() : null,
         coverUrl: editForm.coverUrl.trim() || null,
         contentType: editForm.contentType,
       },
@@ -208,7 +209,6 @@ function ItemDetailPage() {
       id: currentItem.id,
       progressCurrent: progressForm.current ? parseInt(progressForm.current, 10) : null,
       progressTotal: progressForm.total ? parseInt(progressForm.total, 10) : null,
-      progressPercent: progressForm.percent ? parseInt(progressForm.percent, 10) : null,
     });
   }
 
@@ -355,20 +355,18 @@ function ItemDetailPage() {
                 style={{ width: `${Math.max(0, Math.min(100, currentItem.progressPercent ?? 0))}%`, backgroundColor: themeColor }}
               />
             </div>
-            <div className="grid gap-3 grid-cols-3 mt-3">
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs text-muted-foreground">{progressMeta.currentLabel}</Label>
-                <Input type="number" min="0" value={progressForm.current} onChange={(e) => setProgressForm(p => ({...p, current: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
+            {currentItem.contentType !== "movie" && (
+              <div className="grid gap-3 grid-cols-2 mt-3">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground">{progressMeta.currentLabel}</Label>
+                  <Input type="number" min="0" value={progressForm.current} onChange={(e) => setProgressForm(p => ({...p, current: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground">{progressMeta.totalLabel}</Label>
+                  <Input type="number" min="0" value={progressForm.total} onChange={(e) => setProgressForm(p => ({...p, total: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
+                </div>
               </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs text-muted-foreground">{progressMeta.totalLabel}</Label>
-                <Input type="number" min="0" value={progressForm.total} onChange={(e) => setProgressForm(p => ({...p, total: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs text-muted-foreground">Percent</Label>
-                <Input type="number" min="0" max="100" value={progressForm.percent} onChange={(e) => setProgressForm(p => ({...p, percent: e.target.value}))} onBlur={saveProgress} className="h-9 bg-[hsl(var(--card)_/_0.3)] backdrop-blur-sm border-[hsl(var(--border)_/_0.5)]" />
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Description */}
@@ -529,6 +527,7 @@ function ItemDetailPage() {
                     </div>
                     <div className="flex flex-col gap-2"><Label>Release Date</Label><Input type="date" value={editForm.releaseDate} onChange={e => setEditForm(p => ({...p, releaseDate: e.target.value}))} /></div>
                   </div>
+                  <div className="flex flex-col gap-2"><Label>Finished Date</Label><Input type="date" value={editForm.finishedDate} onChange={e => setEditForm(p => ({...p, finishedDate: e.target.value}))} /></div>
                   <div className="flex flex-col gap-2"><Label>Cover URL</Label><Input value={editForm.coverUrl} onChange={e => setEditForm(p => ({...p, coverUrl: e.target.value}))} /></div>
                   <div className="flex flex-col gap-2"><Label>Description</Label><Textarea value={editForm.description} onChange={e => setEditForm(p => ({...p, description: e.target.value}))} className="min-h-[100px]" /></div>
                 </div>

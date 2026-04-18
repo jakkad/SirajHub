@@ -50,6 +50,7 @@ const DEFAULT_FORM = {
   description: "",
   coverUrl: "",
   releaseDate: "",
+  finishedDate: "",
   rating: "",
   notes: "",
   sourceUrl: "",
@@ -226,6 +227,7 @@ export function AddItemDialog({ open, onClose }: Props) {
         description: form.description.trim() || undefined,
         coverUrl: form.coverUrl.trim() || undefined,
         releaseDate: form.releaseDate || undefined,
+        finishedAt: form.finishedDate ? new Date(form.finishedDate).getTime() : undefined,
         rating: form.rating ? parseInt(form.rating, 10) : undefined,
         notes: form.notes.trim() || undefined,
         sourceUrl: form.sourceUrl.trim() || undefined,
@@ -854,6 +856,12 @@ export function AddItemDialog({ open, onClose }: Props) {
                         <Input type="number" min="1" max="5" value={form.rating} onChange={(e) => setField("rating", e.target.value)} placeholder="1-5" />
                       </Field>
                     </div>
+
+                    {form.status === "finished" && (
+                      <Field label="Finished Date">
+                        <Input type="date" value={form.finishedDate} onChange={(e) => setField("finishedDate", e.target.value)} />
+                      </Field>
+                    )}
 
                     <Field label="Cover URL">
                       <Input value={form.coverUrl} onChange={(e) => setField("coverUrl", e.target.value)} placeholder="https://..." />

@@ -81,6 +81,7 @@ export interface CreateItemInput {
   progressPercent?: number | null;
   progressCurrent?: number | null;
   progressTotal?: number | null;
+  finishedAt?: number | null;
 }
 
 export interface DuplicateItemSummary {

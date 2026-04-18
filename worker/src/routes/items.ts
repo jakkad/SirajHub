@@ -400,6 +400,14 @@ async function runImportJob(
     const id = ulid();
     const itemNow = Date.now();
     const progress = deriveProgress(row);
+
+    // Movies don't track current/total — progress is 100% when finished, 0% otherwise
+    if (contentType === "movie") {
+      progress.progressPercent = status === "finished" ? 100 : 0;
+      progress.progressCurrent = null;
+      progress.progressTotal = null;
+    }
+
     await db.insert(items).values({
       id,
       userId,
@@ -420,6 +428,7 @@ async function runImportJob(
       progressTotal: progress.progressTotal,
       lastTouchedAt:
         progress.progressPercent != null || progress.progressCurrent != null || progress.progressTotal != null ? itemNow : null,
+      finishedAt: status === "finished" ? itemNow : null,
       createdAt: itemNow,
       updatedAt: itemNow,
     });
@@ -578,6 +587,7 @@ router.post("/", async (c) => {
     progressPercent?: number | null;
     progressCurrent?: number | null;
     progressTotal?: number | null;
+    finishedAt?: number | null;
   }>();
 
   if (!body.title || !body.contentType) {
@@ -622,14 +632,22 @@ router.post("/", async (c) => {
 
   const now = Date.now();
   const id = ulid();
+  const effectiveStatus = body.status ?? "suggestions";
   const progress = deriveProgress(body);
+
+  // Movies don't track current/total — progress is 100% when finished, 0% otherwise
+  if (body.contentType === "movie") {
+    progress.progressPercent = effectiveStatus === "finished" ? 100 : 0;
+    progress.progressCurrent = null;
+    progress.progressTotal = null;
+  }
 
   await db.insert(items).values({
     id,
     userId,
     title: body.title.trim(),
     contentType: body.contentType,
-    status: body.status ?? "suggestions",
+    status: effectiveStatus,
     creator: body.creator?.trim() || null,
     description: body.description?.trim() || null,
     coverUrl: body.coverUrl?.trim() || null,
@@ -644,6 +662,7 @@ router.post("/", async (c) => {
     progressTotal: progress.progressTotal,
     lastTouchedAt:
       progress.progressPercent != null || progress.progressCurrent != null || progress.progressTotal != null ? now : null,
+    finishedAt: body.finishedAt ?? (effectiveStatus === "finished" ? now : null),
     createdAt: now,
     updatedAt: now,
   });
@@ -893,8 +912,18 @@ router.patch("/:id", async (c) => {
     if (body.status === "in_progress" && existing.startedAt == null && !("startedAt" in body)) {
       update.startedAt = now;
     }
-    if (body.status === "finished" && existing.finishedAt == null && !("finishedAt" in body)) {
-      update.finishedAt = now;
+    if (body.status === "finished" && !("finishedAt" in body)) {
+      update.finishedAt = existing.finishedAt ?? now;
+    }
+    if (body.status !== "finished" && !("finishedAt" in body)) {
+      // Keep existing finishedAt — don't clear it on status change back
+    }
+
+    // Movies: auto-set progress based purely on status
+    if (existing.contentType === "movie" && !("progressPercent" in body) && !("progressCurrent" in body) && !("progressTotal" in body)) {
+      update.progressPercent = body.status === "finished" ? 100 : 0;
+      update.progressCurrent = null;
+      update.progressTotal = null;
     }
   }
 
