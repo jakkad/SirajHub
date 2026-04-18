@@ -1,22 +1,26 @@
 import type { Env } from "../../types";
 import type { FetchedMetadata, SearchSuggestion } from "./types";
 
-// ── iTunes Search ─────────────────────────────────────────────────────────────
+// ── iTunes Episode Search ─────────────────────────────────────────────────────
 
-interface iTunesResult {
+interface iTunesEpisodeResult {
+  trackId: number;
+  trackName: string;
+  trackViewUrl?: string;
+  collectionId: number;
   collectionName: string;
   artistName: string;
   artworkUrl600?: string;
   artworkUrl100?: string;
-  collectionViewUrl?: string;
-  collectionId: number;
   feedUrl?: string;
-  trackCount?: number;
-  primaryGenreName?: string;
+  episodeUrl?: string;
+  releaseDate?: string;
+  shortDescription?: string;
+  description?: string;
 }
 
-interface iTunesSearch {
-  results?: iTunesResult[];
+interface iTunesEpisodeSearch {
+  results?: iTunesEpisodeResult[];
 }
 
 // ── Podcast Index ──────────────────────────────────────────────────────────────
@@ -45,26 +49,29 @@ async function sha1Hex(input: string): Promise<string> {
 }
 
 export async function fetchPodcast(input: string, env: Env): Promise<FetchedMetadata> {
-  // ── Primary: iTunes (no auth required) ───────────────────────────────────
+  // ── Primary: iTunes episode search (no auth required) ────────────────────
   const itunesRes = await fetch(
-    `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(input)}&limit=5`
+    `https://itunes.apple.com/search?media=podcast&entity=podcastEpisode&term=${encodeURIComponent(input)}&limit=5`
   );
 
   if (itunesRes.ok) {
-    const itunesData = (await itunesRes.json()) as iTunesSearch;
-    const podcast = itunesData.results?.[0];
-    if (podcast) {
+    const itunesData = (await itunesRes.json()) as iTunesEpisodeSearch;
+    const episode = itunesData.results?.[0];
+    if (episode) {
       return {
-        title: podcast.collectionName,
+        title: episode.trackName,
         contentType: "podcast",
-        creator: podcast.artistName,
-        coverUrl: podcast.artworkUrl600 ?? podcast.artworkUrl100,
-        sourceUrl: podcast.collectionViewUrl,
-        externalId: String(podcast.collectionId),
+        creator: episode.collectionName,
+        description: (episode.shortDescription ?? episode.description ?? "").slice(0, 500) || undefined,
+        coverUrl: episode.artworkUrl600 ?? episode.artworkUrl100,
+        sourceUrl: episode.trackViewUrl,
+        externalId: String(episode.trackId),
+        releaseDate: episode.releaseDate ? episode.releaseDate.slice(0, 10) : undefined,
         metadata: JSON.stringify({
-          feedUrl: podcast.feedUrl,
-          episodeCount: podcast.trackCount,
-          genre: podcast.primaryGenreName,
+          feedUrl: episode.feedUrl,
+          episodeUrl: episode.episodeUrl,
+          collectionId: episode.collectionId,
+          collectionName: episode.collectionName,
         }),
       };
     }
@@ -111,24 +118,28 @@ export async function fetchPodcast(input: string, env: Env): Promise<FetchedMeta
 }
 
 export async function searchPodcasts(query: string, env: Env): Promise<SearchSuggestion[]> {
+  // Search for individual episodes, not shows
   const itunesRes = await fetch(
-    `https://itunes.apple.com/search?media=podcast&term=${encodeURIComponent(query)}&limit=5`
+    `https://itunes.apple.com/search?media=podcast&entity=podcastEpisode&term=${encodeURIComponent(query)}&limit=5`
   );
 
   if (itunesRes.ok) {
-    const itunesData = (await itunesRes.json()) as iTunesSearch;
-    const suggestions = (itunesData.results ?? []).slice(0, 5).map((podcast) => ({
+    const itunesData = (await itunesRes.json()) as iTunesEpisodeSearch;
+    const suggestions = (itunesData.results ?? []).slice(0, 5).map((episode) => ({
       provider: "itunes",
       contentType: "podcast" as const,
-      title: podcast.collectionName,
-      creator: podcast.artistName,
-      coverUrl: podcast.artworkUrl600 ?? podcast.artworkUrl100,
-      sourceUrl: podcast.collectionViewUrl,
-      externalId: String(podcast.collectionId),
+      title: episode.trackName,
+      creator: episode.collectionName,
+      description: (episode.shortDescription ?? episode.description ?? "").slice(0, 500) || undefined,
+      coverUrl: episode.artworkUrl600 ?? episode.artworkUrl100,
+      sourceUrl: episode.trackViewUrl,
+      externalId: String(episode.trackId),
+      releaseDate: episode.releaseDate ? episode.releaseDate.slice(0, 10) : undefined,
       metadata: JSON.stringify({
-        feedUrl: podcast.feedUrl,
-        episodeCount: podcast.trackCount,
-        genre: podcast.primaryGenreName,
+        feedUrl: episode.feedUrl,
+        episodeUrl: episode.episodeUrl,
+        collectionId: episode.collectionId,
+        collectionName: episode.collectionName,
       }),
     }));
     if (suggestions.length > 0) {
