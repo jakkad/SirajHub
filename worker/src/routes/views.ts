@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb } from "../db/client";
 import { savedViews } from "../db/schema";
+import { enforceLabEnabled } from "../lib/labs";
 import type { Env } from "../types";
 
 type Variables = { userId: string };
@@ -24,6 +25,8 @@ function normalizeFilters(input: unknown) {
 }
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+router.use("*", async (c, next) => enforceLabEnabled(c, next, "smartViews"));
 
 router.get("/", async (c) => {
   const userId = c.get("userId");

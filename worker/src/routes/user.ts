@@ -10,6 +10,7 @@ import {
   normalizeAiModel,
   normalizeAiPrompts,
   normalizeInterestProfiles,
+  normalizeLabsSettings,
   readUserSettings,
   writeUserSettings,
   type ApiKeysBlob,
@@ -95,7 +96,7 @@ router.delete("/ai-cache", async (c) => {
 
 const VALID_SERVICES = [
   "gemini", "tmdb", "youtube", "googleBooks",
-  "podcastIndexKey", "podcastIndexSecret", "aiModel", "aiQueueIntervalMinutes", "interestProfiles", "aiPrompts",
+  "podcastIndexKey", "podcastIndexSecret", "aiModel", "aiQueueIntervalMinutes", "interestProfiles", "aiPrompts", "labs",
 ] as const;
 
 // GET /api/user/settings — returns which keys are set (never returns raw values)
@@ -119,13 +120,14 @@ router.get("/settings", async (c) => {
     aiModels: getAiModelCatalog(),
     interestProfiles: normalizeInterestProfiles(keys.interestProfiles),
     aiPrompts: normalizeAiPrompts(keys.aiPrompts),
+    labs: normalizeLabsSettings(keys.labs),
   });
 });
 
 // PATCH /api/user/settings — store or clear a single API key / model selection
 router.patch("/settings", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{ service?: string; key?: string; interestProfiles?: unknown; aiPrompts?: unknown }>();
+  const body = await c.req.json<{ service?: string; key?: string; interestProfiles?: unknown; aiPrompts?: unknown; labs?: unknown }>();
 
   if (body.interestProfiles !== undefined) {
     const db = createDb(c.env.DB);
@@ -141,6 +143,14 @@ router.patch("/settings", async (c) => {
     current.aiPrompts = normalizeAiPrompts(body.aiPrompts);
     await writeUserSettings(db, userId, current);
     return c.json({ ok: true, aiPrompts: current.aiPrompts });
+  }
+
+  if (body.labs !== undefined) {
+    const db = createDb(c.env.DB);
+    const current = await readUserSettings(db, userId);
+    current.labs = normalizeLabsSettings(body.labs);
+    await writeUserSettings(db, userId, current);
+    return c.json({ ok: true, labs: current.labs });
   }
 
   if (!body.service || !VALID_SERVICES.includes(body.service as typeof VALID_SERVICES[number])) {

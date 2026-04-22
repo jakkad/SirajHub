@@ -3,11 +3,14 @@ import { and, eq } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb } from "../db/client";
 import { items, reminderStates } from "../db/schema";
+import { enforceLabEnabled } from "../lib/labs";
 import type { Env } from "../types";
 
 type Variables = { userId: string };
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+router.use("*", async (c, next) => enforceLabEnabled(c, next, "reminders"));
 
 const THIRTY_DAYS = 1000 * 60 * 60 * 24 * 30;
 const FOURTEEN_DAYS = 1000 * 60 * 60 * 24 * 14;

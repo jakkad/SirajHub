@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { useLabs } from "@/hooks/useLabs";
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, color: undefined },
@@ -44,7 +45,9 @@ interface AppSidebarProps {
 
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const { location } = useRouterState();
+  const { labs } = useLabs();
   const isSettings = location.pathname === "/settings";
+  const visibleNavItems = NAV_ITEMS.filter((item) => item.to !== "/lists" || labs.lists);
 
   return (
     <Sidebar collapsible="offcanvas" className="border-none">
@@ -59,7 +62,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           <SidebarGroupLabel>Library</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map(({ to, label, icon: Icon, color }) => {
+              {visibleNavItems.map(({ to, label, icon: Icon, color }) => {
                 const isActive = to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
                 return (
                   <SidebarMenuItem key={to}>

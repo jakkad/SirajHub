@@ -62,6 +62,11 @@ export type AiPrompts = {
   analyze: string;
   score: string;
 };
+export type LabsSettings = {
+  lists: boolean;
+  reminders: boolean;
+  smartViews: boolean;
+};
 
 export type AiModelDescriptor = {
   id: AiModelId;
@@ -86,6 +91,13 @@ export type ApiKeysBlob = {
   aiQueueIntervalMinutes?: number;
   interestProfiles?: InterestProfiles;
   aiPrompts?: Partial<AiPrompts>;
+  labs?: Partial<LabsSettings>;
+};
+
+export const DEFAULT_LABS_SETTINGS: LabsSettings = {
+  lists: false,
+  reminders: false,
+  smartViews: false,
 };
 
 const CONTENT_TYPE_ALIASES: Record<string, ContentTypeId> = {
@@ -247,7 +259,21 @@ export function normalizeAiPrompts(input: unknown): AiPrompts {
   };
 }
 
+export function normalizeLabsSettings(input: unknown): LabsSettings {
+  const record = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  return {
+    lists: record.lists === true,
+    reminders: record.reminders === true,
+    smartViews: record.smartViews === true,
+  };
+}
+
 export async function resolveAiPrompts(db: Db, userId: string): Promise<AiPrompts> {
   const settings = await readUserSettings(db, userId);
   return normalizeAiPrompts(settings.aiPrompts);
+}
+
+export async function resolveLabsSettings(db: Db, userId: string): Promise<LabsSettings> {
+  const settings = await readUserSettings(db, userId);
+  return normalizeLabsSettings(settings.labs);
 }

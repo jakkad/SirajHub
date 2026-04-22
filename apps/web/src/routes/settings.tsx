@@ -10,6 +10,7 @@ import {
   useClearAiCache,
   useUpdateAiPrompts,
   useUpdateInterestProfiles,
+  useUpdateLabs,
   useTestAiModel,
   useTestApiKey,
   useUpdateApiKey,
@@ -17,7 +18,7 @@ import {
   useUserProfile,
   useUserSettings,
 } from "../hooks/useUser";
-import { userApi, type AiPrompts, type InterestProfiles, type InterestWeight } from "../lib/api";
+import { userApi, type AiPrompts, type InterestProfiles, type InterestWeight, type LabsSettings } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ const API_KEY_SERVICES = [
 
 function SettingsPage() {
   const { data: profile, isLoading } = useUserProfile();
+  const { data: settings } = useUserSettings();
 
   if (isLoading) {
     return <div className="py-20 text-center text-muted-foreground">Loading settings…</div>;
@@ -69,8 +71,9 @@ function SettingsPage() {
             { id: "profile", label: "Profile" },
             { id: "apikeys", label: "API Keys" },
             { id: "aimodel", label: "AI Model" },
+            { id: "labs", label: "Labs" },
             { id: "interests", label: "Interests" },
-            { id: "reminders", label: "Reminders" },
+            ...(settings?.labs.reminders ? [{ id: "reminders", label: "Reminders" }] : []),
             { id: "duplicates", label: "Duplicates" },
             { id: "tags", label: "Tags" },
             { id: "data", label: "Data" },
@@ -94,12 +97,17 @@ function SettingsPage() {
         <TabsContent value="aimodel" className="mt-0">
           <AiModelTab />
         </TabsContent>
+        <TabsContent value="labs" className="mt-0">
+          <LabsTab />
+        </TabsContent>
         <TabsContent value="interests" className="mt-0">
           <InterestProfilesTab />
         </TabsContent>
-        <TabsContent value="reminders" className="mt-0">
-          <RemindersTab />
-        </TabsContent>
+        {settings?.labs.reminders ? (
+          <TabsContent value="reminders" className="mt-0">
+            <RemindersTab />
+          </TabsContent>
+        ) : null}
         <TabsContent value="duplicates" className="mt-0">
           <DuplicateReviewTab />
         </TabsContent>
@@ -111,6 +119,78 @@ function SettingsPage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function LabsTab() {
+  const { data: settings } = useUserSettings();
+  const { mutate: updateLabs, isPending } = useUpdateLabs();
+  const [labs, setLabs] = useState<LabsSettings>({ lists: false, reminders: false, smartViews: false });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setLabs(settings?.labs ?? { lists: false, reminders: false, smartViews: false });
+  }, [settings?.labs]);
+
+  function toggleLab(key: keyof LabsSettings) {
+    setLabs((current) => ({ ...current, [key]: !current[key] }));
+  }
+
+  function handleSave() {
+    updateLabs(labs, {
+      onSuccess: () => {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1800);
+      },
+    });
+  }
+
+  const rows: Array<{ key: keyof LabsSettings; title: string; description: string }> = [
+    {
+      key: "lists",
+      title: "Lists",
+      description: "Enable ordered custom collections for planning and curation. Disabling hides the feature but preserves existing list data.",
+    },
+    {
+      key: "reminders",
+      title: "Reminders",
+      description: "Enable reminder inbox and resurfacing flows for stalled or neglected items. Disabling hides the feature but preserves existing reminder state.",
+    },
+    {
+      key: "smartViews",
+      title: "Smart Views",
+      description: "Enable saved views and advanced filter presets on the dashboard and collection pages. Disabling hides the feature but preserves saved views.",
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Labs</CardTitle>
+        <CardDescription>
+          Optional features that are currently experimental. Turning one off hides it from the app without deleting its data.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {rows.map((row) => (
+          <div key={row.key} className="flex items-center justify-between gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.2)] p-4">
+            <div className="min-w-0">
+              <div className="font-semibold text-foreground">{row.title}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{row.description}</div>
+            </div>
+            <Button size="sm" variant={labs[row.key] ? "default" : "outline"} onClick={() => toggleLab(row.key)}>
+              {labs[row.key] ? "Enabled" : "Disabled"}
+            </Button>
+          </div>
+        ))}
+        <div className="flex items-center gap-3">
+          <Button onClick={handleSave} disabled={isPending}>
+            Save labs
+          </Button>
+          {saved ? <span className="text-xs text-muted-foreground">Saved</span> : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

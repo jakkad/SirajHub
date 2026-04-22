@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { userApi, userSettingsApi, type AiPrompts, type InterestProfiles } from "../lib/api";
+import { userApi, userSettingsApi, type AiPrompts, type InterestProfiles, type LabsSettings } from "../lib/api";
 
 export function useUserProfile() {
   return useQuery({
@@ -80,6 +80,21 @@ export function useUpdateAiPrompts() {
       qc.setQueryData(["user-settings"], (current: Awaited<ReturnType<typeof userSettingsApi.getSettings>> | undefined) =>
         current
           ? { ...current, aiPrompts: result.aiPrompts }
+          : current
+      );
+      qc.invalidateQueries({ queryKey: ["user-settings"] });
+    },
+  });
+}
+
+export function useUpdateLabs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (labs: LabsSettings) => userSettingsApi.updateLabs(labs),
+    onSuccess: (result) => {
+      qc.setQueryData(["user-settings"], (current: Awaited<ReturnType<typeof userSettingsApi.getSettings>> | undefined) =>
+        current
+          ? { ...current, labs: result.labs }
           : current
       );
       qc.invalidateQueries({ queryKey: ["user-settings"] });

@@ -4,18 +4,19 @@ import { listsApi } from "../lib/api";
 const LISTS_QUERY_KEY = "custom-lists";
 const ITEM_LISTS_QUERY_KEY = "item-lists";
 
-export function useLists() {
+export function useLists(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [LISTS_QUERY_KEY],
     queryFn: () => listsApi.list(),
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useList(listId: string | null) {
+export function useList(listId: string | null, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [LISTS_QUERY_KEY, listId],
     queryFn: () => listsApi.get(listId as string),
-    enabled: Boolean(listId),
+    enabled: Boolean(listId) && (options?.enabled ?? true),
   });
 }
 
@@ -62,11 +63,11 @@ export function useDeleteList() {
   });
 }
 
-export function useItemLists(itemId: string | null) {
+export function useItemLists(itemId: string | null, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [ITEM_LISTS_QUERY_KEY, itemId],
     queryFn: () => listsApi.getItemLists(itemId as string),
-    enabled: Boolean(itemId),
+    enabled: Boolean(itemId) && (options?.enabled ?? true),
   });
 }
 

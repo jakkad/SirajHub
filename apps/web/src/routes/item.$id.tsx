@@ -7,6 +7,7 @@ import { useScoreItem } from "../hooks/useAI";
 import { useItems, useUpdateItem, useDeleteItem } from "../hooks/useItems";
 import { useAddItemToList, useCreateList, useItemLists, useRemoveItemFromList } from "../hooks/useLists";
 import { useCreateNoteEntry, useDeleteNoteEntry, useNoteEntries } from "../hooks/useNotes";
+import { useLabs } from "../hooks/useLabs";
 import { CONTENT_TYPES, STATUSES } from "../lib/constants";
 import type { StatusId } from "../lib/constants";
 import { parseTVMetadata, serializeTVMetadata, summarizeTVSeasons } from "../lib/tv";
@@ -54,10 +55,11 @@ function ItemDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
   const { data: allItems = [], isLoading } = useItems();
+  const { labs } = useLabs();
   const { mutate: updateItem } = useUpdateItem();
   const { mutate: deleteItem, isPending: deleting } = useDeleteItem();
   const { mutate: queueScore, isPending: queueingScore } = useScoreItem(id);
-  const { data: itemListsData } = useItemLists(id);
+  const { data: itemListsData } = useItemLists(id, { enabled: labs.lists });
   const { mutate: addItemToList, isPending: addingToList } = useAddItemToList();
   const { mutate: removeItemFromList, isPending: removingFromList } = useRemoveItemFromList();
   const { mutate: createList, isPending: creatingList } = useCreateList();
@@ -678,6 +680,7 @@ function ItemDetailPage() {
           </div>
 
           {/* Tags Widget */}
+          {labs.lists ? (
           <div className="soft-panel rounded-3xl p-5 flex flex-col gap-4 shadow-none">
             <h3 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground flex items-center justify-between">
               Tags
@@ -686,6 +689,7 @@ function ItemDetailPage() {
               <InlineTagManager itemId={currentItem.id} suggestedTags={suggestedTags} onSuggestionsApplied={() => setSuggestedTags(null)} />
             </div>
           </div>
+          ) : null}
 
           {/* Lists Widget */}
           <div className="soft-panel rounded-3xl p-5 flex flex-col gap-4 shadow-none">

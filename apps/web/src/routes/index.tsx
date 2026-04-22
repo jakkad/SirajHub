@@ -6,6 +6,7 @@ import { RecentlyAdded } from "../components/dashboard/RecentlyAdded";
 import { InProgressItems } from "../components/dashboard/InProgressItems";
 import { NextToConsume } from "../components/dashboard/NextToConsume";
 import { ReminderInbox } from "../components/dashboard/ReminderInbox";
+import { useLabs } from "../hooks/useLabs";
 import { CONTENT_TYPES } from "../lib/constants";
 import { matchesSavedViewFilters, summarizeSavedViewFilters } from "../lib/saved-views";
 import { Badge } from "@/components/ui/badge";
@@ -28,14 +29,15 @@ export const Route = createFileRoute("/")({
 
 function DashboardPage() {
   const { data: allItems = [], isLoading } = useItems();
-  const { data: savedViewsData } = useSavedViews({ scope: "dashboard" });
+  const { labs } = useLabs();
+  const { data: savedViewsData } = useSavedViews({ scope: "dashboard" }, { enabled: labs.smartViews });
   
   const suggestions = allItems.filter((item) => item.status === "suggestions");
   const inProgress = allItems.filter((item) => item.status === "in_progress");
   const finished = allItems.filter((item) => item.status === "finished");
   const completionRate = allItems.length > 0 ? Math.round((finished.length / allItems.length) * 100) : 0;
   
-  const savedViews = savedViewsData?.views ?? [];
+  const savedViews = labs.smartViews ? (savedViewsData?.views ?? []) : [];
 
   return (
     <div className="flex flex-col gap-10 pb-20 w-full overflow-hidden">
@@ -72,7 +74,7 @@ function DashboardPage() {
       </section>
 
       {/* ─── SMART VIEWS SHELF (Only rendered if available) ──────────────────── */}
-      {savedViews.length > 0 && (
+      {labs.smartViews && savedViews.length > 0 && (
          <div className="w-full">
             <h3 className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-4 pl-3 border-l-2 border-[hsl(var(--primary)_/_0.5)]">Smart Views</h3>
             <div className="flex overflow-x-auto gap-4 pb-4 custom-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -136,6 +138,7 @@ function DashboardPage() {
         <div className="flex flex-col gap-8 w-full sticky top-10">
            
            {/* Reminder Inbox Widget */}
+           {labs.reminders ? (
            <section className="soft-panel rounded-[2rem] p-6 border flex flex-col border-[hsl(var(--border)_/_0.7)] shadow-sm">
               <div className="flex items-start justify-between mb-6">
                 <div>
@@ -149,6 +152,7 @@ function DashboardPage() {
                 <ReminderInbox limit={3} />
               </div>
            </section>
+           ) : null}
 
            {/* Recently Added Widget */}
            <section className="paper-card rounded-[2rem] p-6 border flex flex-col border-[hsl(var(--border)_/_0.5)] shadow-sm">

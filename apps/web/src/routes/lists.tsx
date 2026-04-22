@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { useCreateList, useDeleteList, useList, useLists, useReorderListItems, useReorderLists, useUpdateList } from "../hooks/useLists";
+import { useLabs } from "../hooks/useLabs";
 import { CONTENT_TYPES } from "../lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,8 @@ export const Route = createFileRoute("/lists")({
 });
 
 function ListsPage() {
-  const { data, isLoading } = useLists();
+  const { labs, isLoading: labsLoading } = useLabs();
+  const { data, isLoading } = useLists({ enabled: labs.lists });
   const { mutate: createList, isPending: creatingList } = useCreateList();
   const { mutate: reorderLists, isPending: reorderingLists } = useReorderLists();
   const { mutate: updateList, isPending: savingList } = useUpdateList();
@@ -31,7 +33,36 @@ function ListsPage() {
     () => lists.find((list) => list.id === selectedListId) ?? null,
     [lists, selectedListId]
   );
-  const { data: listDetail, isLoading: isLoadingDetail } = useList(selectedListId);
+  const { data: listDetail, isLoading: isLoadingDetail } = useList(selectedListId, { enabled: labs.lists });
+
+  if (labsLoading) {
+    return <div className="py-20 text-center text-muted-foreground">Loading lists…</div>;
+  }
+
+  if (!labs.lists) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-5xl font-semibold leading-none tracking-[-0.05em]">Lists</h1>
+          </div>
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            Lists are currently disabled. You can re-enable them from Settings → Labs.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-4 p-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Existing list data is preserved and will return if you turn Lists back on.
+            </p>
+            <Button asChild variant="outline">
+              <Link to="/settings">Open Settings</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (!lists.length) {

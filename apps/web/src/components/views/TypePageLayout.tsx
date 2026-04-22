@@ -4,6 +4,7 @@ import { summarizeSavedViewFilters, matchesSavedViewFilters } from "../../lib/sa
 import type { ContentTypeId, StatusId } from "../../lib/constants";
 import { STATUSES } from "../../lib/constants";
 import type { Item, SavedViewFilters } from "../../lib/api";
+import { useLabs } from "../../hooks/useLabs";
 import { NextToConsume } from "../dashboard/NextToConsume";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ function getThemeAccent(typeId: string) {
 
 export function TypePageLayout({ contentType, title, children }: TypePageLayoutProps) {
   const accentColor = getThemeAccent(contentType);
+  const { labs } = useLabs();
   
   const [statusFilter, setStatusFilter] = useState<StatusId | "all">("all");
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
@@ -52,7 +54,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
   const [draftFilters, setDraftFilters] = useState<SavedViewFilters>({});
   const [smartViewsOpen, setSmartViewsOpen] = useState(false);
   const { data: allItems = [], isLoading } = useItems({ content_type: contentType });
-  const { data: savedViewsData } = useSavedViews({ scope: "collection", content_type: contentType });
+  const { data: savedViewsData } = useSavedViews({ scope: "collection", content_type: contentType }, { enabled: labs.smartViews });
   const { mutate: createSavedView, isPending: savingView } = useCreateSavedView();
   const { mutate: deleteSavedView } = useDeleteSavedView();
   const { mutate: bulkDeleteItems, isPending: bulkDeleting } = useBulkDeleteItems();
@@ -69,7 +71,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
     });
   }
 
-  const savedViews = savedViewsData?.views ?? [];
+  const savedViews = labs.smartViews ? (savedViewsData?.views ?? []) : [];
   const activeView = savedViews.find((view) => view.id === activeViewId) ?? null;
   const activeStatus = activeView?.filters.status ?? statusFilter;
   const effectiveFilters = activeView
@@ -121,19 +123,21 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
             </div>
 
             <div className="flex items-center gap-3">
-              {smartViewsOpen && activeViewId === null && (
+              {labs.smartViews && smartViewsOpen && activeViewId === null && (
                  <Badge variant="secondary" className="bg-card/70 backdrop-blur border-[hsl(var(--border)_/_0.4)]">
                    {summarizeSavedViewFilters(effectiveFilters) || "No filters"}
                  </Badge>
               )}
-              <Button
-                variant={smartViewsOpen ? "default" : "outline"}
-                className={`rounded-full shadow-sm transition-all h-9 px-4 ${smartViewsOpen ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
-                onClick={() => setSmartViewsOpen((c) => !c)}
-              >
-                <Filter className="mr-2 size-4" />
-                {smartViewsOpen ? "Close Filters" : "Smart Views & Filters"}
-              </Button>
+              {labs.smartViews ? (
+                <Button
+                  variant={smartViewsOpen ? "default" : "outline"}
+                  className={`rounded-full shadow-sm transition-all h-9 px-4 ${smartViewsOpen ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
+                  onClick={() => setSmartViewsOpen((c) => !c)}
+                >
+                  <Filter className="mr-2 size-4" />
+                  {smartViewsOpen ? "Close Filters" : "Smart Views & Filters"}
+                </Button>
+              ) : null}
               <Button
                 variant={isSelectionMode ? "default" : "outline"}
                 className={`rounded-full shadow-sm transition-all h-9 px-4 ${isSelectionMode ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
@@ -176,7 +180,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
           </div>
 
           {/* Smart Views Details Dropdown */}
-          {smartViewsOpen ? (
+          {labs.smartViews && smartViewsOpen ? (
             <div className="rounded-3xl border border-[hsl(var(--border)_/_0.5)] bg-[hsl(var(--card)_/_0.6)] backdrop-blur-xl p-6 mt-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] animate-in slide-in-from-top-4 fade-in-0 duration-300 w-full">
               <div className="flex flex-col gap-6">
                 

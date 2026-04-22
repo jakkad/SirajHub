@@ -3,10 +3,11 @@ import { remindersApi, type Reminder } from "../lib/api";
 
 const REMINDERS_QUERY_KEY = "reminders";
 
-export function useReminders() {
+export function useReminders(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: [REMINDERS_QUERY_KEY],
     queryFn: () => remindersApi.list(),
+    enabled: options?.enabled ?? true,
   });
 }
 

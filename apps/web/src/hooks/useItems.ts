@@ -119,10 +119,14 @@ export function useDuplicateGroups() {
   });
 }
 
-export function useSavedViews(filters?: { scope?: "collection" | "dashboard"; content_type?: ContentTypeId }) {
+export function useSavedViews(
+  filters?: { scope?: "collection" | "dashboard"; content_type?: ContentTypeId },
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: [SAVED_VIEWS_QUERY_KEY, filters],
     queryFn: () => savedViewsApi.list(filters),
+    enabled: options?.enabled ?? true,
   });
 }
 

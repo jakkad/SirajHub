@@ -12,6 +12,11 @@ export interface AiPrompts {
   analyze: string;
   score: string;
 }
+export interface LabsSettings {
+  lists: boolean;
+  reminders: boolean;
+  smartViews: boolean;
+}
 
 export interface AiModelDescriptor {
   id: string;
@@ -423,6 +428,7 @@ export interface UserSettings {
   aiQueueIntervalMinutes: number;
   interestProfiles: InterestProfiles;
   aiPrompts: AiPrompts;
+  labs: LabsSettings;
 }
 
 export interface UserSettingsModelTestResponse {
@@ -563,6 +569,13 @@ export const userSettingsApi = {
     return request<{ ok: boolean; aiPrompts: AiPrompts }>("/api/user/settings", {
       method: "PATCH",
       body: JSON.stringify({ aiPrompts }),
+    });
+  },
+
+  updateLabs(labs: LabsSettings): Promise<{ ok: boolean; labs: LabsSettings }> {
+    return request<{ ok: boolean; labs: LabsSettings }>("/api/user/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ labs }),
     });
   },
 };
