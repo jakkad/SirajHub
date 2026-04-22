@@ -20,24 +20,23 @@ export function parseTVMetadata(metadata: string | null | undefined): TVMetadata
       seasonCount?: unknown;
     };
 
-    const seasons = Array.isArray(parsed.seasons)
+    const seasons: TVSeason[] = Array.isArray(parsed.seasons)
       ? parsed.seasons
-          .map((season) => {
-            if (!season || typeof season !== "object") return null;
+          .flatMap((season) => {
+            if (!season || typeof season !== "object") return [];
             const value = season as Record<string, unknown>;
             const seasonNumber = typeof value.seasonNumber === "number" ? value.seasonNumber : null;
             const episodeCount = typeof value.episodeCount === "number" ? value.episodeCount : null;
-            if (seasonNumber == null || episodeCount == null) return null;
+            if (seasonNumber == null || episodeCount == null) return [];
 
-            return {
+            return [{
               seasonNumber,
               episodeCount,
               title: typeof value.title === "string" ? value.title : undefined,
               airDate: typeof value.airDate === "string" ? value.airDate : null,
               finished: value.finished === true,
-            } satisfies TVSeason;
+            }];
           })
-          .filter((season): season is TVSeason => Boolean(season))
           .sort((a, b) => a.seasonNumber - b.seasonNumber)
       : [];
 
