@@ -61,7 +61,7 @@ function SettingsPage() {
           <Badge variant="secondary">personal</Badge>
         </div>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Tune your profile, plug in your own API keys, pick an AI model, manage tags, and maintain your data.
+          Tune your profile, manage integrations, control Labs features, and maintain your data.
         </p>
       </div>
 
@@ -70,11 +70,9 @@ function SettingsPage() {
           {[
             { id: "profile", label: "Profile" },
             { id: "apikeys", label: "API Keys" },
-            { id: "aimodel", label: "AI Model" },
+            { id: "advanced", label: "Advanced" },
             { id: "labs", label: "Labs" },
             { id: "interests", label: "Interests" },
-            ...(settings?.labs.reminders ? [{ id: "reminders", label: "Reminders" }] : []),
-            { id: "duplicates", label: "Duplicates" },
             { id: "tags", label: "Tags" },
             { id: "data", label: "Data" },
           ].map((tab) => (
@@ -94,7 +92,7 @@ function SettingsPage() {
         <TabsContent value="apikeys" className="mt-0">
           <ApiKeysTab />
         </TabsContent>
-        <TabsContent value="aimodel" className="mt-0">
+        <TabsContent value="advanced" className="mt-0">
           <AiModelTab />
         </TabsContent>
         <TabsContent value="labs" className="mt-0">
@@ -102,14 +100,6 @@ function SettingsPage() {
         </TabsContent>
         <TabsContent value="interests" className="mt-0">
           <InterestProfilesTab />
-        </TabsContent>
-        {settings?.labs.reminders ? (
-          <TabsContent value="reminders" className="mt-0">
-            <RemindersTab />
-          </TabsContent>
-        ) : null}
-        <TabsContent value="duplicates" className="mt-0">
-          <DuplicateReviewTab />
         </TabsContent>
         <TabsContent value="tags" className="mt-0">
           <TagsTab />
@@ -687,10 +677,13 @@ function AiModelTab() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Model Selection</CardTitle>
-          <CardDescription>Choose the backend-supported model used for item analysis and scoring jobs.</CardDescription>
+          <CardTitle>Advanced AI Controls</CardTitle>
+          <CardDescription>Configure model selection, queue timing, prompt templates, and queue diagnostics without affecting the default product workflow.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
+          <div className="rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.22)] p-4 text-sm text-muted-foreground">
+            These settings are intended for advanced tuning and troubleshooting. Most users can leave them unchanged.
+          </div>
           <RadioGroup value={selected} onValueChange={setSelected} className="gap-4">
             {(settings?.aiModels ?? []).map((model) => (
               <Label

@@ -1646,3 +1646,161 @@ It adds:
 - richer TMDB TV metadata saved during item creation
 
 At this point, the TV experience is no longer just poster browsing with generic progress fields. It becomes a dedicated show-tracking workflow built around seasons, completion state, and better metadata quality.
+
+## Version 3.4
+
+### Tasks
+
+**Labs-Gated Feature Simplification**
+
+- Added Labs feature flags to per-user settings:
+  - `lists`
+  - `reminders`
+  - `smartViews`
+- Stored Labs state inside the existing user settings JSON blob
+- Defaulted all three Labs flags to `false` when absent
+- Exposed Labs state through the existing user settings API
+- Added update support for Labs flags without introducing a schema migration
+
+- Added a new `Labs` tab in Settings:
+  - toggle for Lists
+  - toggle for Reminders
+  - toggle for Smart Views
+- Added explanatory copy clarifying that:
+  - these features are optional / experimental
+  - disabling them hides the feature but preserves stored data
+
+- Gated Lists end-to-end:
+  - hid `/lists` from sidebar navigation when disabled
+  - blocked list-related frontend queries when disabled
+  - removed the Lists widget from the full item detail page when disabled
+  - changed the Lists route to a disabled-state screen when the feature is off
+  - gated backend `/api/lists` access with a consistent `403` disabled response
+  - preserved all list tables and stored list membership data
+
+- Gated Reminders end-to-end:
+  - removed the Reminder Inbox widget from the dashboard when disabled
+  - removed the Reminders tab from Settings when disabled
+  - blocked reminder-related frontend queries when disabled
+  - gated backend `/api/reminders` access with a consistent `403` disabled response
+  - preserved reminder state data in the database
+
+- Gated Smart Views end-to-end:
+  - removed the dashboard Smart Views shelf when disabled
+  - removed saved-view controls from collection pages when disabled
+  - blocked saved-view frontend queries when disabled
+  - gated backend `/api/views` access with a consistent `403` disabled response
+  - preserved saved-view rows in the database
+
+- Added shared Labs support in the frontend:
+  - shared `LabsSettings` type
+  - shared Labs update API
+  - shared Labs hook for reading the current user’s feature flags
+- Used one shared Labs state source to drive conditional rendering across the app
+
+- Verified unrelated product areas remained unchanged:
+  - item CRUD
+  - imports
+  - scoring / next-to-consume
+  - tags
+  - notes
+  - progress tracking
+  - TV module
+
+---
+
+### Explainer
+
+Version 3.4 is a product-simplification release.
+
+Earlier versions added significant product depth, especially around organization and resurfacing. Lists, reminders, and smart views were all useful features on their own, but together they also added more surface area to the app’s default experience than was needed at this stage.
+
+This version addresses that by introducing a Labs system instead of hard-removing those features.
+
+Rather than deleting functionality or performing destructive schema cleanup, the app now treats these three areas as optional product modules. They are turned off by default for every user, which immediately reduces visual and mental clutter in the main experience. At the same time, the underlying data is preserved, and each feature can be brought back by enabling it from Settings.
+
+This is important because it keeps the product flexible. The app becomes simpler for default day-to-day use, while still allowing experimental or lower-priority features to remain available for future testing and iteration.
+
+Version 3.4 also makes the disabled state real rather than cosmetic. The frontend hides those surfaces, but the backend also blocks direct access to the related endpoints when the corresponding Labs flag is off. That keeps the system behavior consistent and prevents hidden features from continuing to operate in the background.
+
+Overall, this version is less about adding new user-facing capability and more about improving focus. It reduces bloat, creates a cleaner default product shape, and establishes a controlled way to keep optional features without letting them dominate the main workflow.
+
+---
+
+### Summary
+
+Version 3.4 introduces Labs-based feature gating for lower-priority product areas.
+
+It adds:
+- per-user Labs flags for Lists, Reminders, and Smart Views
+- a new Labs page in Settings
+- frontend and backend gating for those three features
+- preservation of all existing data while defaulting the features off
+
+At this point, the app becomes more focused by default while still retaining the ability to re-enable experimental organizational features when needed.
+
+## Version 3.5
+
+### Tasks
+
+**Surface Consolidation and Settings Simplification**
+
+- Simplified recommendation surfaces:
+  - kept the dashboard `Next To Consume` section as the primary recommendation experience
+  - removed the duplicate topbar `Next To Consume` entry point
+  - removed the extra app-shell modal wiring for recommendation browsing
+
+- Simplified item detail surfaces:
+  - kept the full page item detail route as the primary item experience
+  - removed the global item detail overlay from the app shell
+  - changed global search item selection to navigate directly to the full item page
+  - removed duplicate shell-level detail state and overlay plumbing
+
+- Reduced Settings complexity:
+  - removed `Duplicates` from the main Settings tab bar
+  - removed `Reminders` from the default Settings experience when the feature is disabled
+  - replaced the old `AI Model` tab with a broader `Advanced` tab
+  - moved model selection into `Advanced`
+  - moved AI prompt template editing into `Advanced`
+  - kept queue timing and AI diagnostics in `Advanced`
+  - added clearer copy framing those controls as advanced tuning rather than core product workflow
+
+- Cleaned up dead or duplicate UI systems:
+  - removed the unused legacy board view
+  - removed the unused legacy grid view
+  - removed the unused legacy item card workflow tied to that older board/grid system
+  - removed the now-unused topbar recommendation panel component
+  - removed the now-unused overlay item detail panel component
+  - removed the unused `@dnd-kit` dependencies that only supported those deleted surfaces
+
+---
+
+### Explainer
+
+Version 3.5 continues the simplification work started in Version 3.4, but it does so by removing duplicated product surfaces rather than feature-gating optional modules.
+
+Before this release, the app still had several parallel ways to do the same thing. Recommendations could be accessed from both the dashboard and the topbar. Item details could be opened both as a full page and as a global overlay. Settings also mixed normal user preferences with advanced AI tuning and operational review workflows. On top of that, older board/grid-era UI components were still present in the codebase even though they no longer matched the product direction.
+
+This version tightens that structure.
+
+The dashboard is now the single recommendation home, and the full item page is now the single item-detail experience. That reduces maintenance cost, removes conflicting UX patterns, and makes the product easier to understand because each major workflow now has one obvious place to live.
+
+Settings also become cleaner in this release. Instead of presenting AI model controls and prompt editing as standard settings, those capabilities now live under an `Advanced` section. They are still available, but they no longer compete visually with the product’s more important day-to-day controls.
+
+Finally, this version removes dead interface systems that belonged to an earlier stage of the app’s evolution. That is valuable not only for UI clarity, but also for implementation clarity. The codebase now has fewer stale components, fewer redundant dependencies, and fewer leftover patterns pulling the product in different directions.
+
+Overall, Version 3.5 is about choosing one canonical surface for each major workflow and cutting away the duplicates.
+
+---
+
+### Summary
+
+Version 3.5 consolidates the app around fewer, clearer product surfaces.
+
+It adds:
+- one primary recommendation surface on the dashboard
+- one primary full-page item detail experience
+- a cleaner Settings layout with advanced AI controls grouped under `Advanced`
+- removal of legacy board/grid-era UI remnants and their unused dependencies
+
+At this point, the app becomes easier to navigate, easier to maintain, and more aligned with the product’s intended `Capture / Decide / Consume` flow.

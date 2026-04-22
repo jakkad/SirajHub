@@ -1,4 +1,4 @@
-import { LogOut, MoonStar, Plus, Search, Settings, Sparkles, SunMedium } from "lucide-react";
+import { LogOut, MoonStar, Plus, Search, Settings, SunMedium } from "lucide-react";
 import { Link, useRouter } from "@tanstack/react-router";
 import { authClient } from "@/lib/auth-client";
 import { useTheme } from "@/components/ThemeProvider";
@@ -13,11 +13,10 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 interface AppTopbarProps {
   user?: { name?: string; email?: string } | null;
   onSearchOpen: () => void;
-  onNextListOpen: () => void;
   onAddItem: () => void;
 }
 
-export function AppTopbar({ user, onSearchOpen, onNextListOpen, onAddItem }: AppTopbarProps) {
+export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
 
@@ -51,17 +50,6 @@ export function AppTopbar({ user, onSearchOpen, onNextListOpen, onAddItem }: App
         </Button>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-2"
-            onClick={onNextListOpen}
-          >
-            <Sparkles data-icon="inline-start" />
-            <span className="hidden sm:inline">Next To Consume</span>
-            <span className="sm:hidden">Next</span>
-          </Button>
-
           <Button
             type="button"
             variant="outline"

@@ -1,16 +1,13 @@
-import { createRootRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { createRootRoute, Outlet, redirect, useRouter, useRouterState } from "@tanstack/react-router";
 import { lazy, Suspense, useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppTopbar } from "@/components/AppTopbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import type { Item } from "@/lib/api";
 
 const AddItemDialog = lazy(() => import("@/components/AddItemDialog").then((module) => ({ default: module.AddItemDialog })));
-const NextListPanel = lazy(() => import("@/components/NextListPanel").then((module) => ({ default: module.NextListPanel })));
 const SearchCommand = lazy(() => import("@/components/SearchCommand").then((module) => ({ default: module.SearchCommand })));
-const ItemDetailPanel = lazy(() => import("@/components/ItemDetailPanel").then((module) => ({ default: module.ItemDetailPanel })));
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
@@ -26,14 +23,13 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const context = Route.useRouteContext();
+  const router = useRouter();
   const user = (context as { user?: { name?: string; email?: string } }).user;
   const { location } = useRouterState();
   const isLoginPage = location.pathname === "/login";
 
   const [addItemOpen, setAddItemOpen] = useState(false);
-  const [nextListOpen, setNextListOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchSelectedItem, setSearchSelectedItem] = useState<Item | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -65,7 +61,6 @@ function RootLayout() {
               <AppTopbar
                 user={user}
                 onSearchOpen={() => setSearchOpen(true)}
-                onNextListOpen={() => setNextListOpen(true)}
                 onAddItem={() => setAddItemOpen(true)}
               />
 
@@ -82,20 +77,14 @@ function RootLayout() {
       {/* ── Global overlays ────────────────────────────────────────────────── */}
       <Suspense fallback={null}>
         <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />
-        <NextListPanel open={nextListOpen} onOpenChange={setNextListOpen} showTrigger={false} />
 
         <SearchCommand
           open={searchOpen}
           onClose={() => setSearchOpen(false)}
           onSelect={(item) => {
-            setSearchSelectedItem(item);
             setSearchOpen(false);
+            router.navigate({ to: "/item/$id", params: { id: item.id } });
           }}
-        />
-
-        <ItemDetailPanel
-          item={searchSelectedItem}
-          onClose={() => setSearchSelectedItem(null)}
         />
       </Suspense>
     </TooltipProvider>

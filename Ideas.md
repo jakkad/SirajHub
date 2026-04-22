@@ -34,46 +34,46 @@ Reduce fragmentation, make the product easier to understand, and strengthen the 
 
 #### P1.2 — Simplify Recommendation Surfaces
 
-- [ ] Choose one primary `Next To Consume` experience
-- [ ] Keep recommendation cards on the dashboard as the main surface
-- [ ] Decide whether the topbar `Next To Consume` modal should:
+- [x] Choose one primary `Next To Consume` experience
+- [x] Keep recommendation cards on the dashboard as the main surface
+- [x] Decide whether the topbar `Next To Consume` modal should:
   - become a dedicated route
   - scroll to the dashboard section
   - be removed entirely
-- [ ] Remove duplicate recommendation UI patterns where possible
+- [x] Remove duplicate recommendation UI patterns where possible
 
 #### P1.3 — Simplify Item Detail Surfaces
 
-- [ ] Choose one primary item-detail experience
-- [ ] Keep the full page item detail route as the main editing surface
-- [ ] Decide whether the global detail sheet should:
+- [x] Choose one primary item-detail experience
+- [x] Keep the full page item detail route as the main editing surface
+- [x] Decide whether the global detail sheet should:
   - become read-only
   - become a lightweight preview
   - be removed
-- [ ] Reduce duplicated item-detail logic between the full page and overlay sheet
+- [x] Reduce duplicated item-detail logic between the full page and overlay sheet
 
 #### P1.4 — Reduce Settings Complexity
 
-- [ ] Move operational workflows out of Settings:
+- [x] Move operational workflows out of Settings:
   - reminders
   - duplicates
   - queue tasks
-- [ ] Keep Settings focused on:
+- [x] Keep Settings focused on:
   - account
   - theme
   - API keys
   - core preferences
-- [ ] Move model selection behind an `Advanced` section
-- [ ] Move AI prompt template editing behind an `Advanced` section or remove it from normal user flows
+- [x] Move model selection behind an `Advanced` section
+- [x] Move AI prompt template editing behind an `Advanced` section or remove it from normal user flows
 
 #### P1.5 — Clean Up Legacy / Dead Surfaces
 
-- [ ] Audit whether the legacy board/grid flow is still intentionally part of the product
-- [ ] If not, remove dead or zombie UI systems such as:
+- [x] Audit whether the legacy board/grid flow is still intentionally part of the product
+- [x] If not, remove dead or zombie UI systems such as:
   - legacy board view
   - legacy grid view
   - unused item card workflows
-- [ ] Remove stale navigation and components that no longer support the intended product direction
+- [x] Remove stale navigation and components that no longer support the intended product direction
 
 ---
 
