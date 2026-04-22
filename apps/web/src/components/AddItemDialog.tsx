@@ -56,6 +56,12 @@ const DEFAULT_FORM = {
   sourceUrl: "",
 };
 
+type ResolvedItemExtras = {
+  durationMins?: number;
+  externalId?: string;
+  metadata?: string;
+};
+
 export function AddItemDialog({ open, onClose }: Props) {
   const [urlInput, setUrlInput] = useState("");
   const [queryInput, setQueryInput] = useState("");
@@ -64,6 +70,7 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [importSource, setImportSource] = useState<ImportSourceId>("csv");
   const [form, setForm] = useState(DEFAULT_FORM);
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
+  const [resolvedExtras, setResolvedExtras] = useState<ResolvedItemExtras>({});
   const [csvFileName, setCsvFileName] = useState("");
   const [csvText, setCsvText] = useState("");
   const [csvImportResult, setCsvImportResult] = useState<BulkImportResult | null>(null);
@@ -140,6 +147,11 @@ export function AddItemDialog({ open, onClose }: Props) {
     };
 
     setForm(filled);
+    setResolvedExtras({
+      durationMins: meta.durationMins,
+      externalId: meta.externalId,
+      metadata: meta.metadata,
+    });
   }
 
   function reset() {
@@ -150,6 +162,7 @@ export function AddItemDialog({ open, onClose }: Props) {
     setImportSource("csv");
     setForm(DEFAULT_FORM);
     setSearchSuggestions([]);
+    setResolvedExtras({});
     setCsvFileName("");
     setCsvText("");
     setCsvImportResult(null);
@@ -232,6 +245,9 @@ export function AddItemDialog({ open, onClose }: Props) {
         rating: form.rating ? parseInt(form.rating, 10) : undefined,
         notes: form.notes.trim() || undefined,
         sourceUrl: form.sourceUrl.trim() || undefined,
+        durationMins: resolvedExtras.durationMins,
+        externalId: resolvedExtras.externalId,
+        metadata: resolvedExtras.metadata ?? null,
       },
       {
         onSuccess: () => {

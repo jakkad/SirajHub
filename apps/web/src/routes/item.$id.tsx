@@ -9,6 +9,7 @@ import { useAddItemToList, useCreateList, useItemLists, useRemoveItemFromList } 
 import { useCreateNoteEntry, useDeleteNoteEntry, useNoteEntries } from "../hooks/useNotes";
 import { CONTENT_TYPES, STATUSES } from "../lib/constants";
 import type { StatusId } from "../lib/constants";
+import { parseTVMetadata, serializeTVMetadata, summarizeTVSeasons } from "../lib/tv";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -141,6 +142,9 @@ function ItemDetailPage() {
   const contentType = CONTENT_TYPES.find((type) => type.id === currentItem.contentType);
   const themeColor = getTypeColor(currentItem.contentType);
   const progressMeta = getProgressMeta(currentItem);
+  const tvMetadata = currentItem.contentType === "tv" ? parseTVMetadata(currentItem.metadata) : null;
+  const tvSeasonSummary = tvMetadata ? summarizeTVSeasons(tvMetadata.seasons) : null;
+  const displayedProgressPercent = tvSeasonSummary?.progressPercent ?? currentItem.progressPercent ?? 0;
   const availableLists = itemListsData?.lists ?? [];
   const noteEntries = noteEntriesData?.entries ?? [];
   const currentLists = availableLists.filter((list) => list.containsItem);
@@ -209,6 +213,33 @@ function ItemDetailPage() {
       id: currentItem.id,
       progressCurrent: progressForm.current ? parseInt(progressForm.current, 10) : null,
       progressTotal: progressForm.total ? parseInt(progressForm.total, 10) : null,
+    });
+  }
+
+  function toggleSeasonFinished(seasonNumber: number) {
+    if (!tvMetadata) return;
+
+    const nextSeasons = tvMetadata.seasons.map((season) =>
+      season.seasonNumber === seasonNumber
+        ? { ...season, finished: !season.finished }
+        : season
+    );
+    const summary = summarizeTVSeasons(nextSeasons);
+
+    updateItem({
+      id: currentItem.id,
+      metadata: serializeTVMetadata({
+        seasonCount: tvMetadata.seasonCount,
+        seasons: nextSeasons,
+      }),
+      progressCurrent: summary.finishedEpisodes,
+      progressTotal: summary.totalEpisodes,
+      status: summary.allFinished
+        ? "finished"
+        : summary.anyFinished || currentItem.status === "finished"
+          ? "in_progress"
+          : currentItem.status,
+      finishedAt: summary.allFinished ? (currentItem.finishedAt ?? Date.now()) : null,
     });
   }
 
@@ -347,15 +378,46 @@ function ItemDetailPage() {
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-end">
               <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{progressMeta.summaryLabel}</h2>
-              <span className="font-mono text-sm font-semibold">{currentItem.progressPercent ?? 0}%</span>
+              <span className="font-mono text-sm font-semibold">{displayedProgressPercent}%</span>
             </div>
             <div className="h-1.5 w-full bg-[hsl(var(--secondary)_/_0.5)] rounded-full overflow-hidden backdrop-blur-sm">
               <div 
                 className="h-full rounded-full transition-all duration-700 ease-out" 
-                style={{ width: `${Math.max(0, Math.min(100, currentItem.progressPercent ?? 0))}%`, backgroundColor: themeColor }}
+                style={{ width: `${Math.max(0, Math.min(100, displayedProgressPercent))}%`, backgroundColor: themeColor }}
               />
             </div>
-            {currentItem.contentType !== "movie" && (
+            {currentItem.contentType === "tv" && tvMetadata && tvMetadata.seasons.length > 0 ? (
+              <div className="grid gap-3 mt-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{tvSeasonSummary?.finishedSeasons ?? 0} / {tvSeasonSummary?.totalSeasons ?? 0} seasons finished</span>
+                  <span>{tvSeasonSummary?.finishedEpisodes ?? 0} / {tvSeasonSummary?.totalEpisodes ?? 0} episodes</span>
+                </div>
+                {tvMetadata.seasons.map((season) => (
+                  <button
+                    key={season.seasonNumber}
+                    type="button"
+                    onClick={() => toggleSeasonFinished(season.seasonNumber)}
+                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition-colors ${
+                      season.finished
+                        ? "border-[var(--hero-accent)]/40 bg-[var(--hero-accent)]/10"
+                        : "border-[hsl(var(--border)_/_0.5)] bg-[hsl(var(--card)_/_0.3)]"
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-foreground">
+                        {season.title?.trim() || `Season ${season.seasonNumber}`}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {season.episodeCount} episodes
+                      </span>
+                    </div>
+                    <Badge variant={season.finished ? "default" : "outline"}>
+                      {season.finished ? "Finished" : "Mark finished"}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            ) : currentItem.contentType !== "movie" && (
               <div className="grid gap-3 grid-cols-2 mt-3">
                 <div className="flex flex-col gap-1">
                   <Label className="text-xs text-muted-foreground">{progressMeta.currentLabel}</Label>
@@ -367,6 +429,11 @@ function ItemDetailPage() {
                 </div>
               </div>
             )}
+            {currentItem.contentType === "tv" && (!tvMetadata || tvMetadata.seasons.length === 0) ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                No season breakdown is saved for this show yet.
+              </p>
+            ) : null}
           </div>
 
           {/* Description */}
@@ -682,6 +749,6 @@ function ItemDetailPage() {
 function getProgressMeta(item: any) {
   if (item.contentType === "book") return { currentLabel: "Current page", totalLabel: "Total pages", summaryLabel: "Reading Position" };
   if (item.contentType === "article") return { currentLabel: "Mins read", totalLabel: "Total mins", summaryLabel: "Reading Position" };
-  if (item.contentType === "tv") return { currentLabel: "Episodes seen", totalLabel: "Total episodes", summaryLabel: "Watch Position" };
+  if (item.contentType === "tv") return { currentLabel: "Finished episodes", totalLabel: "Total episodes", summaryLabel: "Seasons" };
   return { currentLabel: "Current", totalLabel: "Total", summaryLabel: "Media Tracking" };
 }

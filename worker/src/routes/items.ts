@@ -580,10 +580,12 @@ router.post("/", async (c) => {
     description?: string;
     coverUrl?: string;
     releaseDate?: string;
+    durationMins?: number;
     rating?: number;
     notes?: string;
     sourceUrl?: string;
     externalId?: string;
+    metadata?: string | null;
     progressPercent?: number | null;
     progressCurrent?: number | null;
     progressTotal?: number | null;
@@ -603,12 +605,13 @@ router.post("/", async (c) => {
     return c.json({ error: "Rating must be an integer from 1 to 5." }, 400);
   }
   if (
+    !isValidOptionalNonNegativeInteger(body.durationMins ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressPercent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressCurrent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressTotal ?? null) ||
     (body.progressPercent != null && body.progressPercent > 100)
   ) {
-    return c.json({ error: "Progress values must be non-negative integers and percent must be 0–100." }, 400);
+    return c.json({ error: "Duration and progress values must be non-negative integers and percent must be 0–100." }, 400);
   }
 
   const db = createDb(c.env.DB);
@@ -652,10 +655,12 @@ router.post("/", async (c) => {
     description: body.description?.trim() || null,
     coverUrl: body.coverUrl?.trim() || null,
     releaseDate: body.releaseDate?.trim() || null,
+    durationMins: body.durationMins ?? null,
     rating: body.rating ?? null,
     notes: body.notes?.trim() || null,
     sourceUrl: body.sourceUrl?.trim() || null,
     externalId: body.externalId?.trim() || null,
+    metadata: body.metadata?.trim() || null,
     position: 0,
     progressPercent: progress.progressPercent,
     progressCurrent: progress.progressCurrent,
@@ -785,8 +790,10 @@ router.patch("/:id", async (c) => {
       description: string | null;
       coverUrl: string | null;
       releaseDate: string | null;
+      durationMins: number | null;
       sourceUrl: string | null;
       externalId: string | null;
+      metadata: string | null;
       rating: number | null;
       notes: string | null;
       position: number;
@@ -815,13 +822,14 @@ router.patch("/:id", async (c) => {
     return c.json({ error: "Rating must be an integer from 1 to 5." }, 400);
   }
   if (
+    !isValidOptionalNonNegativeInteger(body.durationMins ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressPercent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressCurrent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressTotal ?? null) ||
     !isValidOptionalNonNegativeInteger(body.lastTouchedAt ?? null) ||
     (body.progressPercent != null && body.progressPercent > 100)
   ) {
-    return c.json({ error: "Progress values must be non-negative integers and percent must be 0–100." }, 400);
+    return c.json({ error: "Duration and progress values must be non-negative integers and percent must be 0–100." }, 400);
   }
   if (!isValidOptionalNonNegativeInteger(body.manualBoost ?? null)) {
     return c.json({ error: "Manual boost must be a non-negative integer." }, 400);
@@ -880,8 +888,10 @@ router.patch("/:id", async (c) => {
       "description",
       "coverUrl",
       "releaseDate",
+      "durationMins",
       "sourceUrl",
       "externalId",
+      "metadata",
       "rating",
       "notes",
       "position",

@@ -10,7 +10,7 @@ function TVPage() {
   return (
     <TypePageLayout
       contentType="tv"
-      title="TV Shows"
+      title="Shows Only"
       color="var(--color-tv)"
     >
       {(items, selectionProps) => <TVPosterGrid items={items} selectionProps={selectionProps} />}

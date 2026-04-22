@@ -74,10 +74,12 @@ export interface CreateItemInput {
   description?: string;
   coverUrl?: string;
   releaseDate?: string;
+  durationMins?: number;
   rating?: number;
   notes?: string;
   sourceUrl?: string;
   externalId?: string;
+  metadata?: string | null;
   progressPercent?: number | null;
   progressCurrent?: number | null;
   progressTotal?: number | null;
@@ -134,6 +136,8 @@ export type UpdateItemInput = Partial<
     | "manualBoost"
     | "cooldownUntil"
     | "externalId"
+    | "durationMins"
+    | "metadata"
     | "progressPercent" | "progressCurrent" | "progressTotal" | "lastTouchedAt"
     | "startedAt" | "finishedAt"
   >

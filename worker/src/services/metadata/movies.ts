@@ -25,6 +25,12 @@ interface TMDBTv extends TMDBBase {
   first_air_date: string;
   number_of_seasons: number;
   episode_run_time?: number[];
+  seasons?: Array<{
+    season_number: number;
+    episode_count: number;
+    name?: string;
+    air_date?: string | null;
+  }>;
 }
 
 const BASE = "https://api.themoviedb.org/3";
@@ -91,7 +97,20 @@ export async function fetchTMDB(
     metadata: JSON.stringify({
       genres: detail.genres?.map((g) => g.name),
       tmdbRating: detail.vote_average,
-      ...(isTV ? { seasons: (detail as TMDBTv).number_of_seasons } : {}),
+      ...(isTV
+        ? {
+            seasons: ((detail as TMDBTv).seasons ?? [])
+              .filter((season) => season.season_number > 0 && season.episode_count > 0)
+              .map((season) => ({
+                seasonNumber: season.season_number,
+                title: season.name,
+                episodeCount: season.episode_count,
+                airDate: season.air_date ?? null,
+                finished: false,
+              })),
+            seasonCount: (detail as TMDBTv).number_of_seasons,
+          }
+        : {}),
     }),
   };
 }
@@ -118,14 +137,49 @@ export async function searchTMDB(
     }>;
   };
 
-  return (searchData.results ?? []).slice(0, 5).map((item) => ({
-    provider: "tmdb",
-    contentType: mediaType,
-    title: mediaType === "tv" ? item.name ?? "Untitled" : item.title ?? "Untitled",
-    description: item.overview?.slice(0, 500),
-    coverUrl: item.poster_path ? `${IMG}${item.poster_path}` : undefined,
-    releaseDate: (mediaType === "tv" ? item.first_air_date : item.release_date)?.slice(0, 10),
-    sourceUrl: `https://www.themoviedb.org/${mediaType}/${item.id}`,
-    externalId: String(item.id),
-  }));
+  const baseResults = (searchData.results ?? []).slice(0, mediaType === "tv" ? 8 : 5);
+
+  if (mediaType !== "tv") {
+    return baseResults.map((item) => ({
+      provider: "tmdb",
+      contentType: mediaType,
+      title: item.title ?? "Untitled",
+      description: item.overview?.slice(0, 500),
+      coverUrl: item.poster_path ? `${IMG}${item.poster_path}` : undefined,
+      releaseDate: item.release_date?.slice(0, 10),
+      sourceUrl: `https://www.themoviedb.org/${mediaType}/${item.id}`,
+      externalId: String(item.id),
+    }));
+  }
+
+  const detailedSuggestions = await Promise.all(
+    baseResults.map(async (item) => {
+      const detail = await fetchTMDB(`https://www.themoviedb.org/tv/${item.id}`, "tv", env);
+      let hasAvailableSeasons = false;
+      try {
+        const parsed = detail.metadata ? JSON.parse(detail.metadata) : null;
+        hasAvailableSeasons = Array.isArray(parsed?.seasons) && parsed.seasons.length > 0;
+      } catch {
+        hasAvailableSeasons = false;
+      }
+
+      if (!hasAvailableSeasons) return null;
+
+      return {
+        provider: "tmdb",
+        contentType: "tv" as const,
+        title: detail.title,
+        description: detail.description,
+        coverUrl: detail.coverUrl,
+        releaseDate: detail.releaseDate,
+        sourceUrl: detail.sourceUrl,
+        externalId: detail.externalId,
+        metadata: detail.metadata,
+      };
+    })
+  );
+
+  return detailedSuggestions
+    .filter((item) => item !== null)
+    .slice(0, 5);
 }

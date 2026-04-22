@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
+import { parseTVMetadata } from "../../lib/tv";
 import type { SelectionProps } from "./TypePageLayout";
 import { SelectionOverlay } from "./SelectionOverlay";
 
@@ -30,8 +31,8 @@ export function TVPosterGrid({ items, selectionProps }: TVPosterGridProps) {
     >
       {items.map((item) => {
         const year = item.releaseDate?.slice(0, 4);
-        let seasons: number | undefined;
-        try { if (item.metadata) seasons = JSON.parse(item.metadata)?.seasons; } catch { /* ignore */ }
+        const tvMetadata = parseTVMetadata(item.metadata);
+        const seasons = tvMetadata?.seasonCount ?? tvMetadata?.seasons.length;
 
         return (
           <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
@@ -95,7 +96,7 @@ export function TVPosterGrid({ items, selectionProps }: TVPosterGridProps) {
                       lineHeight: 1.4,
                     }}
                   >
-                    S{seasons}
+                    {seasons} Seasons
                   </div>
                 )}
 
