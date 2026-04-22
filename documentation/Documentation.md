@@ -1558,3 +1558,91 @@ It adds:
 - fix for item deletion dropdown behavior
 
 At this point, the app better supports managing large libraries and maintaining imported data over time.
+
+## Version 3.3
+
+### Tasks
+
+**TV Module Refinement**
+
+- Updated the TV collection page to emphasize shows-only browsing:
+  - changed the `/tv` page title to `Shows Only`
+  - kept the dedicated TV poster grid experience
+  - continued using TV-specific metadata for display
+
+- Reworked TV metadata handling:
+  - added structured TV metadata parsing utilities in the frontend
+  - standardized season metadata shape to include:
+    - `seasonNumber`
+    - `episodeCount`
+    - optional season title
+    - optional air date
+    - `finished` state
+  - added serialization support so TV metadata can be safely updated and saved back to items
+
+- Expanded TMDB TV ingest behavior:
+  - changed TV metadata fetch to store full season lists instead of only a season count
+  - excluded specials / season 0 from tracked seasons
+  - kept per-season episode totals from TMDB
+  - stored `seasonCount` alongside structured season data
+
+- Improved TV search suggestions:
+  - refined TMDB TV search flow to resolve detailed metadata for candidate shows
+  - filtered TV suggestions so only shows with available seasons are returned
+  - ensured selected TV suggestions carry season metadata into item creation
+
+- Fixed Add Item persistence for richer metadata:
+  - preserved fetched `metadata`, `externalId`, and `durationMins` during item creation
+  - extended create/update item API contracts to support saving `metadata`
+  - allowed metadata-aware updates for future TV progress changes
+
+- Rebuilt TV item detail progress UX:
+  - removed the old TV-specific `Episodes seen` / `Total episodes` editing model
+  - replaced it with a per-season progress interface
+  - displayed each season with its episode count
+  - allowed each season to be marked as finished independently
+  - showed season completion and total episode completion summary
+
+- Connected TV season completion to item progress state:
+  - recalculated total completed episodes from finished seasons
+  - recalculated overall progress percentage automatically
+  - updated item status based on season completion:
+    - fully finished shows move to `finished`
+    - partially completed shows move to `in_progress`
+  - persisted `finishedAt` when all seasons are completed
+
+- Updated TV poster badges:
+  - changed TV cards to show season counts using the new structured metadata
+  - used parsed metadata instead of raw JSON assumptions
+
+---
+
+### Explainer
+
+Version 3.3 is a focused refinement of the TV module.
+
+Earlier versions introduced TV support as part of the general media system, including poster-based browsing and basic progress tracking. However, the TV experience still treated shows too much like other media types by relying on generic current/total progress fields. That approach was functional, but it did not match how people actually track television.
+
+This version reshapes TV around seasons as the primary unit of progress.
+
+Instead of manually entering watched episode numbers, the app now stores structured per-season metadata and lets the user mark each season as finished. That creates a more natural workflow for television, while still preserving aggregate progress values for dashboards, reminders, and recommendation logic.
+
+The ingest flow is also improved so the app captures richer TV data at creation time. TMDB results now save real season breakdowns rather than only a single season count, and search suggestions are filtered to avoid incomplete or unusable TV results.
+
+Overall, this version does not introduce a brand-new product area. It deepens one existing area so that TV behaves like a first-class content type with its own tracking model, rather than a thin adaptation of the generic progress system.
+
+---
+
+### Summary
+
+Version 3.3 refines the TV module into a season-based tracking system.
+
+It adds:
+- a `Shows Only` TV browsing page
+- structured season metadata for TV items
+- TV suggestions limited to shows with available seasons
+- season-by-season completion tracking on item pages
+- automatic episode totals, progress percent, and status updates
+- richer TMDB TV metadata saved during item creation
+
+At this point, the TV experience is no longer just poster browsing with generic progress fields. It becomes a dedicated show-tracking workflow built around seasons, completion state, and better metadata quality.
