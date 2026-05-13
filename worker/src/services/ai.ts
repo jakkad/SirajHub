@@ -19,13 +19,6 @@ export interface SuggestMetricResult {
   moreInfoRequest: string | null;
 }
 
-type GeminiModelListResponse = {
-  models?: Array<{
-    name?: string;
-    supportedGenerationMethods?: string[];
-  }>;
-};
-
 function toTrimmedString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value.trim() : fallback;
 }
@@ -266,28 +259,7 @@ Always return a score even if needsMoreInfo is true.`;
   };
 }
 
-async function assertGeminiModelSupportsGenerateContent(apiKey: string, model: string): Promise<void> {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${apiKey}`);
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Could not verify Gemini model catalog (${res.status}): ${body.slice(0, 300)}`);
-  }
-
-  const data = (await res.json()) as GeminiModelListResponse;
-  const modelInfo = (data.models ?? []).find((entry) => entry.name === `models/${model}` || entry.name === model);
-
-  if (!modelInfo) {
-    throw new Error(`Model ${model} is not available for the current Gemini API key. Run ListModels or choose another model.`);
-  }
-
-  if (!modelInfo.supportedGenerationMethods?.includes("generateContent")) {
-    throw new Error(`Model ${model} is available, but does not support generateContent for the current Gemini API key.`);
-  }
-}
-
 export async function testGeminiModel(apiKey: string, model: string): Promise<void> {
-  await assertGeminiModelSupportsGenerateContent(apiKey, model);
-
   const analyzeResult = await analyzeItem(
     apiKey,
     model,
