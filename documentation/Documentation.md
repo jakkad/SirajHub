@@ -1881,3 +1881,101 @@ It adds:
 - a playlist import panel in the Add Item import tab
 
 At this point, SirajHub can import a public YouTube playlist as either videos or podcast-style items while keeping the existing import preview, duplicate detection, and job tracking behavior.
+
+## Version 3.7
+
+### Tasks
+
+**Add Item UI Cleanup**
+
+- Rebuilt the Add Item experience as a wider workspace modal:
+  - increased the available desktop width
+  - made the modal nearly full-height
+  - kept the header and footer fixed while the main content scrolls
+  - kept Add Item as a modal because it remains a focused global capture task
+
+- Refactored the Add Item component into smaller internal sections:
+  - modal shell
+  - URL workspace
+  - Search workspace
+  - Manual details form
+  - Imports workspace
+  - item preview
+  - import preview and validation
+  - recent import jobs
+  - manual CSV mapping
+
+- Cleaned up the URL tab:
+  - kept the URL input and Fetch action at the top
+  - moved supported URL hints into a compact disclosure
+  - reused the shared item details form and preview after metadata is fetched
+
+- Cleaned up the Search tab:
+  - kept content type, search input, and Search action in one compact row
+  - changed suggestions into a denser selectable list
+  - reused the shared item details form and preview after a result is selected
+
+- Cleaned up the Manual tab:
+  - shows the shared item details form immediately
+  - keeps the item preview visible on wider screens
+  - groups cover URL, source URL, description, and notes inside a `More fields` disclosure
+
+- Cleaned up the Imports tab:
+  - separated YouTube playlist import from file upload import
+  - kept recent import jobs in a dedicated side panel
+  - reused one import preview and validation area for both playlist and file imports
+  - collapsed CSV field mapping behind a disclosure
+  - kept resync metadata as a footer-level import option
+
+- Preserved existing behavior:
+  - manual item creation
+  - URL metadata fetch
+  - external search and resolve
+  - duplicate warning with existing item action
+  - CSV and mapped CSV imports
+  - YouTube playlist imports
+  - import validation and result reporting
+  - metadata, duration, and external ID persistence
+
+- Verified the change:
+  - `pnpm typecheck`
+  - `pnpm build`
+
+---
+
+### Explainer
+
+Version 3.7 focuses on the Add Item workflow.
+
+Before this version, the Add Item dialog had grown into a very large component that handled several different jobs at once. It contained the modal shell, URL fetching, external search, manual item entry, CSV import, YouTube playlist import, field mapping, import previews, duplicate handling, and footer actions all in one long scrolling layout.
+
+That made the feature harder to use and harder to maintain. The user had to scroll through a lot of information, and the code had many unrelated UI paths sitting next to each other.
+
+This version keeps the same product behavior but changes the shape of the interface.
+
+The Add Item experience is still a modal, but it now behaves more like a workspace. It is wider on desktop, closer to full-screen on smaller screens, and has a fixed header and footer. The active tab controls stay at the top, the save/import action stays at the bottom, and only the main content area scrolls.
+
+The tabs are also cleaner. URL, Search, and Manual all share the same item details form and preview. That means fetched or selected metadata lands in the same editing surface that manual entry uses. This reduces duplicate UI and makes the workflow easier to understand: no matter how the item starts, it becomes one editable draft before saving.
+
+The Imports tab was reorganized around import methods. YouTube playlist import and file upload import now sit as separate panels instead of being mixed together. Recent jobs are moved into their own side panel, and the import preview/validation area is shared by both import methods. Manual CSV mapping is still available, but it is hidden behind a disclosure so it does not dominate the default import view.
+
+On the code side, the component now uses smaller internal panels and helper functions. This keeps the existing API behavior intact while making the UI logic easier to follow. The backend did not need to change for this version because the goal was to improve presentation and component structure, not alter import semantics.
+
+Overall, Version 3.7 makes adding and importing content feel less like filling out a long form and more like working in a focused capture workspace.
+
+---
+
+### Summary
+
+Version 3.7 cleans up the Add Item and Import UI.
+
+It adds:
+- a wider workspace-style Add Item modal
+- fixed header and footer layout
+- shared item form and preview across URL, Search, and Manual tabs
+- separated YouTube playlist and file upload import panels
+- shared import preview and validation
+- collapsed CSV field mapping
+- smaller internal UI sections inside the Add Item component
+
+At this point, the Add Item workflow is easier to scan, easier to use, and easier to maintain without changing the underlying create/import behavior.
