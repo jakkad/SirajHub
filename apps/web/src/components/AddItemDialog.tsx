@@ -311,13 +311,13 @@ export function AddItemDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(next) => (!next ? close() : undefined)}>
       <DialogContent className="flex h-[calc(100vh-1rem)] max-h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-[1280px] flex-col overflow-hidden rounded-[26px] p-0 sm:h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-2rem)]">
         <DialogHeader className="shrink-0 border-b border-[hsl(var(--border))] px-5 py-4 sm:px-6">
-          <div className="grid gap-4 pr-12 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="grid gap-4 pr-12">
             <div className="min-w-0">
               <DialogTitle>Add Item</DialogTitle>
               <DialogDescription className="max-w-2xl">Capture one item or import a list without leaving the current workspace.</DialogDescription>
             </div>
             <Tabs value={mode} onValueChange={handleModeChange}>
-              <TabsList className="grid w-full grid-cols-4 gap-2 bg-transparent p-0 shadow-none xl:w-[520px]">
+              <TabsList className="grid w-full max-w-4xl grid-cols-4 gap-2 bg-transparent p-0 shadow-none">
                 <TabsTrigger value="url" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">URL</TabsTrigger>
                 <TabsTrigger value="search" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Search</TabsTrigger>
                 <TabsTrigger value="manual" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Manual</TabsTrigger>
