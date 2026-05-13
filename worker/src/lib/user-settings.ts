@@ -27,14 +27,25 @@ export const AI_MODELS = [
     },
   },
   {
-    id: "gemma-3-27b-it",
-    label: "Gemma 3 27B",
-    description: "Experimental Gemma instruction model using prompt-guided JSON parsing.",
+    id: "gemma-4-26b-a4b-it",
+    label: "Gemma 4 26B A4B",
+    description: "Efficient Gemma 4 MoE model with high free-tier limits and structured output support.",
     family: "gemma",
-    supportLevel: "experimental",
+    supportLevel: "stable",
     capabilities: {
-      analyze: "prompt_json",
-      score: "prompt_json",
+      analyze: "schema",
+      score: "schema",
+    },
+  },
+  {
+    id: "gemma-4-31b-it",
+    label: "Gemma 4 31B",
+    description: "Higher-capability Gemma 4 instruction model for reasoning-heavy analysis and scoring.",
+    family: "gemma",
+    supportLevel: "stable",
+    capabilities: {
+      analyze: "schema",
+      score: "schema",
     },
   },
 ] as const;
@@ -50,7 +61,7 @@ export type ContentTypeId = typeof CONTENT_TYPE_IDS[number];
 export type AiModelId = typeof AI_MODELS[number]["id"];
 export type AiModelFamily = typeof AI_MODELS[number]["family"];
 export type AiModelSupportLevel = typeof AI_MODELS[number]["supportLevel"];
-export type AiModelCapabilityMode = typeof AI_MODELS[number]["capabilities"]["analyze"];
+export type AiModelCapabilityMode = "schema" | "prompt_json";
 export type InterestWeight = "low" | "medium" | "high";
 export type InterestChip = {
   id: string;
@@ -238,6 +249,9 @@ export async function resolveInterestProfiles(db: Db, userId: string): Promise<I
 export function normalizeAiModel(input: unknown): AiModelId {
   if (typeof input === "string") {
     const trimmed = input.trim();
+    if (trimmed === "gemma-3-27b-it") {
+      return "gemma-4-31b-it";
+    }
     if (AI_MODEL_OPTIONS.includes(trimmed)) {
       return trimmed as AiModelId;
     }
