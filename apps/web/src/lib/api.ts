@@ -132,6 +132,12 @@ export interface ImportRowInput extends CreateItemInput {
   sourceMetadata?: unknown;
 }
 
+export interface YouTubePlaylistImportPreview {
+  rows: ImportRowInput[];
+  preview: Array<ImportRowInput & { rowNumber: number }>;
+  errors: { row: number; error: string }[];
+}
+
 export type UpdateItemInput = Partial<
   Pick<Item,
     | "title" | "contentType" | "status" | "creator" | "description"
@@ -229,6 +235,17 @@ export const ingestApi = {
     return request<FetchedMetadata>("/api/ingest/resolve", {
       method: "POST",
       body: JSON.stringify({ suggestion }),
+    });
+  },
+
+  youtubePlaylist(input: {
+    url: string;
+    contentType: Extract<ContentTypeId, "youtube" | "podcast">;
+    status?: StatusId;
+  }): Promise<YouTubePlaylistImportPreview> {
+    return request<YouTubePlaylistImportPreview>("/api/ingest/youtube-playlist", {
+      method: "POST",
+      body: JSON.stringify(input),
     });
   },
 };

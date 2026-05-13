@@ -98,6 +98,13 @@ export function useResolveIngestSuggestion() {
   });
 }
 
+export function useIngestYouTubePlaylist() {
+  return useMutation({
+    mutationFn: (input: Parameters<typeof ingestApi.youtubePlaylist>[0]) =>
+      ingestApi.youtubePlaylist(input),
+  });
+}
+
 export function useImportSources() {
   return useQuery({
     queryKey: [IMPORT_SOURCES_QUERY_KEY],

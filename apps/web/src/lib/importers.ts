@@ -11,6 +11,7 @@ export type ImportSourceId =
   | "pocket"
   | "raindrop"
   | "youtube_history"
+  | "youtube_playlist"
   | "apple_podcasts_opml"
   | "x_bookmarks";
 

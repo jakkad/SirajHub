@@ -7,6 +7,7 @@ import {
   useImportSources,
   useIngest,
   useIngestSearch,
+  useIngestYouTubePlaylist,
   useResolveIngestSuggestion,
 } from "../hooks/useItems";
 import {
@@ -19,7 +20,7 @@ import {
 import { prepareImportFile, type ImportSourceId } from "../lib/importers";
 import { AUTO_DETECT_SOURCES, CONTENT_TYPES, SEARCHABLE_EXTERNAL_TYPES, STATUSES } from "../lib/constants";
 import type { ContentTypeId, StatusId } from "../lib/constants";
-import { ApiError, type BulkImportResult, type DuplicateItemSummary, type FetchedMetadata, type SearchSuggestion } from "../lib/api";
+import { ApiError, type BulkImportResult, type DuplicateItemSummary, type FetchedMetadata, type SearchSuggestion, type YouTubePlaylistImportPreview } from "../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -68,6 +69,13 @@ export function AddItemDialog({ open, onClose }: Props) {
   const [searchType, setSearchType] = useState<ContentTypeId>("book");
   const [mode, setMode] = useState<"url" | "search" | "manual" | "csv">("url");
   const [importSource, setImportSource] = useState<ImportSourceId>("csv");
+  const [youtubePlaylistUrl, setYoutubePlaylistUrl] = useState("");
+  const [youtubePlaylistType, setYoutubePlaylistType] = useState<"youtube" | "podcast">("youtube");
+  const [youtubePlaylistPreparation, setYoutubePlaylistPreparation] = useState<YouTubePlaylistImportPreview>({
+    rows: [],
+    preview: [],
+    errors: [],
+  });
   const [form, setForm] = useState(DEFAULT_FORM);
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
   const [resolvedExtras, setResolvedExtras] = useState<ResolvedItemExtras>({});
@@ -105,6 +113,7 @@ export function AddItemDialog({ open, onClose }: Props) {
   const { data: importJobs } = useImportJobs();
   const { mutate: fetchMeta, isPending: fetching, error: fetchError } = useIngest();
   const { mutate: searchMeta, isPending: searching, error: searchError } = useIngestSearch();
+  const { mutate: fetchYouTubePlaylist, isPending: fetchingYouTubePlaylist, error: youtubePlaylistError } = useIngestYouTubePlaylist();
   const { mutate: resolveSuggestion, isPending: resolving, error: resolveError } = useResolveIngestSuggestion();
   const parsedCsv = useMemo(() => parseCsv(csvText), [csvText]);
   const csvPreparation = useMemo(() => {
@@ -124,8 +133,12 @@ export function AddItemDialog({ open, onClose }: Props) {
         errors: prepared.errors,
       };
     }
+    if (importSource === "youtube_playlist") {
+      return { rows: [], preview: [], errors: [] };
+    }
     return prepareImportFile(importSource, csvText);
   }, [csvText, importSource, manualMappingEnabled, manualMapping, parsedCsv]);
+  const activeImportPreparation = importSource === "youtube_playlist" ? youtubePlaylistPreparation : csvPreparation;
 
   function setField(field: keyof typeof DEFAULT_FORM, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -160,6 +173,9 @@ export function AddItemDialog({ open, onClose }: Props) {
     setSearchType("book");
     setMode("url");
     setImportSource("csv");
+    setYoutubePlaylistUrl("");
+    setYoutubePlaylistType("youtube");
+    setYoutubePlaylistPreparation({ rows: [], preview: [], errors: [] });
     setForm(DEFAULT_FORM);
     setSearchSuggestions([]);
     setResolvedExtras({});
@@ -277,18 +293,34 @@ export function AddItemDialog({ open, onClose }: Props) {
   }
 
   function handleImportCsv() {
-    if (csvPreparation.rows.length === 0) return;
+    if (activeImportPreparation.rows.length === 0) return;
 
-    importItems({ source: importSource, rows: csvPreparation.rows, resyncMetadata }, {
+    importItems({ source: importSource, rows: activeImportPreparation.rows, resyncMetadata }, {
       onSuccess(result) {
         setCsvImportResult(result);
       },
     });
   }
 
-  const error = fetchError ?? searchError ?? resolveError ?? saveError ?? importError;
+  function handleFetchYouTubePlaylist() {
+    const url = youtubePlaylistUrl.trim();
+    if (!url) return;
+
+    fetchYouTubePlaylist(
+      { url, contentType: youtubePlaylistType, status: "suggestions" },
+      {
+        onSuccess(result) {
+          setImportSource("youtube_playlist");
+          setYoutubePlaylistPreparation(result);
+          setCsvImportResult(null);
+        },
+      }
+    );
+  }
+
+  const error = fetchError ?? searchError ?? youtubePlaylistError ?? resolveError ?? saveError ?? importError;
   const isCsvMode = mode === "csv";
-  const csvImportDisabled = csvPreparation.rows.length === 0;
+  const csvImportDisabled = activeImportPreparation.rows.length === 0;
 
   return (
     <Dialog
@@ -440,7 +472,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                           <CardContent className="grid gap-3 p-5">
                             <div>
                               <p className="text-sm font-semibold text-foreground">Recent import jobs</p>
-                              <p className="text-xs text-muted-foreground">Every CSV run is now tracked as a real import job with created, duplicate, and failed counts.</p>
+                              <p className="text-xs text-muted-foreground">Every import run is tracked with created, duplicate, and failed counts.</p>
                             </div>
                             {(importJobs?.jobs ?? []).slice(0, 4).map((job) => (
                               <div key={job.id} className="flex items-center justify-between gap-3 rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
@@ -460,6 +492,46 @@ export function AddItemDialog({ open, onClose }: Props) {
                         </Card>
                       </div>
 
+                      <div className="grid gap-4 rounded-[20px] border border-[hsl(var(--border))] bg-card p-5">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">YouTube playlist</p>
+                              <p className="text-xs leading-5 text-muted-foreground">
+                                Paste a public playlist URL, choose Video or Podcast, then review fetched details before importing.
+                              </p>
+                            </div>
+                            {importSource === "youtube_playlist" && youtubePlaylistPreparation.rows.length > 0 ? (
+                              <Badge variant="secondary">{youtubePlaylistPreparation.rows.length} fetched</Badge>
+                            ) : null}
+                          </div>
+
+                          <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+                            <Input
+                              value={youtubePlaylistUrl}
+                              onChange={(e) => setYoutubePlaylistUrl(e.target.value)}
+                              placeholder="https://www.youtube.com/playlist?list=..."
+                            />
+                            <Select value={youtubePlaylistType} onValueChange={(value) => setYoutubePlaylistType(value as "youtube" | "podcast")}>
+                              <SelectTrigger className="bg-card lg:w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-card">
+                                <SelectGroup>
+                                  <SelectItem value="youtube">Video</SelectItem>
+                                  <SelectItem value="podcast">Podcast</SelectItem>
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              type="button"
+                              onClick={handleFetchYouTubePlaylist}
+                              disabled={!youtubePlaylistUrl.trim() || fetchingYouTubePlaylist}
+                            >
+                              {fetchingYouTubePlaylist ? "Fetching…" : "Fetch playlist"}
+                            </Button>
+                          </div>
+                      </div>
+
                       <div className="flex flex-col gap-3 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] p-4">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
@@ -473,7 +545,7 @@ export function AddItemDialog({ open, onClose }: Props) {
 
                         <div className="flex flex-wrap gap-2">
                           {(importSources?.sources ?? [])
-                            .filter((source) => source.status === "available")
+                            .filter((source) => source.status === "available" && source.id !== "youtube_playlist")
                             .map((source) => (
                               <button
                                 key={source.id}
@@ -504,9 +576,9 @@ export function AddItemDialog({ open, onClose }: Props) {
                         </p>
                       </div>
 
-                      {csvText ? (
+                      {csvText || importSource === "youtube_playlist" ? (
                         <div className="grid gap-4">
-                          {parsedCsv.headers.length > 0 ? (
+                          {importSource !== "youtube_playlist" && parsedCsv.headers.length > 0 ? (
                             <Card>
                               <CardContent className="grid gap-4 p-5">
                                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -704,19 +776,19 @@ export function AddItemDialog({ open, onClose }: Props) {
                                 <div>
                                   <p className="text-sm font-semibold text-foreground">Import preview</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {csvPreparation.rows.length} valid row{csvPreparation.rows.length === 1 ? "" : "s"} ready to import
+                                    {activeImportPreparation.rows.length} valid row{activeImportPreparation.rows.length === 1 ? "" : "s"} ready to import
                                   </p>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                  <Badge variant="secondary">{csvPreparation.preview.length} shown</Badge>
-                                  {csvPreparation.errors.length > 0 ? (
-                                    <Badge variant="outline">{csvPreparation.errors.length} issue{csvPreparation.errors.length === 1 ? "" : "s"}</Badge>
+                                  <Badge variant="secondary">{activeImportPreparation.preview.length} shown</Badge>
+                                  {activeImportPreparation.errors.length > 0 ? (
+                                    <Badge variant="outline">{activeImportPreparation.errors.length} issue{activeImportPreparation.errors.length === 1 ? "" : "s"}</Badge>
                                   ) : null}
                                 </div>
                               </div>
 
                               <div className="grid gap-3">
-                                {csvPreparation.preview.map((row) => (
+                                {activeImportPreparation.preview.map((row) => (
                                   <div key={row.rowNumber} className="rounded-[18px] border border-[hsl(var(--border))] bg-card px-4 py-3">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <Badge variant="outline">Row {row.rowNumber}</Badge>
@@ -744,9 +816,9 @@ export function AddItemDialog({ open, onClose }: Props) {
                                 </p>
                               </div>
 
-                              {csvPreparation.errors.length > 0 ? (
+                              {activeImportPreparation.errors.length > 0 ? (
                                 <div className="grid gap-2">
-                                  {csvPreparation.errors.slice(0, 8).map((entry) => (
+                                  {activeImportPreparation.errors.slice(0, 8).map((entry) => (
                                     <div key={`${entry.row}-${entry.error}`} className="rounded-[18px] border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                                       Row {entry.row}: {entry.error}
                                     </div>
@@ -947,7 +1019,7 @@ export function AddItemDialog({ open, onClose }: Props) {
                 </Button>
               {isCsvMode ? (
                 <Button type="button" onClick={handleImportCsv} disabled={importing || csvImportDisabled}>
-                  {importing ? "Importing…" : `Import ${csvPreparation.rows.length} item${csvPreparation.rows.length === 1 ? "" : "s"}`}
+                  {importing ? "Importing…" : `Import ${activeImportPreparation.rows.length} item${activeImportPreparation.rows.length === 1 ? "" : "s"}`}
                 </Button>
               ) : (
                 <Button type="submit" disabled={saving || !form.title.trim()}>

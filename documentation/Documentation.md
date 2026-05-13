@@ -1804,3 +1804,80 @@ It adds:
 - removal of legacy board/grid-era UI remnants and their unused dependencies
 
 At this point, the app becomes easier to navigate, easier to maintain, and more aligned with the product’s intended `Capture / Decide / Consume` flow.
+
+## Version 3.6
+
+### Tasks
+
+**YouTube Playlist Import**
+
+- Added a dedicated YouTube playlist preview endpoint:
+  - accepts a public YouTube playlist URL
+  - accepts a target content type of `youtube` or `podcast`
+  - defaults imported playlist items to `suggestions`
+  - returns prepared import rows, preview rows, and row-level errors before saving
+
+- Extended YouTube metadata fetching:
+  - extracts playlist IDs from YouTube playlist and watch URLs
+  - fetches playlist entries with YouTube `playlistItems.list`
+  - follows pagination until the playlist is fully loaded
+  - batches video detail lookups with YouTube `videos.list`
+  - fills title, channel, thumbnail, publish date, duration, source URL, external ID, and metadata
+  - reports missing, private, or unavailable videos as preview errors without blocking valid rows
+
+- Added a new `youtube_playlist` import source:
+  - keeps live playlist imports separate from uploaded YouTube history/export imports
+  - records playlist imports in the existing import job history
+  - keeps duplicate detection on the existing source URL, external ID, and title/creator rules
+
+- Improved bulk import persistence:
+  - preserves `durationMins` from prepared import rows
+  - preserves item `metadata` from prepared import rows
+  - validates imported duration values alongside progress values
+
+- Added YouTube playlist UI inside the existing Add Item import tab:
+  - playlist URL input
+  - Video / Podcast type selector
+  - fetch button for previewing playlist rows before import
+  - shared preview, validation, and import result panels
+  - import action wired through the existing import job flow
+
+- Verified the change:
+  - `pnpm typecheck`
+  - `pnpm build`
+
+---
+
+### Explainer
+
+Version 3.6 improves the capture workflow for YouTube-based content.
+
+Before this version, the app already had two related pieces: a single-URL YouTube metadata fetcher and a file-based YouTube import parser. Those were useful, but they did not cover the common case where a user already has a public YouTube playlist and wants to bring the whole list into SirajHub without manually saving each video.
+
+This version adds that missing workflow.
+
+The backend now has a preview endpoint that takes a playlist URL and a chosen target type. If the user chooses Video, the imported rows use the existing `youtube` content type. If the user chooses Podcast, the same YouTube videos are saved as `podcast` items, which supports the way some long-form YouTube shows are consumed more like audio episodes.
+
+The YouTube service does the metadata work before anything is saved. It first extracts the playlist ID from the URL, then calls YouTube’s playlist API page by page. Playlist entries give the app the video IDs, but not all of the final details needed for good item records, so the service also batches those IDs through the YouTube video details API. That second lookup gives the app the title, channel, thumbnail, publish date, and duration.
+
+The frontend adds this as a focused panel inside the existing Imports tab. The user pastes the playlist URL, chooses Video or Podcast, fetches the playlist, reviews the preview, and imports the valid rows. The actual saving still goes through the existing import job system, so duplicate handling, import history, row failures, and result reporting stay consistent with CSV and other importers.
+
+One important persistence fix is included in this version: bulk imports now save `durationMins` and `metadata`. Without that, the playlist preview could fetch rich YouTube details, but the final saved items would lose some of that data during import. Now the previewed details and saved records line up.
+
+Private, deleted, or otherwise unavailable playlist videos are handled as row-level preview errors. That means a playlist can still be imported partially, and the user can see which entries could not be prepared.
+
+---
+
+### Summary
+
+Version 3.6 adds live YouTube playlist import.
+
+It adds:
+- a backend YouTube playlist preview endpoint
+- playlist paging and batched video metadata lookup
+- a Video / Podcast choice for imported playlist rows
+- a dedicated `youtube_playlist` import source
+- preservation of duration and metadata during bulk imports
+- a playlist import panel in the Add Item import tab
+
+At this point, SirajHub can import a public YouTube playlist as either videos or podcast-style items while keeping the existing import preview, duplicate detection, and job tracking behavior.

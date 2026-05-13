@@ -61,6 +61,12 @@ const VALID_IMPORT_SOURCES = [
     description: "Import YouTube playlist and history exports.",
   },
   {
+    id: "youtube_playlist",
+    label: "YouTube Playlist",
+    status: "available",
+    description: "Fetch a public YouTube playlist and import each video as Video or Podcast.",
+  },
+  {
     id: "apple_podcasts_opml",
     label: "Apple Podcasts OPML",
     status: "available",
@@ -84,10 +90,12 @@ type ImportRowInput = {
   description?: string;
   coverUrl?: string;
   releaseDate?: string;
+  durationMins?: number;
   rating?: number;
   notes?: string;
   sourceUrl?: string;
   externalId?: string;
+  metadata?: string | null;
   progressPercent?: number | null;
   progressCurrent?: number | null;
   progressTotal?: number | null;
@@ -354,9 +362,10 @@ async function runImportJob(
       !isValidOptionalNonNegativeInteger(row.progressPercent ?? null) ||
       !isValidOptionalNonNegativeInteger(row.progressCurrent ?? null) ||
       !isValidOptionalNonNegativeInteger(row.progressTotal ?? null) ||
+      !isValidOptionalNonNegativeInteger(row.durationMins ?? null) ||
       (row.progressPercent != null && row.progressPercent > 100)
     ) {
-      errors.push({ row: rowNumber, title, error: "Invalid progress values." });
+      errors.push({ row: rowNumber, title, error: "Invalid duration or progress values." });
       await db.insert(importSourceMappings).values({
         id: ulid(),
         importJobId,
@@ -418,10 +427,12 @@ async function runImportJob(
       description: row.description?.trim() || null,
       coverUrl: row.coverUrl?.trim() || null,
       releaseDate: row.releaseDate?.trim() || null,
+      durationMins: row.durationMins ?? null,
       rating,
       notes: row.notes?.trim() || null,
       sourceUrl: row.sourceUrl?.trim() || null,
       externalId: row.externalId?.trim() || null,
+      metadata: row.metadata?.trim() || null,
       position: 0,
       progressPercent: progress.progressPercent,
       progressCurrent: progress.progressCurrent,

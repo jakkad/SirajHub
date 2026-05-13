@@ -4,6 +4,7 @@ import { createDb } from "../db/client";
 import { urlCache } from "../db/schema";
 import { resolveMetadataEnv } from "../lib/user-settings";
 import { dispatch, resolveSuggestion, searchByQuery } from "../services/metadata";
+import { fetchYouTubePlaylistImport } from "../services/metadata/youtube";
 import type { Env } from "../types";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -92,6 +93,40 @@ router.post("/search", async (c) => {
     return c.json({ suggestions: suggestions.slice(0, 5) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Search failed";
+    return c.json({ error: message }, 502);
+  }
+});
+
+router.post("/youtube-playlist", async (c) => {
+  const userId = c.get("userId");
+  const body = await c.req.json<{
+    url?: string;
+    contentType?: string;
+    status?: "suggestions" | "in_progress" | "finished" | "archived";
+  }>();
+
+  if (!body.url?.trim()) {
+    return c.json({ error: "url is required" }, 400);
+  }
+  if (body.contentType !== "youtube" && body.contentType !== "podcast") {
+    return c.json({ error: "contentType must be youtube or podcast" }, 400);
+  }
+
+  const db = createDb(c.env.DB);
+  const resolvedEnv = await resolveMetadataEnv(db, userId, c.env);
+
+  try {
+    const result = await fetchYouTubePlaylistImport(
+      {
+        url: body.url.trim(),
+        contentType: body.contentType,
+        status: body.status ?? "suggestions",
+      },
+      resolvedEnv
+    );
+    return c.json(result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "YouTube playlist fetch failed";
     return c.json({ error: message }, 502);
   }
 });
