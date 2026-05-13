@@ -311,17 +311,17 @@ export function AddItemDialog({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(next) => (!next ? close() : undefined)}>
       <DialogContent className="flex h-[calc(100vh-1rem)] max-h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-[1280px] flex-col overflow-hidden rounded-[26px] p-0 sm:h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-2rem)]">
         <DialogHeader className="shrink-0 border-b border-[hsl(var(--border))] px-5 py-4 sm:px-6">
-          <div className="flex flex-col gap-4 pr-10 lg:flex-row lg:items-end lg:justify-between">
-            <div>
+          <div className="grid gap-4 pr-12 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+            <div className="min-w-0">
               <DialogTitle>Add Item</DialogTitle>
-              <DialogDescription>Capture one item or import a list without leaving the current workspace.</DialogDescription>
+              <DialogDescription className="max-w-2xl">Capture one item or import a list without leaving the current workspace.</DialogDescription>
             </div>
             <Tabs value={mode} onValueChange={handleModeChange}>
-              <TabsList className="flex w-full flex-wrap justify-start gap-2 bg-transparent p-0 shadow-none lg:w-auto">
-                <TabsTrigger value="url" className="border border-[hsl(var(--border))] bg-card shadow-none">URL</TabsTrigger>
-                <TabsTrigger value="search" className="border border-[hsl(var(--border))] bg-card shadow-none">Search</TabsTrigger>
-                <TabsTrigger value="manual" className="border border-[hsl(var(--border))] bg-card shadow-none">Manual</TabsTrigger>
-                <TabsTrigger value="csv" className="border border-[hsl(var(--border))] bg-card shadow-none">Imports</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4 gap-2 bg-transparent p-0 shadow-none xl:w-[520px]">
+                <TabsTrigger value="url" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">URL</TabsTrigger>
+                <TabsTrigger value="search" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Search</TabsTrigger>
+                <TabsTrigger value="manual" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Manual</TabsTrigger>
+                <TabsTrigger value="csv" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Imports</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -377,7 +377,7 @@ export function AddItemDialog({ open, onClose }: Props) {
           </div>
 
           <div className="shrink-0 border-t border-[hsl(var(--border))] bg-card px-5 py-4 sm:px-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               {isImportMode ? (
                 <label className="flex items-center gap-2 text-sm text-foreground">
                   <input
@@ -391,7 +391,7 @@ export function AddItemDialog({ open, onClose }: Props) {
               ) : (
                 <FooterHint form={form} />
               )}
-              <div className="flex flex-wrap justify-end gap-3">
+              <div className="flex shrink-0 flex-wrap justify-end gap-3">
                 <Button type="button" variant="outline" onClick={close}>Cancel</Button>
                 {isImportMode ? (
                   <Button type="button" onClick={handleImport} disabled={importing || activeImportPreparation.rows.length === 0}>
@@ -449,11 +449,11 @@ function ItemWorkspace({
   createDuplicate: DuplicateItemSummary | null;
 }) {
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="grid gap-5">
+    <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="grid min-w-0 gap-5">
         {mode === "url" ? (
           <Panel title="Paste URL" aside={<SourceHint />}>
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
               <Input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://youtube.com/watch?v=... or any URL" />
               <Button type="button" onClick={onFetchUrl} disabled={!urlInput.trim() || fetching}>
                 {fetching ? "Fetching..." : "Fetch"}
@@ -464,7 +464,7 @@ function ItemWorkspace({
 
         {mode === "search" ? (
           <Panel title="Search by Name">
-            <div className="grid gap-3 lg:grid-cols-[220px_1fr_auto]">
+            <div className="grid gap-3 xl:grid-cols-[220px_minmax(0,1fr)_auto]">
               <Select value={searchType} onValueChange={(value) => setSearchType(value as ContentTypeId)}>
                 <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-card">
@@ -539,13 +539,13 @@ function ImportsWorkspace({
   const showMapping = csvText && importSource !== "youtube_playlist" && parsedHeaders.length > 0;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="grid gap-5">
-        <div className="grid gap-5 lg:grid-cols-2">
+    <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid min-w-0 gap-5">
+        <div className="grid gap-5 xl:grid-cols-2">
           <Panel title="YouTube Playlist" meta={importSource === "youtube_playlist" ? `${activeImportPreparation.rows.length} ready` : undefined}>
             <div className="grid gap-3">
               <Input value={youtubePlaylistUrl} onChange={(e) => setYoutubePlaylistUrl(e.target.value)} placeholder="https://www.youtube.com/playlist?list=..." />
-              <div className="grid gap-3 sm:grid-cols-[180px_auto]">
+              <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
                 <Select value={youtubePlaylistType} onValueChange={(value) => setYoutubePlaylistType(value as PlaylistType)}>
                   <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-card">
@@ -627,7 +627,7 @@ function ImportsWorkspace({
 function ItemDetailsForm({ form, setField }: { form: ItemDraft; setField: (field: keyof ItemDraft, value: string) => void }) {
   return (
     <Panel title="Details">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <Field label="Title">
           <Input value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Title" required />
         </Field>
@@ -676,9 +676,9 @@ function ItemDetailsForm({ form, setField }: { form: ItemDraft; setField: (field
 
 function ItemPreview({ form }: { form: ItemDraft }) {
   return (
-    <aside className="xl:sticky xl:top-0">
+    <aside className="min-w-0 2xl:sticky 2xl:top-0">
       <Panel title="Preview" meta={CONTENT_TYPES.find((type) => type.id === form.contentType)?.label ?? form.contentType}>
-        <div className="cover-frame flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[18px]">
+        <div className="cover-frame flex aspect-[16/10] max-h-[360px] items-center justify-center overflow-hidden rounded-[18px] 2xl:aspect-[4/3]">
           {form.coverUrl ? (
             <img src={form.coverUrl} alt={form.title || "cover"} className="h-full w-full object-cover" />
           ) : (
@@ -758,7 +758,7 @@ function ImportPreviewPanel({
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
       <Panel title="Import Preview" meta={`${preparation.rows.length} ready`}>
         <div className="grid gap-3">
           {preparation.preview.map((row) => (
@@ -820,7 +820,7 @@ function RecentJobsPanel({
   jobs: Array<{ id: string; sourceLabel: string; status: string; createdCount: number; duplicateCount: number; failedCount: number }>;
 }) {
   return (
-    <aside className="xl:sticky xl:top-0">
+    <aside className="min-w-0 2xl:sticky 2xl:top-0">
       <Panel title="Recent Jobs">
         <div className="grid gap-3">
           {jobs.slice(0, 5).map((job) => (
@@ -851,7 +851,7 @@ function ManualMappingGrid({
   headers: string[];
 }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
       <MappingField label="Title column" value={mapping.title} onChange={(value) => setMapping((prev) => ({ ...prev, title: value }))} headers={headers} />
       <MappingField label="Creator column" value={mapping.creator} onChange={(value) => setMapping((prev) => ({ ...prev, creator: value }))} headers={headers} />
       <Field label="Fixed creator">
@@ -944,7 +944,7 @@ function Panel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid gap-4 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-[var(--shadow-subtle)] sm:p-5">
+    <section className="grid min-w-0 gap-4 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-[var(--shadow-subtle)] sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">{title}</p>
