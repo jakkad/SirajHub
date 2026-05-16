@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useCreateSavedView, useDeleteSavedView, useItems, useSavedViews, useBulkDeleteItems } from "../../hooks/useItems";
-import { summarizeSavedViewFilters, matchesSavedViewFilters } from "../../lib/saved-views";
+import { DEFAULT_SORT_BY, DEFAULT_SORT_DIRECTION, summarizeSavedViewFilters, matchesSavedViewFilters, sortItems } from "../../lib/saved-views";
 import type { ContentTypeId, StatusId } from "../../lib/constants";
 import { STATUSES } from "../../lib/constants";
-import type { Item, SavedViewFilters } from "../../lib/api";
+import type { Item, ItemSortBy, SavedViewFilters, SortDirection } from "../../lib/api";
 import { useLabs } from "../../hooks/useLabs";
 import { NextToConsume } from "../dashboard/NextToConsume";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Filter, Bookmark, X, Search } from "lucide-react";
 
@@ -29,6 +30,22 @@ interface TypePageLayoutProps {
 const STATUS_FILTERS: Array<{ id: StatusId | "all"; label: string }> = [
   { id: "all", label: "All" },
   ...STATUSES.map((s) => ({ id: s.id, label: s.label })),
+];
+
+const SORT_OPTIONS: Array<{ id: ItemSortBy; label: string }> = [
+  { id: "updatedAt", label: "Updated date" },
+  { id: "createdAt", label: "Created date" },
+  { id: "finishedAt", label: "Finished date" },
+  { id: "rating", label: "Rating" },
+  { id: "score", label: "Score" },
+  { id: "title", label: "Title" },
+  { id: "creator", label: "Creator" },
+  { id: "releaseDate", label: "Release date" },
+];
+
+const SORT_DIRECTIONS: Array<{ id: SortDirection; label: string }> = [
+  { id: "desc", label: "Descending" },
+  { id: "asc", label: "Ascending" },
 ];
 
 function getThemeAccent(typeId: string) {
@@ -73,7 +90,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
 
   const savedViews = labs.smartViews ? (savedViewsData?.views ?? []) : [];
   const activeView = savedViews.find((view) => view.id === activeViewId) ?? null;
-  const activeStatus = activeView?.filters.status ?? statusFilter;
+  const activeStatus = activeView ? (activeView.filters.status ?? "all") : statusFilter;
   const effectiveFilters = activeView
     ? activeView.filters
     : {
@@ -82,13 +99,21 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
         contentType,
       };
 
-  const filtered = allItems.filter((item) => {
+  const filteredItems = allItems.filter((item) => {
     if (activeStatus !== "all" && item.status !== activeStatus) return false;
     return matchesSavedViewFilters(item, effectiveFilters);
   });
+  const visibleItems = sortItems(filteredItems, effectiveFilters);
+  const activeSortBy = effectiveFilters.sortBy ?? DEFAULT_SORT_BY;
+  const activeSortDirection = effectiveFilters.sortDirection ?? DEFAULT_SORT_DIRECTION;
 
   const countByStatus = (id: StatusId | "all") =>
     id === "all" ? allItems.length : allItems.filter((i) => i.status === id).length;
+
+  function updateDraftFilters(updates: Partial<SavedViewFilters>) {
+    setActiveViewId(null);
+    setDraftFilters((prev) => ({ ...(activeView ? effectiveFilters : prev), ...updates }));
+  }
 
   function handleSaveCurrentView() {
     const name = viewName.trim();
@@ -115,7 +140,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
                 <Badge variant="outline" className="bg-[var(--hero-accent)]/10 text-[var(--hero-accent)] border-[var(--hero-accent)]/20 px-3 py-1 text-xs backdrop-blur font-bold tracking-wide uppercase">
                   {allItems.length} Saved
                 </Badge>
-                <span className="text-xs text-muted-foreground/80 font-mono">{filtered.length} currently shown</span>
+                <span className="text-xs text-muted-foreground/80 font-mono">{visibleItems.length} currently shown</span>
               </div>
               <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
                 {title}
@@ -123,21 +148,19 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
             </div>
 
             <div className="flex items-center gap-3">
-              {labs.smartViews && smartViewsOpen && activeViewId === null && (
+              {smartViewsOpen && activeViewId === null && (
                  <Badge variant="secondary" className="bg-card/70 backdrop-blur border-[hsl(var(--border)_/_0.4)]">
                    {summarizeSavedViewFilters(effectiveFilters) || "No filters"}
                  </Badge>
               )}
-              {labs.smartViews ? (
-                <Button
-                  variant={smartViewsOpen ? "default" : "outline"}
-                  className={`rounded-full shadow-sm transition-all h-9 px-4 ${smartViewsOpen ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
-                  onClick={() => setSmartViewsOpen((c) => !c)}
-                >
-                  <Filter className="mr-2 size-4" />
-                  {smartViewsOpen ? "Close Filters" : "Smart Views & Filters"}
-                </Button>
-              ) : null}
+              <Button
+                variant={smartViewsOpen ? "default" : "outline"}
+                className={`rounded-full shadow-sm transition-all h-9 px-4 ${smartViewsOpen ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
+                onClick={() => setSmartViewsOpen((c) => !c)}
+              >
+                <Filter className="mr-2 size-4" />
+                {smartViewsOpen ? "Close Filters" : labs.smartViews ? "Smart Views & Filters" : "Filters"}
+              </Button>
               <Button
                 variant={isSelectionMode ? "default" : "outline"}
                 className={`rounded-full shadow-sm transition-all h-9 px-4 ${isSelectionMode ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
@@ -179,13 +202,42 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
             })}
           </div>
 
+          <div className="flex flex-col gap-3 rounded-2xl border border-[hsl(var(--border)_/_0.45)] bg-[hsl(var(--card)_/_0.35)] p-3 backdrop-blur-sm sm:flex-row sm:items-end">
+            <div className="flex min-w-[180px] flex-1 flex-col gap-2">
+              <Label className="text-xs text-muted-foreground">Sort By</Label>
+              <Select value={activeSortBy} onValueChange={(value) => updateDraftFilters({ sortBy: value as ItemSortBy })}>
+                <SelectTrigger className="h-9 rounded-xl bg-card/60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex min-w-[160px] flex-1 flex-col gap-2">
+              <Label className="text-xs text-muted-foreground">Direction</Label>
+              <Select value={activeSortDirection} onValueChange={(value) => updateDraftFilters({ sortDirection: value as SortDirection })}>
+                <SelectTrigger className="h-9 rounded-xl bg-card/60">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_DIRECTIONS.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Smart Views Details Dropdown */}
-          {labs.smartViews && smartViewsOpen ? (
+          {smartViewsOpen ? (
             <div className="rounded-3xl border border-[hsl(var(--border)_/_0.5)] bg-[hsl(var(--card)_/_0.6)] backdrop-blur-xl p-6 mt-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] animate-in slide-in-from-top-4 fade-in-0 duration-300 w-full">
               <div className="flex flex-col gap-6">
                 
                 {/* Saved Views Pills */}
-                {savedViews.length > 0 && (
+                {labs.smartViews && savedViews.length > 0 && (
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground mr-2 border-r border-[hsl(var(--border)_/_0.6)] pr-4 py-1">Saved Views</span>
                     <Button variant={activeViewId === null ? "secondary" : "outline"} onClick={() => setActiveViewId(null)} className="h-8 rounded-full text-xs">All items</Button>
@@ -213,20 +265,24 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
                       <Label className="text-xs text-muted-foreground">Search</Label>
                       <div className="relative">
                         <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground/60" />
-                        <Input value={draftFilters.query ?? ""} onChange={(e) => setDraftFilters((prev) => ({ ...prev, query: e.target.value || undefined }))} placeholder="Title or creator..." className="pl-9 h-9 bg-card/50 rounded-xl" />
+                        <Input value={draftFilters.query ?? ""} onChange={(e) => updateDraftFilters({ query: e.target.value || undefined })} placeholder="Title or creator..." className="pl-9 h-9 bg-card/50 rounded-xl" />
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
                       <Label className="text-xs text-muted-foreground">Min Score</Label>
-                      <Input type="number" min="0" value={draftFilters.minScore?.toString() ?? ""} onChange={(e) => setDraftFilters((p) => ({ ...p, minScore: e.target.value ? Number.parseInt(e.target.value, 10) : undefined }))} placeholder="700" className="h-9 bg-card/50 rounded-xl" />
+                      <Input type="number" min="0" value={draftFilters.minScore?.toString() ?? ""} onChange={(e) => updateDraftFilters({ minScore: e.target.value ? Number.parseInt(e.target.value, 10) : undefined })} placeholder="700" className="h-9 bg-card/50 rounded-xl" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-xs text-muted-foreground">Min Rating</Label>
+                      <Input type="number" min="1" max="5" value={draftFilters.minRating?.toString() ?? ""} onChange={(e) => updateDraftFilters({ minRating: e.target.value ? Number.parseInt(e.target.value, 10) : undefined })} placeholder="4" className="h-9 bg-card/50 rounded-xl" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <Label className="text-xs text-muted-foreground">Max Duration (m)</Label>
-                      <Input type="number" min="0" value={draftFilters.maxDuration?.toString() ?? ""} onChange={(e) => setDraftFilters((p) => ({ ...p, maxDuration: e.target.value ? Number.parseInt(e.target.value, 10) : undefined }))} placeholder="120" className="h-9 bg-card/50 rounded-xl" />
+                      <Input type="number" min="0" value={draftFilters.maxDuration?.toString() ?? ""} onChange={(e) => updateDraftFilters({ maxDuration: e.target.value ? Number.parseInt(e.target.value, 10) : undefined })} placeholder="120" className="h-9 bg-card/50 rounded-xl" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <Label className="text-xs text-muted-foreground">Trending</Label>
-                      <Button variant={draftFilters.onlyTrending ? "default" : "outline"} onClick={() => setDraftFilters((p) => ({ ...p, onlyTrending: !p.onlyTrending || undefined }))} className={`h-9 rounded-xl ${draftFilters.onlyTrending ? 'bg-[var(--hero-accent)] text-white' : 'bg-card/50'}`}>
+                      <Button variant={draftFilters.onlyTrending ? "default" : "outline"} onClick={() => updateDraftFilters({ onlyTrending: !draftFilters.onlyTrending || undefined })} className={`h-9 rounded-xl ${draftFilters.onlyTrending ? 'bg-[var(--hero-accent)] text-white' : 'bg-card/50'}`}>
                         {draftFilters.onlyTrending ? "Trending Only" : "Include All"}
                       </Button>
                     </div>
@@ -234,12 +290,14 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
                 ) : null}
 
                 {/* Save View Action */}
-                <div className="flex items-center gap-3 bg-[var(--hero-accent)]/5 border border-[var(--hero-accent)]/20 rounded-full p-1.5 md:w-fit">
-                  <Input value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder={`Save as new smart view...`} className="border-0 bg-transparent shadow-none focus-visible:ring-0 placeholder:text-foreground/40 w-full md:w-[250px]" />
-                  <Button onClick={handleSaveCurrentView} disabled={savingView || !viewName.trim()} className="rounded-full shadow-sm bg-[var(--hero-accent)] hover:bg-[var(--hero-accent)]/90 text-white">
-                    {savingView ? "Saving…" : "Save View"}
-                  </Button>
-                </div>
+                {labs.smartViews ? (
+                  <div className="flex items-center gap-3 bg-[var(--hero-accent)]/5 border border-[var(--hero-accent)]/20 rounded-full p-1.5 md:w-fit">
+                    <Input value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder={`Save as new smart view...`} className="border-0 bg-transparent shadow-none focus-visible:ring-0 placeholder:text-foreground/40 w-full md:w-[250px]" />
+                    <Button onClick={handleSaveCurrentView} disabled={savingView || !viewName.trim()} className="rounded-full shadow-sm bg-[var(--hero-accent)] hover:bg-[var(--hero-accent)]/90 text-white">
+                      {savingView ? "Saving…" : "Save View"}
+                    </Button>
+                  </div>
+                ) : null}
 
               </div>
             </div>
@@ -265,7 +323,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
                {Array.from({length: 12}).map((_, i) => <Skeleton key={i} className="aspect-[2/3] w-full rounded-[1.25rem] bg-card/40" />)}
              </div>
           ) : (
-            children(filtered, { isSelectionMode, selectedIds, toggleSelection })
+            children(visibleItems, { isSelectionMode, selectedIds, toggleSelection })
           )}
         </div>
       </div>

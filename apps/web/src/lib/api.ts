@@ -464,10 +464,16 @@ export interface SavedViewFilters {
   status?: StatusId;
   contentType?: ContentTypeId;
   minScore?: number;
+  minRating?: number;
   maxDuration?: number;
   onlyTrending?: boolean;
   query?: string;
+  sortBy?: ItemSortBy;
+  sortDirection?: SortDirection;
 }
+
+export type ItemSortBy = "updatedAt" | "createdAt" | "finishedAt" | "rating" | "score" | "title" | "creator" | "releaseDate";
+export type SortDirection = "asc" | "desc";
 
 export interface SavedView {
   id: string;

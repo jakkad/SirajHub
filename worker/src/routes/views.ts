@@ -11,6 +11,8 @@ type Variables = { userId: string };
 const VALID_SCOPES = new Set(["collection", "dashboard"]);
 const VALID_CONTENT_TYPES = new Set(["book", "movie", "tv", "podcast", "youtube", "article", "tweet"]);
 const VALID_STATUSES = new Set(["suggestions", "in_progress", "finished", "archived"]);
+const VALID_SORT_FIELDS = new Set(["updatedAt", "createdAt", "finishedAt", "rating", "score", "title", "creator", "releaseDate"]);
+const VALID_SORT_DIRECTIONS = new Set(["asc", "desc"]);
 
 function normalizeFilters(input: unknown) {
   const record = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
@@ -18,10 +20,14 @@ function normalizeFilters(input: unknown) {
   const contentType =
     typeof record.contentType === "string" && VALID_CONTENT_TYPES.has(record.contentType) ? record.contentType : undefined;
   const minScore = typeof record.minScore === "number" && Number.isFinite(record.minScore) ? record.minScore : undefined;
+  const minRating = typeof record.minRating === "number" && Number.isFinite(record.minRating) ? record.minRating : undefined;
   const maxDuration = typeof record.maxDuration === "number" && Number.isFinite(record.maxDuration) ? record.maxDuration : undefined;
   const onlyTrending = record.onlyTrending === true ? true : undefined;
   const query = typeof record.query === "string" && record.query.trim() ? record.query.trim() : undefined;
-  return { status, contentType, minScore, maxDuration, onlyTrending, query };
+  const sortBy = typeof record.sortBy === "string" && VALID_SORT_FIELDS.has(record.sortBy) ? record.sortBy : undefined;
+  const sortDirection =
+    typeof record.sortDirection === "string" && VALID_SORT_DIRECTIONS.has(record.sortDirection) ? record.sortDirection : undefined;
+  return { status, contentType, minScore, minRating, maxDuration, onlyTrending, query, sortBy, sortDirection };
 }
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();

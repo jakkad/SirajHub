@@ -1979,3 +1979,93 @@ It adds:
 - smaller internal UI sections inside the Add Item component
 
 At this point, the Add Item workflow is easier to scan, easier to use, and easier to maintain without changing the underlying create/import behavior.
+
+## Version 3.8
+
+### Tasks
+
+**Media Page Sorting And Filters**
+
+- Added shared sorting controls to the media collection pages:
+  - updated date
+  - created date
+  - finished date
+  - rating
+  - score
+  - title
+  - creator
+  - release date
+
+- Added compact collection filters:
+  - status filtering remains available through the existing status chips
+  - minimum score
+  - minimum rating
+  - search
+  - maximum duration
+  - trending-only
+
+- Extended saved views so collection views can preserve:
+  - minimum rating
+  - selected sort field
+  - selected sort direction
+
+- Added shared item filtering and sorting helpers:
+  - keeps the media page layout from owning all of the comparison logic
+  - keeps default sorting as updated date descending
+  - keeps unfinished, unrated, unscored, or missing-date items after items with real values when sorting by those fields
+  - preserves stable ordering when two items have the same sort value
+
+- Updated saved-view normalization in the Worker API:
+  - accepts `minRating`
+  - accepts `sortBy`
+  - accepts `sortDirection`
+  - validates sort fields and directions before saving them
+
+- Kept the scope limited to media collection pages:
+  - Books
+  - Movies
+  - TV
+  - Podcasts
+  - Videos
+  - Articles
+  - Tweets
+  - custom lists and dashboard widgets were not changed
+
+- Verified the change:
+  - `pnpm typecheck`
+  - local dev server smoke check
+
+---
+
+### Explainer
+
+Version 3.8 improves the way users browse larger media collections.
+
+Before this version, media pages could filter by status and, when Smart Views were enabled, could use a few richer filters like search, minimum score, maximum duration, and trending-only. The default item order came from the API, which sorted by recently updated items. That was useful, but it meant users could not quickly answer common questions like: what did I add most recently, what did I finish recently, what are my highest-rated books, or which suggestions have the strongest AI score?
+
+This version adds those controls in one shared place: `TypePageLayout`. All seven media pages already use that layout, so adding the behavior there gives Books, Movies, TV, Podcasts, Videos, Articles, and Tweets the same sorting and filtering behavior without duplicating code in each route.
+
+The actual comparison logic lives in the saved-view utility module. That keeps the React component focused on UI state and rendering, while helper functions handle the rules for matching filters and sorting items. This is important because sorting has edge cases. For example, an item without a rating should not appear above rated items when sorting by rating, and an unfinished item should not outrank finished items when sorting by finished date. The helper treats missing values as `null` and pushes them after real values. It also keeps the original order when two items compare equally, which avoids items jumping around unnecessarily.
+
+The default sort stays the same as before: updated date descending. That preserves the familiar behavior for users who do not touch the new controls. From there, users can switch to created date, finished date, rating, score, title, creator, or release date, and choose ascending or descending order.
+
+Filters remain client-side for this version. Each media page already fetches the complete collection for its content type, so applying filters and sorting in the browser is simple and avoids changing the item listing API. Saved Views still go through the backend, though, because their filter settings are stored as JSON. The Worker normalization now accepts and validates the new fields so saved views can remember minimum rating and sort preferences.
+
+One small behavior cleanup is included: saved views now treat a missing status as all statuses instead of accidentally inheriting the currently selected status chip. That makes saved views more predictable.
+
+Custom lists and dashboard widgets are intentionally unchanged. Lists still use manual ordering, and dashboard widgets keep their purpose-built ordering such as Recently Added and Active Right Now.
+
+---
+
+### Summary
+
+Version 3.8 adds consistent sorting and richer filters to every media collection page.
+
+It adds:
+- shared media-page sort controls
+- minimum rating filtering
+- saved-view support for rating and sort preferences
+- reusable filter and sort helpers
+- null-last handling for rating, score, finished date, and release date sorts
+
+At this point, browsing a large library is more flexible without changing custom list ordering, dashboard widgets, or item data.
