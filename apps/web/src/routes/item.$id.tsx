@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Ellipsis, ExternalLink, PencilLine, Trash2 } from "lucide-react";
+import { ArrowLeft, Ellipsis, ExternalLink, PencilLine, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AIPanel } from "../components/AIPanel";
 import { InlineTagManager } from "../components/InlineTagManager";
 import { useScoreItem } from "../hooks/useAI";
-import { useItems, useUpdateItem, useDeleteItem } from "../hooks/useItems";
+import { useItems, useUpdateItem, useDeleteItem, useResyncTVItem } from "../hooks/useItems";
 import { useAddItemToList, useCreateList, useItemLists, useRemoveItemFromList } from "../hooks/useLists";
 import { useCreateNoteEntry, useDeleteNoteEntry, useNoteEntries } from "../hooks/useNotes";
 import { useLabs } from "../hooks/useLabs";
@@ -57,6 +57,7 @@ function ItemDetailPage() {
   const { data: allItems = [], isLoading } = useItems();
   const { labs } = useLabs();
   const { mutate: updateItem } = useUpdateItem();
+  const { mutate: resyncTVItem, data: tvResyncResult, isPending: resyncingTV } = useResyncTVItem();
   const { mutate: deleteItem, isPending: deleting } = useDeleteItem();
   const { mutate: queueScore, isPending: queueingScore } = useScoreItem(id);
   const { data: itemListsData } = useItemLists(id, { enabled: labs.lists });
@@ -245,6 +246,11 @@ function ItemDetailPage() {
     });
   }
 
+  function handleResyncTV() {
+    if (currentItem.contentType !== "tv") return;
+    resyncTVItem(currentItem.id);
+  }
+
   function handleCreateListAndAdd() {
     const name = newListName.trim();
     if (!name) return;
@@ -380,7 +386,22 @@ function ItemDetailPage() {
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-end">
               <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">{progressMeta.summaryLabel}</h2>
-              <span className="font-mono text-sm font-semibold">{displayedProgressPercent}%</span>
+              <div className="flex items-center gap-2">
+                {currentItem.contentType === "tv" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResyncTV}
+                    disabled={resyncingTV}
+                    className="h-7 rounded-full bg-card/40 px-3 text-[11px] backdrop-blur"
+                  >
+                    <RefreshCw className={`mr-1.5 size-3 ${resyncingTV ? "animate-spin" : ""}`} />
+                    {resyncingTV ? "Syncing" : "Resync seasons"}
+                  </Button>
+                ) : null}
+                <span className="font-mono text-sm font-semibold">{displayedProgressPercent}%</span>
+              </div>
             </div>
             <div className="h-1.5 w-full bg-[hsl(var(--secondary)_/_0.5)] rounded-full overflow-hidden backdrop-blur-sm">
               <div 
@@ -394,6 +415,11 @@ function ItemDetailPage() {
                   <span>{tvSeasonSummary?.finishedSeasons ?? 0} / {tvSeasonSummary?.totalSeasons ?? 0} seasons finished</span>
                   <span>{tvSeasonSummary?.finishedEpisodes ?? 0} / {tvSeasonSummary?.totalEpisodes ?? 0} episodes</span>
                 </div>
+                {tvResyncResult ? (
+                  <p className="text-xs text-muted-foreground">
+                    Season metadata synced. {tvResyncResult.addedSeasonCount > 0 ? `${tvResyncResult.addedSeasonCount} new season${tvResyncResult.addedSeasonCount === 1 ? "" : "s"} added.` : "No new seasons found."}
+                  </p>
+                ) : null}
                 {tvMetadata.seasons.map((season) => (
                   <button
                     key={season.seasonNumber}

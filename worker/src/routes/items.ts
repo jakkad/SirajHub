@@ -3,8 +3,9 @@ import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb } from "../db/client";
 import { importJobs, importSourceMappings, itemTags, items } from "../db/schema";
-import { resolveAiQueueIntervalMinutes } from "../lib/user-settings";
+import { resolveAiQueueIntervalMinutes, resolveMetadataEnv } from "../lib/user-settings";
 import { getRunAfterFromInterval, queueAiJob, syncSuggestMetrics } from "../services/ai-queue";
+import { fetchTMDB } from "../services/metadata/movies";
 import type { Env } from "../types";
 
 type Variables = { userId: string };
@@ -82,6 +83,20 @@ const VALID_IMPORT_SOURCES = [
 
 type ImportSourceId = (typeof VALID_IMPORT_SOURCES)[number]["id"];
 
+type TVSeasonMetadata = {
+  seasonNumber: number;
+  title?: string;
+  episodeCount: number;
+  airDate?: string | null;
+  finished?: boolean;
+};
+
+type TVMetadata = {
+  seasonCount?: number;
+  seasons?: TVSeasonMetadata[];
+  [key: string]: unknown;
+};
+
 type ImportRowInput = {
   title?: string;
   contentType?: string;
@@ -121,6 +136,76 @@ function isValidOptionalNonNegativeInteger(value: number | null | undefined) {
 
 function normalizeString(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function parseMetadataObject(value: string | null | undefined): Record<string, unknown> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeTVSeasons(value: unknown): TVSeasonMetadata[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((season): TVSeasonMetadata | null => {
+      if (!season || typeof season !== "object") return null;
+      const record = season as Record<string, unknown>;
+      const seasonNumber = Number(record.seasonNumber);
+      const episodeCount = Number(record.episodeCount);
+      if (!Number.isInteger(seasonNumber) || seasonNumber <= 0 || !Number.isInteger(episodeCount) || episodeCount <= 0) {
+        return null;
+      }
+      const normalized: TVSeasonMetadata = {
+        seasonNumber,
+        episodeCount,
+        airDate: typeof record.airDate === "string" || record.airDate === null ? record.airDate : null,
+        finished: record.finished === true,
+      };
+      if (typeof record.title === "string") normalized.title = record.title;
+      return normalized;
+    })
+    .filter((season): season is TVSeasonMetadata => season !== null)
+    .sort((a, b) => a.seasonNumber - b.seasonNumber);
+}
+
+function mergeTVMetadata(existingMetadata: string | null, freshMetadata: string | undefined) {
+  const existing = parseMetadataObject(existingMetadata) as TVMetadata;
+  const fresh = parseMetadataObject(freshMetadata) as TVMetadata;
+  const existingSeasons = normalizeTVSeasons(existing.seasons);
+  const freshSeasons = normalizeTVSeasons(fresh.seasons);
+  const existingFinishedBySeason = new Map(existingSeasons.map((season) => [season.seasonNumber, season.finished === true]));
+  const freshSeasonNumbers = new Set(freshSeasons.map((season) => season.seasonNumber));
+  const mergedSeasons = [
+    ...freshSeasons.map((season) => ({
+      ...season,
+      finished: existingFinishedBySeason.get(season.seasonNumber) ?? false,
+    })),
+    ...existingSeasons.filter((season) => !freshSeasonNumbers.has(season.seasonNumber)),
+  ].sort((a, b) => a.seasonNumber - b.seasonNumber);
+
+  const totalEpisodes = mergedSeasons.reduce((sum, season) => sum + season.episodeCount, 0);
+  const finishedEpisodes = mergedSeasons
+    .filter((season) => season.finished)
+    .reduce((sum, season) => sum + season.episodeCount, 0);
+
+  return {
+    metadata: JSON.stringify({
+      ...existing,
+      ...fresh,
+      seasonCount: typeof fresh.seasonCount === "number" ? fresh.seasonCount : mergedSeasons.length,
+      seasons: mergedSeasons,
+    }),
+    addedSeasonCount: freshSeasons.filter((season) => !existingFinishedBySeason.has(season.seasonNumber)).length,
+    totalEpisodes,
+    finishedEpisodes,
+    progressPercent: totalEpisodes > 0 ? Math.round((finishedEpisodes / totalEpisodes) * 100) : null,
+    allFinished: mergedSeasons.length > 0 && mergedSeasons.every((season) => season.finished),
+    anyFinished: mergedSeasons.some((season) => season.finished),
+  };
 }
 
 type DuplicateReason = "source_url" | "external_id" | "title_creator";
@@ -787,6 +872,53 @@ router.post("/import/source", async (c) => {
   const db = createDb(c.env.DB);
   const result = await runImportJob(db, userId, source, rows, { resyncMetadata: body.resyncMetadata });
   return c.json(result, 201);
+});
+
+router.post("/:id/resync-tv", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const db = createDb(c.env.DB);
+
+  const [existing] = await db.select().from(items).where(and(eq(items.id, id), eq(items.userId, userId)));
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  if (existing.contentType !== "tv") return c.json({ error: "Only TV shows can be resynced this way." }, 400);
+
+  const lookup = existing.sourceUrl?.includes("themoviedb.org/tv/")
+    ? existing.sourceUrl
+    : existing.externalId
+      ? `https://www.themoviedb.org/tv/${existing.externalId}`
+      : existing.title;
+
+  const resolvedEnv = await resolveMetadataEnv(db, userId, c.env);
+  const fresh = await fetchTMDB(lookup, "tv", resolvedEnv);
+  const merged = mergeTVMetadata(existing.metadata, fresh.metadata);
+  const now = Date.now();
+  const status =
+    existing.status === "finished" && !merged.allFinished && merged.anyFinished
+      ? "in_progress"
+      : existing.status;
+
+  await db
+    .update(items)
+    .set({
+      metadata: merged.metadata,
+      progressCurrent: merged.finishedEpisodes,
+      progressTotal: merged.totalEpisodes,
+      progressPercent: merged.progressPercent,
+      status,
+      lastTouchedAt: now,
+      updatedAt: now,
+    })
+    .where(and(eq(items.id, id), eq(items.userId, userId)));
+
+  const [updated] = await db.select().from(items).where(and(eq(items.id, id), eq(items.userId, userId)));
+  if (!updated) return c.json({ error: "Item not found after resync" }, 500);
+
+  return c.json({
+    item: updated,
+    addedSeasonCount: merged.addedSeasonCount,
+    seasonCount: normalizeTVSeasons(JSON.parse(merged.metadata).seasons).length,
+  });
 });
 
 router.patch("/:id", async (c) => {

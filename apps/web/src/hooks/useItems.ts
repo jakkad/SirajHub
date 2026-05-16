@@ -52,6 +52,14 @@ export function useUpdateItem() {
   });
 }
 
+export function useResyncTVItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => itemsApi.resyncTV(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+  });
+}
+
 export function useDeleteItem() {
   const qc = useQueryClient();
   return useMutation({

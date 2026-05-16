@@ -656,6 +656,10 @@ export const itemsApi = {
     return request<Item>("/api/items", { method: "POST", body: JSON.stringify(data) });
   },
 
+  resyncTV(id: string): Promise<{ item: Item; addedSeasonCount: number; seasonCount: number }> {
+    return request(`/api/items/${id}/resync-tv`, { method: "POST" });
+  },
+
   async importCsv(rows: ImportRowInput[], resyncMetadata?: boolean): Promise<BulkImportResult> {
     const CHUNK_SIZE = 50;
     const combined: BulkImportResult = {
