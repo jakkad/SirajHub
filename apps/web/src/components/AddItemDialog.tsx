@@ -30,7 +30,6 @@ import {
 } from "../lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -308,27 +308,30 @@ export function AddItemDialog({ open, onClose }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (!next ? close() : undefined)}>
-      <DialogContent className="flex h-[calc(100vh-1rem)] max-h-[calc(100vh-1rem)] w-[calc(100vw-1rem)] max-w-[1280px] flex-col overflow-hidden rounded-[26px] p-0 sm:h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-2rem)]">
-        <DialogHeader className="shrink-0 border-b border-[hsl(var(--border))] px-5 py-4 sm:px-6">
-          <div className="grid gap-4 pr-12">
+    <Sheet open={open} onOpenChange={(next) => (!next ? close() : undefined)}>
+      <SheetContent
+        side="right"
+        className="flex h-dvh w-full max-w-[1080px] flex-col gap-0 overflow-hidden rounded-none border-l bg-background p-0 sm:w-[min(92vw,1080px)] sm:max-w-[1080px]"
+      >
+        <SheetHeader className="shrink-0 border-b border-[hsl(var(--border))] bg-card px-5 py-5 pr-16 text-left sm:px-7">
+          <div className="flex min-w-0 flex-col gap-4">
             <div className="min-w-0">
-              <DialogTitle>Add Item</DialogTitle>
-              <DialogDescription className="max-w-2xl">Capture one item or import a list without leaving the current workspace.</DialogDescription>
+              <SheetTitle>Add Item</SheetTitle>
+              <SheetDescription className="max-w-2xl">Capture one item or import a list without leaving the current workspace.</SheetDescription>
             </div>
-            <Tabs value={mode} onValueChange={handleModeChange}>
-              <TabsList className="grid w-full max-w-4xl grid-cols-4 gap-2 bg-transparent p-0 shadow-none">
-                <TabsTrigger value="url" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">URL</TabsTrigger>
-                <TabsTrigger value="search" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Search</TabsTrigger>
-                <TabsTrigger value="manual" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Manual</TabsTrigger>
-                <TabsTrigger value="csv" className="min-w-0 rounded-full border border-[hsl(var(--border))] bg-card px-3 shadow-none">Imports</TabsTrigger>
+            <Tabs value={mode} onValueChange={handleModeChange} className="min-w-0">
+              <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-[14px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.55)] p-1 shadow-none">
+                <TabsTrigger value="url" className="min-w-0 rounded-[10px] px-2 py-2 text-xs shadow-none sm:text-sm">URL</TabsTrigger>
+                <TabsTrigger value="search" className="min-w-0 rounded-[10px] px-2 py-2 text-xs shadow-none sm:text-sm">Search</TabsTrigger>
+                <TabsTrigger value="manual" className="min-w-0 rounded-[10px] px-2 py-2 text-xs shadow-none sm:text-sm">Manual</TabsTrigger>
+                <TabsTrigger value="csv" className="min-w-0 rounded-[10px] px-2 py-2 text-xs shadow-none sm:text-sm">Imports</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
-        </DialogHeader>
+        </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
             {isImportMode ? (
               <ImportsWorkspace
                 importSource={importSource}
@@ -376,7 +379,7 @@ export function AddItemDialog({ open, onClose }: Props) {
             {error ? <p className="mt-4 text-sm text-destructive">{(error as Error).message}</p> : null}
           </div>
 
-          <div className="shrink-0 border-t border-[hsl(var(--border))] bg-card px-5 py-4 sm:px-6">
+          <div className="shrink-0 border-t border-[hsl(var(--border))] bg-card px-5 py-4 sm:px-7">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               {isImportMode ? (
                 <label className="flex items-center gap-2 text-sm text-foreground">
@@ -406,8 +409,8 @@ export function AddItemDialog({ open, onClose }: Props) {
             </div>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -449,22 +452,23 @@ function ItemWorkspace({
   createDuplicate: DuplicateItemSummary | null;
 }) {
   return (
-    <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_400px]">
-      <div className="grid min-w-0 gap-5">
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(380px,430px)_minmax(0,1fr)]">
+      <div className="flex min-w-0 flex-col gap-4">
         {mode === "url" ? (
-          <Panel title="Paste URL" aside={<SourceHint />}>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          <Panel title="Paste URL" description="Fetch metadata from a supported source, then review and save.">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
               <Input value={urlInput} onChange={(e) => setUrlInput(e.target.value)} placeholder="https://youtube.com/watch?v=... or any URL" />
               <Button type="button" onClick={onFetchUrl} disabled={!urlInput.trim() || fetching}>
                 {fetching ? "Fetching..." : "Fetch"}
               </Button>
             </div>
+            <SourceHint />
           </Panel>
         ) : null}
 
         {mode === "search" ? (
-          <Panel title="Search by Name">
-            <div className="grid gap-3 xl:grid-cols-[220px_minmax(0,1fr)_auto]">
+          <Panel title="Search by Name" description="Choose a result to populate the details form.">
+            <div className="grid gap-3">
               <Select value={searchType} onValueChange={(value) => setSearchType(value as ContentTypeId)}>
                 <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-card">
@@ -539,13 +543,13 @@ function ImportsWorkspace({
   const showMapping = csvText && importSource !== "youtube_playlist" && parsedHeaders.length > 0;
 
   return (
-    <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="grid min-w-0 gap-5">
-        <div className="grid gap-5 xl:grid-cols-2">
-          <Panel title="YouTube Playlist" meta={importSource === "youtube_playlist" ? `${activeImportPreparation.rows.length} ready` : undefined}>
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="flex min-w-0 flex-col gap-4">
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Panel title="YouTube Playlist" description="Import videos or podcast episodes from a playlist." meta={importSource === "youtube_playlist" ? `${activeImportPreparation.rows.length} ready` : undefined}>
             <div className="grid gap-3">
               <Input value={youtubePlaylistUrl} onChange={(e) => setYoutubePlaylistUrl(e.target.value)} placeholder="https://www.youtube.com/playlist?list=..." />
-              <div className="grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
+              <div className="grid gap-3 sm:grid-cols-[150px_minmax(0,1fr)]">
                 <Select value={youtubePlaylistType} onValueChange={(value) => setYoutubePlaylistType(value as PlaylistType)}>
                   <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
                   <SelectContent className="bg-card">
@@ -562,7 +566,7 @@ function ImportsWorkspace({
             </div>
           </Panel>
 
-          <Panel title="Upload Export" meta={csvFileName || undefined}>
+          <Panel title="Upload Export" description="Use a CSV, JSON, HTML, XML, or OPML export." meta={csvFileName || undefined}>
             <div className="grid gap-3">
               <div className="flex flex-wrap gap-2">
                 {importSources
@@ -572,7 +576,7 @@ function ImportsWorkspace({
                       key={source.id}
                       type="button"
                       onClick={() => setImportSource(source.id as ImportSourceId)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`rounded-[10px] border px-3 py-1.5 text-xs font-semibold transition-colors ${
                         importSource === source.id
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-[hsl(var(--border))] bg-card text-foreground hover:bg-secondary"
@@ -626,8 +630,8 @@ function ImportsWorkspace({
 
 function ItemDetailsForm({ form, setField }: { form: ItemDraft; setField: (field: keyof ItemDraft, value: string) => void }) {
   return (
-    <Panel title="Details">
-      <div className="grid gap-4 xl:grid-cols-2">
+    <Panel title="Details" description="Add the minimum fields now; keep optional notes tucked away.">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         <Field label="Title">
           <Input value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="Title" required />
         </Field>
@@ -676,9 +680,9 @@ function ItemDetailsForm({ form, setField }: { form: ItemDraft; setField: (field
 
 function ItemPreview({ form }: { form: ItemDraft }) {
   return (
-    <aside className="min-w-0 2xl:sticky 2xl:top-0">
-      <Panel title="Preview" meta={CONTENT_TYPES.find((type) => type.id === form.contentType)?.label ?? form.contentType}>
-        <div className="cover-frame flex aspect-[16/10] max-h-[360px] items-center justify-center overflow-hidden rounded-[18px] 2xl:aspect-[4/3]">
+    <aside className="min-w-0 lg:sticky lg:top-0 lg:self-start">
+      <Panel title="Preview" description="This is how the item will appear in your library." meta={CONTENT_TYPES.find((type) => type.id === form.contentType)?.label ?? form.contentType}>
+        <div className="cover-frame flex aspect-[16/10] max-h-[340px] items-center justify-center overflow-hidden rounded-[14px] lg:aspect-[4/3]">
           {form.coverUrl ? (
             <img src={form.coverUrl} alt={form.title || "cover"} className="h-full w-full object-cover" />
           ) : (
@@ -689,8 +693,8 @@ function ItemPreview({ form }: { form: ItemDraft }) {
           <Badge variant="outline">{CONTENT_TYPES.find((type) => type.id === form.contentType)?.label ?? form.contentType}</Badge>
           <Badge variant="secondary">{STATUSES.find((status) => status.id === form.status)?.label ?? form.status}</Badge>
         </div>
-        <div>
-          <h3 className="text-2xl font-semibold leading-tight text-foreground">{form.title || "Untitled item"}</h3>
+        <div className="min-w-0">
+          <h3 className="break-words text-2xl font-semibold leading-tight text-foreground">{form.title || "Untitled item"}</h3>
           {form.creator ? <p className="mt-1 text-sm text-muted-foreground">{form.creator}</p> : null}
         </div>
         <p className="line-clamp-5 text-sm text-muted-foreground">{form.description || "Metadata appears here as soon as it is fetched or entered."}</p>
@@ -921,7 +925,7 @@ function FooterHint({ form }: { form: ItemDraft }) {
 
 function SourceHint() {
   return (
-    <details className="text-xs text-muted-foreground">
+    <details className="rounded-[12px] border border-[hsl(var(--border))] bg-[hsl(var(--secondary)/0.35)] px-3 py-2 text-xs text-muted-foreground">
       <summary className="cursor-pointer font-semibold text-foreground">Supported URLs</summary>
       <div className="mt-2 flex max-w-xl flex-wrap gap-x-3 gap-y-1">
         {AUTO_DETECT_SOURCES.map((entry) => (
@@ -934,20 +938,23 @@ function SourceHint() {
 
 function Panel({
   title,
+  description,
   meta,
   aside,
   children,
 }: {
   title: string;
+  description?: string;
   meta?: string;
   aside?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid min-w-0 gap-4 rounded-[20px] border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-[var(--shadow-subtle)] sm:p-5">
+    <section className="grid min-w-0 gap-4 rounded-[16px] border border-[hsl(var(--border))] bg-card p-4 shadow-[var(--shadow-subtle)] sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">{title}</p>
+          {description ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p> : null}
           {meta ? <p className="mt-1 text-xs text-muted-foreground">{meta}</p> : null}
         </div>
         {aside}
