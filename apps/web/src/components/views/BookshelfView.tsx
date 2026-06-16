@@ -208,15 +208,16 @@ function Book({ item, selectionProps }: { item: Item; selectionProps?: Selection
           <div className="absolute bottom-9 left-1/2 h-6 w-px -translate-x-1/2 bg-[var(--spine-ornament)] opacity-60" />
           {isArabicTitle ? (
             <span
-              className="relative block max-w-[72%] truncate whitespace-nowrap text-center font-semibold leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+              className="relative block truncate whitespace-nowrap text-center font-semibold leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
               dir="rtl"
               style={{
                 direction: "rtl",
                 fontFamily: '"Noto Naskh Arabic", "Amiri", "Geeza Pro", "Arial", sans-serif',
-                fontSize: Math.max(12, Math.min(spineWidth * 0.44, 17)),
+                fontSize: Math.max(13, Math.min(spineWidth * 0.5, 18)),
+                maxWidth: spineHeight * 0.82,
                 transform: "rotate(90deg)",
                 unicodeBidi: "plaintext",
-                width: spineHeight * 0.72,
+                width: spineHeight * 0.82,
               }}
             >
               {item.title}
