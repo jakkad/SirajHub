@@ -129,11 +129,17 @@ function useCoverColor(coverUrl: string | null, fallback: ReturnType<typeof hash
 function Book({ item, selectionProps }: { item: Item; selectionProps?: SelectionProps }) {
   const hash = idToHash(item.id);
   const isArabicTitle = hasArabicText(item.title);
+  const titleGlyphCount = Array.from(item.title.replace(/\s+/g, "")).length;
   
   // Deterministic spine generation
   const spineHeight = 180 + (hash % 100); // 180px - 280px height
   const spineWidth = 26 + (hash % 24);    // 26px - 50px width
   const coverWidth = spineHeight * 0.65;  // Native book aspect ratio (appx 2:3)
+  const arabicTrackLength = spineHeight * 0.72;
+  const arabicFontSize = Math.max(
+    10,
+    Math.min(spineWidth * 0.46, arabicTrackLength / Math.max(titleGlyphCount * 0.58, 1), 17)
+  );
   
   const fallbackColor = hashToColor(hash);
   const coverColor = useCoverColor(item.coverUrl, fallbackColor);
@@ -207,21 +213,27 @@ function Book({ item, selectionProps }: { item: Item; selectionProps?: Selection
           <div className="absolute left-1/2 top-9 h-6 w-px -translate-x-1/2 bg-[var(--spine-ornament)] opacity-60" />
           <div className="absolute bottom-9 left-1/2 h-6 w-px -translate-x-1/2 bg-[var(--spine-ornament)] opacity-60" />
           {isArabicTitle ? (
-            <span
-              className="relative block truncate whitespace-nowrap text-center font-semibold leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
-              dir="rtl"
-              style={{
-                direction: "rtl",
-                fontFamily: '"Noto Naskh Arabic", "Amiri", "Geeza Pro", "Arial", sans-serif',
-                fontSize: Math.max(13, Math.min(spineWidth * 0.5, 18)),
-                maxWidth: spineHeight * 0.82,
-                transform: "rotate(90deg)",
-                unicodeBidi: "plaintext",
-                width: spineHeight * 0.82,
-              }}
+            <svg
+              className="absolute inset-0 overflow-visible"
+              viewBox={`0 0 ${spineWidth} ${spineHeight}`}
+              aria-hidden="true"
             >
-              {item.title}
-            </span>
+              <text
+                x={spineWidth / 2}
+                y={spineHeight / 2}
+                fill="var(--spine-text)"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                direction="rtl"
+                unicodeBidi="plaintext"
+                fontFamily='"Noto Naskh Arabic", "Amiri", "Geeza Pro", "Arial", sans-serif'
+                fontSize={arabicFontSize}
+                fontWeight={700}
+                transform={`rotate(90 ${spineWidth / 2} ${spineHeight / 2})`}
+              >
+                {item.title}
+              </text>
+            </svg>
           ) : (
             <span
               className="relative whitespace-nowrap overflow-hidden font-serif font-semibold uppercase leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
