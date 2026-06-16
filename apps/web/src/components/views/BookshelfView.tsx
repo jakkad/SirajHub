@@ -24,6 +24,10 @@ function hashToColor(hash: number) {
   return { hue, saturation, lightness };
 }
 
+function hasArabicText(value: string) {
+  return /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/.test(value);
+}
+
 function rgbToHsl(r: number, g: number, b: number) {
   r /= 255;
   g /= 255;
@@ -124,6 +128,7 @@ function useCoverColor(coverUrl: string | null, fallback: ReturnType<typeof hash
 
 function Book({ item, selectionProps }: { item: Item; selectionProps?: SelectionProps }) {
   const hash = idToHash(item.id);
+  const isArabicTitle = hasArabicText(item.title);
   
   // Deterministic spine generation
   const spineHeight = 180 + (hash % 100); // 180px - 280px height
@@ -189,7 +194,7 @@ function Book({ item, selectionProps }: { item: Item; selectionProps?: Selection
 
         {/* Generated antique spine. It covers the clipped cover until hover reveals the real art. */}
         <div 
-          className="absolute left-0 bottom-0 top-0 overflow-hidden transition-opacity duration-300 group-hover:opacity-0 pointer-events-none"
+          className="absolute left-0 bottom-0 top-0 flex items-center justify-center overflow-hidden transition-opacity duration-300 group-hover:opacity-0 pointer-events-none"
           style={{ width: spineWidth }}
         >
           <div className="absolute inset-0 bg-[linear-gradient(90deg,var(--spine-dark)_0%,var(--spine-base)_18%,var(--spine-light)_48%,var(--spine-base)_75%,var(--spine-dark)_100%)]" />
@@ -201,18 +206,35 @@ function Book({ item, selectionProps }: { item: Item; selectionProps?: Selection
           <div className="absolute inset-x-[18%] bottom-3 h-px bg-[var(--spine-ornament)]" />
           <div className="absolute left-1/2 top-9 h-6 w-px -translate-x-1/2 bg-[var(--spine-ornament)] opacity-60" />
           <div className="absolute bottom-9 left-1/2 h-6 w-px -translate-x-1/2 bg-[var(--spine-ornament)] opacity-60" />
-          <span
-            className="relative whitespace-nowrap overflow-hidden font-serif font-semibold uppercase leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
-            style={{
-              writingMode: "vertical-rl",
-              transform: "rotate(180deg)",
-              fontSize: Math.max(10, Math.min(spineWidth * 0.34, 14)),
-              letterSpacing: "0.12em",
-              maxHeight: "92%",
-            }}
-          >
-            {item.title}
-          </span>
+          {isArabicTitle ? (
+            <span
+              className="relative block max-w-[72%] truncate whitespace-nowrap text-center font-semibold leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+              dir="rtl"
+              style={{
+                direction: "rtl",
+                fontFamily: '"Noto Naskh Arabic", "Amiri", "Geeza Pro", "Arial", sans-serif',
+                fontSize: Math.max(12, Math.min(spineWidth * 0.44, 17)),
+                transform: "rotate(90deg)",
+                unicodeBidi: "plaintext",
+                width: spineHeight * 0.72,
+              }}
+            >
+              {item.title}
+            </span>
+          ) : (
+            <span
+              className="relative whitespace-nowrap overflow-hidden font-serif font-semibold uppercase leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
+              style={{
+                writingMode: "vertical-rl",
+                transform: "rotate(180deg)",
+                fontSize: Math.max(10, Math.min(spineWidth * 0.34, 14)),
+                letterSpacing: "0.11em",
+                maxHeight: "76%",
+              }}
+            >
+              {item.title}
+            </span>
+          )}
         </div>
 
       </div>
