@@ -6,6 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = "./apps/web/dist"
 not_found_handling = "single-page-application"
+# API requests go to Hono; all other unknown paths fall back to index.html
+# so TanStack Router can handle direct navigation and browser refreshes.
+run_worker_first = ["/api/*"]
 
 [triggers]
 crons = ["*/15 * * * *"]
