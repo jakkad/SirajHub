@@ -20,7 +20,10 @@ function normalizeFilters(input: unknown) {
   const contentType =
     typeof record.contentType === "string" && VALID_CONTENT_TYPES.has(record.contentType) ? record.contentType : undefined;
   const minScore = typeof record.minScore === "number" && Number.isFinite(record.minScore) ? record.minScore : undefined;
-  const minRating = typeof record.minRating === "number" && Number.isFinite(record.minRating) ? record.minRating : undefined;
+  const minRating =
+    typeof record.minRating === "number" && Number.isInteger(record.minRating) && record.minRating >= 1 && record.minRating <= 7
+      ? record.minRating
+      : undefined;
   const maxDuration = typeof record.maxDuration === "number" && Number.isFinite(record.maxDuration) ? record.maxDuration : undefined;
   const onlyTrending = record.onlyTrending === true ? true : undefined;
   const query = typeof record.query === "string" && record.query.trim() ? record.query.trim() : undefined;

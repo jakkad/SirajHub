@@ -1,6 +1,7 @@
 import type { CreateItemInput } from "./api";
 import { parseCsv, prepareCsvImport } from "./csv";
 import type { ContentTypeId, StatusId } from "./constants";
+import { normalizeRatingScale } from "./ratings";
 
 export type ImportSourceId =
   | "csv"
@@ -94,13 +95,13 @@ function parseGoodreads(text: string): PreparedImportResult {
     const creator = getCell(row, headers, ["author", "authors"]);
     const shelf = getCell(row, headers, ["exclusive shelf", "exclusive_shelf", "bookshelves"]);
     const isbn = getCell(row, headers, ["isbn13", "isbn"]);
-    const ratingValue = Number.parseInt(getCell(row, headers, ["my rating"]), 10);
+    const ratingValue = Number.parseFloat(getCell(row, headers, ["my rating"]));
     pushRow(result, index + 2, {
       title,
       contentType: "book",
       creator: creator || undefined,
       status: normalizeStatus(shelf) ?? "suggestions",
-      rating: Number.isFinite(ratingValue) && ratingValue > 0 ? ratingValue : undefined,
+      rating: normalizeRatingScale(ratingValue, 1, 5) ?? undefined,
       releaseDate: getCell(row, headers, ["year published", "original publication year"]) || undefined,
       externalId: isbn || undefined,
       sourceMetadata: { shelf, isbn },
@@ -119,14 +120,14 @@ function parseLetterboxd(text: string): PreparedImportResult {
     const year = getCell(row, headers, ["year"]);
     const url = getCell(row, headers, ["letterboxd uri", "letterboxd_uri", "url"]);
     const ratingRaw = getCell(row, headers, ["rating"]);
-    const ratingFive = ratingRaw ? Math.round(Math.min(10, Number.parseFloat(ratingRaw)) / 2) : undefined;
+    const ratingSeven = ratingRaw ? normalizeRatingScale(Number.parseFloat(ratingRaw), 0.5, 5) : null;
     pushRow(result, index + 2, {
       title,
       contentType: "movie",
       status: normalizeStatus(getCell(row, headers, ["watched date", "diary date"])) ?? "finished",
       releaseDate: year || undefined,
       sourceUrl: url || undefined,
-      rating: ratingFive && ratingFive > 0 ? ratingFive : undefined,
+      rating: ratingSeven ?? undefined,
       sourceRecordId: url || `${title}:${year}`,
       sourceMetadata: { year, source: "letterboxd" },
     });
@@ -149,7 +150,7 @@ function parseImdb(text: string): PreparedImportResult {
           : "movie";
     const constId = getCell(row, headers, ["const", "titleconst", "id"]);
     const url = getCell(row, headers, ["url", "title url"]);
-    const ratingValue = Number.parseInt(getCell(row, headers, ["your rating", "rating"]), 10);
+    const ratingValue = Number.parseFloat(getCell(row, headers, ["your rating", "rating"]));
     pushRow(result, index + 2, {
       title,
       contentType,
@@ -158,7 +159,7 @@ function parseImdb(text: string): PreparedImportResult {
       releaseDate: getCell(row, headers, ["year", "release year"]) || undefined,
       sourceUrl: url || undefined,
       externalId: constId || undefined,
-      rating: Number.isFinite(ratingValue) && ratingValue > 0 ? Math.min(5, Math.round(ratingValue / 2)) : undefined,
+      rating: normalizeRatingScale(ratingValue, 1, 10) ?? undefined,
       sourceRecordId: constId || url || title,
       sourceMetadata: { typeValue },
     });

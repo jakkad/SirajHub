@@ -69,7 +69,7 @@ export const items = sqliteTable(
 
     // User data
     position: integer("position").default(0), // for manual ordering within a status column
-    rating: integer("rating"), // user's personal 1–5 rating
+    rating: integer("rating"), // user's personal 1–7 rating
     notes: text("notes"), // user's private notes
     progressPercent: integer("progress_percent"),
     progressCurrent: integer("progress_current"),

@@ -19,7 +19,9 @@ import {
 } from "../lib/csv";
 import { prepareImportFile, type ImportSourceId, type PreparedImportResult } from "../lib/importers";
 import { AUTO_DETECT_SOURCES, CONTENT_TYPES, SEARCHABLE_EXTERNAL_TYPES, STATUSES } from "../lib/constants";
+import { getRatingLabel, parseSevenStarRating } from "../lib/ratings";
 import type { ContentTypeId, StatusId } from "../lib/constants";
+import { RatingSelector } from "./RatingSelector";
 import {
   ApiError,
   type BulkImportResult,
@@ -288,7 +290,7 @@ export function AddItemDialog({ open, onClose }: Props) {
         coverUrl: form.coverUrl.trim() || undefined,
         releaseDate: form.releaseDate || undefined,
         finishedAt: form.finishedDate ? new Date(form.finishedDate).getTime() : undefined,
-        rating: form.rating ? parseInt(form.rating, 10) : undefined,
+        rating: form.rating ? parseSevenStarRating(form.rating) ?? undefined : undefined,
         notes: form.notes.trim() || undefined,
         sourceUrl: form.sourceUrl.trim() || undefined,
         durationMins: resolvedExtras.durationMins,
@@ -648,7 +650,10 @@ function ItemDetailsForm({ form, setField }: { form: ItemDraft; setField: (field
           <Input type="date" value={form.releaseDate} onChange={(e) => setField("releaseDate", e.target.value)} />
         </Field>
         <Field label="Rating">
-          <Input type="number" min="1" max="5" value={form.rating} onChange={(e) => setField("rating", e.target.value)} placeholder="1-5" />
+          <RatingSelector
+            value={parseSevenStarRating(form.rating)}
+            onChange={(rating) => setField("rating", rating?.toString() ?? "")}
+          />
         </Field>
         {form.status === "finished" ? (
           <Field label="Finished Date">
@@ -879,7 +884,10 @@ function ManualMappingGrid({
       </Field>
       <MappingField label="Rating column" value={mapping.rating} onChange={(value) => setMapping((prev) => ({ ...prev, rating: value }))} headers={headers} />
       <Field label="Fixed rating">
-        <Input value={mapping.fixedRating} onChange={(e) => setMapping((prev) => ({ ...prev, fixedRating: e.target.value }))} placeholder="1-5" />
+        <Input type="number" min="1" max="7" step="1" value={mapping.fixedRating} onChange={(e) => setMapping((prev) => ({ ...prev, fixedRating: e.target.value }))} placeholder="1-7" />
+        {getRatingLabel(parseSevenStarRating(mapping.fixedRating)) ? (
+          <p className="mt-1 text-xs text-muted-foreground">{getRatingLabel(parseSevenStarRating(mapping.fixedRating))}</p>
+        ) : null}
       </Field>
       <MappingField label="Description column" value={mapping.description} onChange={(value) => setMapping((prev) => ({ ...prev, description: value }))} headers={headers} />
       <Field label="Fixed description">

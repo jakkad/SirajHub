@@ -1,5 +1,6 @@
 import type { CreateItemInput } from "./api";
 import type { ContentTypeId, StatusId } from "./constants";
+import { parseSevenStarRating } from "./ratings";
 
 export interface ParsedCsvFile {
   headers: string[];
@@ -195,8 +196,8 @@ export function prepareCsvImport(parsed: ParsedCsvFile): CsvImportPreparation {
       }
 
       if (target === "rating") {
-        const parsedRating = Number.parseInt(value, 10);
-        if (Number.isFinite(parsedRating) && parsedRating >= 1 && parsedRating <= 5) {
+        const parsedRating = parseSevenStarRating(value);
+        if (parsedRating != null) {
           mapped.rating = parsedRating;
         }
         return;
@@ -343,10 +344,7 @@ function normalizeStatus(value: string): StatusId | null {
 }
 
 function parseMappedRating(value: string) {
-  if (!value) return null;
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return Math.max(1, Math.min(5, Math.round(parsed)));
+  return parseSevenStarRating(value);
 }
 
 function normalizeReleaseDate(value: string) {

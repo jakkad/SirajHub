@@ -3,6 +3,7 @@ import { useCreateSavedView, useDeleteSavedView, useItems, useSavedViews, useBul
 import { DEFAULT_SORT_BY, DEFAULT_SORT_DIRECTION, summarizeSavedViewFilters, matchesSavedViewFilters, sortItems } from "../../lib/saved-views";
 import type { ContentTypeId, StatusId } from "../../lib/constants";
 import { STATUSES } from "../../lib/constants";
+import { getRatingLabel, RATING_VALUES } from "../../lib/ratings";
 import type { Item, ItemSortBy, SavedViewFilters, SortDirection } from "../../lib/api";
 import { useLabs } from "../../hooks/useLabs";
 import { NextToConsume } from "../dashboard/NextToConsume";
@@ -274,7 +275,15 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
                     </div>
                     <div className="flex flex-col gap-2">
                       <Label className="text-xs text-muted-foreground">Min Rating</Label>
-                      <Input type="number" min="1" max="5" value={draftFilters.minRating?.toString() ?? ""} onChange={(e) => updateDraftFilters({ minRating: e.target.value ? Number.parseInt(e.target.value, 10) : undefined })} placeholder="4" className="h-9 bg-card/50 rounded-xl" />
+                      <Select value={draftFilters.minRating?.toString() ?? "any"} onValueChange={(value) => updateDraftFilters({ minRating: value === "any" ? undefined : Number(value) })}>
+                        <SelectTrigger className="h-9 bg-card/50 rounded-xl"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="any">Any rating</SelectItem>
+                          {RATING_VALUES.map((rating) => (
+                            <SelectItem key={rating} value={rating.toString()}>{rating}+ — {getRatingLabel(rating)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex flex-col gap-2">
                       <Label className="text-xs text-muted-foreground">Max Duration (m)</Label>

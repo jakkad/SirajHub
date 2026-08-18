@@ -3,6 +3,7 @@ import { ArrowLeft, Ellipsis, ExternalLink, PencilLine, RefreshCw, Trash2 } from
 import { useEffect, useMemo, useState } from "react";
 import { AIPanel } from "../components/AIPanel";
 import { InlineTagManager } from "../components/InlineTagManager";
+import { RatingSelector } from "../components/RatingSelector";
 import { useScoreItem } from "../hooks/useAI";
 import { useItems, useUpdateItem, useDeleteItem, useResyncTVItem } from "../hooks/useItems";
 import { useAddItemToList, useCreateList, useItemLists, useRemoveItemFromList } from "../hooks/useLists";
@@ -355,21 +356,11 @@ function ItemDetailPage() {
                 </Select>
               </div>
 
-              <div className="soft-panel flex items-center gap-1 rounded-full px-4 h-11 border-[hsl(var(--border)_/_0.4)]">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => updateItem({ id: currentItem.id, rating: currentItem.rating === n ? null : n })}
-                    className={`text-xl leading-none transition-all hover:scale-110 ${
-                      (currentItem.rating ?? 0) >= n ? "opacity-100 text-[var(--hero-accent)] drop-shadow-md" : "opacity-20 hover:opacity-50"
-                    }`}
-                    aria-label={`Rate ${n} stars`}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
+              <RatingSelector
+                value={currentItem.rating}
+                onChange={(rating) => updateItem({ id: currentItem.id, rating })}
+                className="soft-panel rounded-2xl px-4 py-2 border-[hsl(var(--border)_/_0.4)]"
+              />
             </div>
           </div>
 

@@ -127,7 +127,7 @@ function isValidStatus(value: unknown): value is string {
 }
 
 function isValidRating(value: number | null | undefined) {
-  return value == null || (Number.isInteger(value) && value >= 1 && value <= 5);
+  return value == null || (Number.isInteger(value) && value >= 1 && value <= 7);
 }
 
 function isValidOptionalNonNegativeInteger(value: number | null | undefined) {
@@ -428,7 +428,7 @@ async function runImportJob(
     }
     const rating = row.rating ?? null;
     if (!isValidRating(rating)) {
-      errors.push({ row: rowNumber, title, error: "Rating must be an integer from 1 to 5." });
+      errors.push({ row: rowNumber, title, error: "Rating must be an integer from 1 to 7." });
       await db.insert(importSourceMappings).values({
         id: ulid(),
         importJobId,
@@ -698,7 +698,7 @@ router.post("/", async (c) => {
     return c.json({ error: "Unsupported status" }, 400);
   }
   if (!isValidRating(body.rating ?? null)) {
-    return c.json({ error: "Rating must be an integer from 1 to 5." }, 400);
+    return c.json({ error: "Rating must be an integer from 1 to 7." }, 400);
   }
   if (
     !isValidOptionalNonNegativeInteger(body.durationMins ?? null) ||
@@ -962,7 +962,7 @@ router.patch("/:id", async (c) => {
     return c.json({ error: "Unsupported status" }, 400);
   }
   if (!isValidRating(body.rating)) {
-    return c.json({ error: "Rating must be an integer from 1 to 5." }, 400);
+    return c.json({ error: "Rating must be an integer from 1 to 7." }, 400);
   }
   if (
     !isValidOptionalNonNegativeInteger(body.durationMins ?? null) ||
