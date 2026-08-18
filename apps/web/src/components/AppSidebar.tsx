@@ -23,6 +23,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useLabs } from "@/hooks/useLabs";
@@ -50,15 +51,21 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const visibleNavItems = NAV_ITEMS.filter((item) => item.to !== "/lists" || labs.lists);
 
   return (
-    <Sidebar collapsible="offcanvas" className="border-none">
-      <SidebarHeader className="px-4 pb-2 pt-5">
-        <div className="px-2">
-          <p className="truncate text-[1.45rem] font-semibold tracking-[-0.05em] text-sidebar-foreground">SirajHub</p>
+    <Sidebar collapsible="icon" className="border-none">
+      <SidebarHeader className="px-4 pb-2 pt-5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-1">
+        <div className="px-2 group-data-[collapsible=icon]:px-0">
+          <p className="truncate text-[1.45rem] font-semibold tracking-[-0.05em] text-sidebar-foreground group-data-[collapsible=icon]:hidden">SirajHub</p>
+          <span
+            className="hidden size-9 items-center justify-center rounded-xl bg-sidebar-accent font-serif text-sm font-bold text-sidebar-accent-foreground group-data-[collapsible=icon]:flex"
+            aria-label="SirajHub"
+          >
+            SH
+          </span>
         </div>
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup className="px-4">
+        <SidebarGroup className="px-4 group-data-[collapsible=icon]:px-1">
           <SidebarGroupLabel>Library</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -72,7 +79,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                         <span>{label}</span>
                         {color ? (
                           <span
-                            className="ml-auto size-2.5 rounded-full border border-sidebar-border/70"
+                            className="ml-auto size-2.5 rounded-full border border-sidebar-border/70 group-data-[collapsible=icon]:hidden"
                             style={{ backgroundColor: color }}
                           />
                         ) : null}
@@ -86,9 +93,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 pt-2">
-        <SidebarSeparator />
-        <div className="flex items-center justify-between px-2 pt-3">
+      <SidebarFooter className="p-4 pt-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:p-1">
+        <SidebarSeparator className="group-data-[collapsible=icon]:hidden" />
+        <div className="flex items-center justify-between px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:pt-0">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={isSettings} tooltip="Settings" className="size-11 justify-center p-0">
@@ -101,12 +108,13 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           </SidebarMenu>
 
           <span
-            className="size-2.5 rounded-full border border-sidebar-border/70 bg-emerald-500 shadow-[0_0_0_4px_hsl(var(--sidebar-accent)/0.55)]"
+            className="size-2.5 rounded-full border border-sidebar-border/70 bg-emerald-500 shadow-[0_0_0_4px_hsl(var(--sidebar-accent)/0.55)] group-data-[collapsible=icon]:hidden"
             aria-label="Live status"
             title="Live"
           />
         </div>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }

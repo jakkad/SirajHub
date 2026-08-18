@@ -23,9 +23,7 @@ const SECTION_COPY: Record<StatusId, { kicker: string; description: string }> = 
 };
 
 export function BookshelfView({ items, selectionProps }: BookshelfViewProps) {
-  const [activeShelf, setActiveShelf] = useState<StatusId>(() => {
-    return (["suggestions", "in_progress", "finished"] as const).find((status) => items.some((item) => item.status === status)) ?? "suggestions";
-  });
+  const [activeShelf, setActiveShelf] = useState<StatusId>("finished");
   const queryClient = useQueryClient();
   const previousCompleted = useRef(0);
   const { mutate: lookupPages, data: lookupResult, isPending: lookupPending } = useLookupBookPageCounts();

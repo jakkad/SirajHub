@@ -8,7 +8,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 
 interface AppTopbarProps {
   user?: { name?: string; email?: string } | null;
@@ -19,6 +19,8 @@ interface AppTopbarProps {
 export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
+  const { state: sidebarState, isMobile, openMobile } = useSidebar();
+  const sidebarOpen = isMobile ? openMobile : sidebarState === "expanded";
 
   async function handleLogout() {
     await authClient.signOut();
@@ -33,7 +35,10 @@ export function AppTopbar({ user, onSearchOpen, onAddItem }: AppTopbarProps) {
   return (
     <header className="sticky top-0 z-30 px-4 pt-4 md:px-6">
       <div className="soft-panel flex items-center gap-3 rounded-[30px] px-4 py-3 backdrop-blur-sm">
-        <SidebarTrigger className="md:hidden" />
+        <SidebarTrigger
+          aria-label={sidebarOpen ? "Close navigation sidebar" : "Open navigation sidebar"}
+          title={sidebarOpen ? "Close sidebar (⌘/Ctrl+B)" : "Open sidebar (⌘/Ctrl+B)"}
+        />
 
         <Button
           variant="outline"

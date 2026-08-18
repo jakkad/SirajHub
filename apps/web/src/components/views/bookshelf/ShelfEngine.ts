@@ -3,6 +3,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { Item } from "../../../lib/api";
 import { inspectionCameraDistance, packShelfGroups, stableBookHash } from "../../../lib/bookshelf-layout";
+import { createSpineTextureCanvas } from "./spine-texture";
 
 export type ShelfTone = "suggestions" | "in_progress" | "finished" | "archived";
 
@@ -308,44 +309,23 @@ export class ShelfEngine {
   }
 
   private addSpineLabel(root: THREE.Group, item: Item, thickness: number, height: number, coverWidth: number, baseColor: THREE.Color) {
-    const canvas = document.createElement("canvas");
     const labelWidth = Math.max(0.08, thickness - 0.025);
     const labelHeight = height - 0.08;
-    canvas.height = 1536;
-    canvas.width = Math.round(THREE.MathUtils.clamp(canvas.height * (labelWidth / labelHeight), 128, 320));
-    const context = canvas.getContext("2d")!;
-    context.fillStyle = `#${baseColor.getHexString()}`;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.strokeStyle = "rgba(220,169,82,.9)";
-    context.lineWidth = Math.max(5, canvas.width * 0.045);
-    context.beginPath();
-    context.moveTo(canvas.width * 0.14, 54);
-    context.lineTo(canvas.width * 0.14, canvas.height - 54);
-    context.stroke();
-
-    const titleCharacters = Array.from(item.title.replace(/\s+/g, " ").trim());
-    const title = titleCharacters.length > 28 ? `${titleCharacters.slice(0, 27).join("")}…` : titleCharacters.join("");
-    const foreground = baseColor.getHSL({ h: 0, s: 0, l: 0 }).l > 0.6 ? "#211f1a" : "#fff8e8";
-    const outline = baseColor.getHSL({ h: 0, s: 0, l: 0 }).l > 0.6 ? "rgba(255,248,232,.38)" : "rgba(25,22,18,.45)";
-    context.save();
-    context.translate(canvas.width * 0.61, canvas.height / 2);
-    context.rotate(-Math.PI / 2);
-    context.fillStyle = foreground;
-    context.strokeStyle = outline;
-    context.lineWidth = Math.max(2, canvas.width * 0.018);
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.font = `700 ${Math.round(THREE.MathUtils.clamp(canvas.width * 0.45, 58, 112))}px Georgia, "Noto Naskh Arabic", serif`;
-    context.strokeText(title, 0, 0, canvas.height - 250);
-    context.fillText(title, 0, 0, canvas.height - 250);
-    context.restore();
+    const canvas = createSpineTextureCanvas(item.title, `#${baseColor.getHexString()}`, stableBookHash(item.id));
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     texture.minFilter = THREE.LinearMipmapLinearFilter;
     texture.magFilter = THREE.LinearFilter;
     const geometry = new THREE.PlaneGeometry(labelWidth, labelHeight);
-    const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
+    const material = new THREE.MeshPhysicalMaterial({
+      map: texture,
+      roughness: 0.68,
+      metalness: 0.015,
+      sheen: 0.16,
+      sheenColor: baseColor.clone().offsetHSL(0, -0.08, 0.22),
+      sheenRoughness: 0.84,
+    });
     this.track(texture, geometry, material);
     const label = new THREE.Mesh(geometry, material);
     label.position.set(0, height / 2, coverWidth / 2 + 0.029);

@@ -9,6 +9,12 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 const AddItemDialog = lazy(() => import("@/components/AddItemDialog").then((module) => ({ default: module.AddItemDialog })));
 const SearchCommand = lazy(() => import("@/components/SearchCommand").then((module) => ({ default: module.SearchCommand })));
 
+function readSidebarPreference() {
+  if (typeof document === "undefined") return true;
+  const match = document.cookie.match(/(?:^|;\s*)sidebar_state=(true|false)(?:;|$)/);
+  return match ? match[1] === "true" : true;
+}
+
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
     if (location.pathname === "/login") return;
@@ -30,6 +36,7 @@ function RootLayout() {
 
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(readSidebarPreference);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -52,7 +59,7 @@ function RootLayout() {
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
+      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <div className="paper-page flex min-h-screen w-full text-foreground">
           <AppSidebar />
 
