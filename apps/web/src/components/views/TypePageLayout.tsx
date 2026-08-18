@@ -25,6 +25,7 @@ interface TypePageLayoutProps {
   contentType: ContentTypeId;
   title: string;
   color: string;
+  showStatusFilters?: boolean;
   children: (items: Item[], selectionProps?: { isSelectionMode: boolean; selectedIds: Set<string>; toggleSelection: (id: string) => void }) => React.ReactNode;
 }
 
@@ -62,7 +63,7 @@ function getThemeAccent(typeId: string) {
   }
 }
 
-export function TypePageLayout({ contentType, title, children }: TypePageLayoutProps) {
+export function TypePageLayout({ contentType, title, showStatusFilters = true, children }: TypePageLayoutProps) {
   const accentColor = getThemeAccent(contentType);
   const { labs } = useLabs();
   
@@ -178,7 +179,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
           </div>
 
           {/* Inline Status Filters */}
-          <div className="flex flex-wrap items-center gap-2 w-full pt-2">
+          {showStatusFilters ? <div className="flex flex-wrap items-center gap-2 w-full pt-2">
             {STATUS_FILTERS.map((sf) => {
               const count = countByStatus(sf.id);
               if (sf.id !== "all" && count === 0) return null;
@@ -201,7 +202,7 @@ export function TypePageLayout({ contentType, title, children }: TypePageLayoutP
                 </button>
               );
             })}
-          </div>
+          </div> : null}
 
           <div className="flex flex-col gap-3 rounded-2xl border border-[hsl(var(--border)_/_0.45)] bg-[hsl(var(--card)_/_0.35)] p-3 backdrop-blur-sm sm:flex-row sm:items-end">
             <div className="flex min-w-[180px] flex-1 flex-col gap-2">

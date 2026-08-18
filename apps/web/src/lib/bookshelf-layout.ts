@@ -58,7 +58,11 @@ export function stableBookHash(id: string) {
   return hash >>> 0;
 }
 
-export function packShelfGroups(groups: Array<{ label: string; items: Item[] }>, shelfWidth: number) {
+export function packShelfGroups(
+  groups: Array<{ label: string; items: Item[] }>,
+  shelfWidth: number,
+  options: { continuous?: boolean } = {},
+) {
   const safeWidth = Math.max(1.8, shelfWidth);
   const result: ShelfLayoutGroup[] = [];
   let rowOffset = 0;
@@ -71,7 +75,7 @@ export function packShelfGroups(groups: Array<{ label: string; items: Item[] }>,
     for (const item of group.items) {
       const thickness = pageCountToThickness(item.pageCount);
       const gap = 0.035;
-      if (cursor + thickness > safeWidth / 2 && books.some((book) => book.row === rowOffset + row)) {
+      if (!options.continuous && cursor + thickness > safeWidth / 2 && books.some((book) => book.row === rowOffset + row)) {
         row += 1;
         cursor = -safeWidth / 2;
       }
@@ -101,7 +105,14 @@ export function packShelfGroups(groups: Array<{ label: string; items: Item[] }>,
     rowOffset += rowCount;
   }
 
-  return { groups: result, rowCount: rowOffset, shelfWidth: safeWidth };
+  const continuousContentWidth = options.continuous
+    ? Math.max(0, ...result.map((group) => group.books.reduce((sum, book) => sum + book.thickness + 0.035, 0)))
+    : 0;
+  return {
+    groups: result,
+    rowCount: rowOffset,
+    shelfWidth: options.continuous ? Math.max(safeWidth, continuousContentWidth + safeWidth) : safeWidth,
+  };
 }
 
 export function finishedRatingGroups(items: Item[]) {

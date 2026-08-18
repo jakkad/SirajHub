@@ -10,9 +10,10 @@ interface Props {
   groups: Array<{ label: string; items: Item[] }>;
   tone: ShelfTone;
   selectionProps?: SelectionProps;
+  continuous?: boolean;
 }
 
-export function BookShelfScene({ groups, tone, selectionProps }: Props) {
+export function BookShelfScene({ groups, tone, selectionProps, continuous = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ShelfEngine | null>(null);
@@ -29,10 +30,10 @@ export function BookShelfScene({ groups, tone, selectionProps }: Props) {
       return { book: allBooks[index]!, index };
     });
   }, [allBooks]);
-  const sceneKey = useMemo(() => groups.map((group) => `${group.label}:${group.items.map((item) => `${item.id}:${item.pageCount}:${item.coverUrl}`).join(",")}`).join("|"), [groups]);
+  const sceneKey = useMemo(() => `${continuous ? "continuous" : "rows"}:${groups.map((group) => `${group.label}:${group.items.map((item) => `${item.id}:${item.pageCount}:${item.coverUrl}`).join(",")}`).join("|")}`, [continuous, groups]);
   const selectedKey = selectionProps ? [...selectionProps.selectedIds].sort().join(",") : "";
   const estimatedRows = Math.max(groups.length, Math.ceil(allBooks.length / 14));
-  const canvasHeight = Math.min(1180, Math.max(540, 540 + (estimatedRows - 1) * 300));
+  const canvasHeight = continuous ? "clamp(620px, calc(100vh - 180px), 920px)" : Math.min(1180, Math.max(540, 540 + (estimatedRows - 1) * 300));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -54,6 +55,7 @@ export function BookShelfScene({ groups, tone, selectionProps }: Props) {
           onActivate: setActiveBook,
           onInspectionChange: setInspecting,
           onToggleSelection: (id) => selectionProps?.toggleSelection(id),
+          continuous,
           onReady: () => setReady(true),
           onError: setError,
         });
@@ -67,7 +69,7 @@ export function BookShelfScene({ groups, tone, selectionProps }: Props) {
       engine?.dispose();
       engineRef.current = null;
     };
-  }, [sceneKey, tone, compact]);
+  }, [sceneKey, tone, compact, continuous]);
 
   useEffect(() => {
     engineRef.current?.setInteraction(selectionProps?.isSelectionMode ?? false, selectionProps?.selectedIds ?? new Set());

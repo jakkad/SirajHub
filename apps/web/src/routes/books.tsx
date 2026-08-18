@@ -12,6 +12,7 @@ function BooksPage() {
       contentType="book"
       title="Books"
       color="var(--color-book)"
+      showStatusFilters={false}
     >
       {(items, selectionProps) => <BookshelfView items={items} selectionProps={selectionProps} />}
     </TypePageLayout>

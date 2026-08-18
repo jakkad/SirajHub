@@ -16,6 +16,7 @@ export interface ShelfEngineOptions {
   onActivate: (item: Item) => void;
   onInspectionChange?: (inspecting: boolean) => void;
   onToggleSelection: (id: string) => void;
+  continuous?: boolean;
   onReady?: () => void;
   onError?: (message: string) => void;
 }
@@ -74,6 +75,8 @@ export class ShelfEngine {
   private rowCount = 1;
   private lastFrameAt = performance.now();
   private shelfWidth = 8;
+  private viewportShelfWidth = 7.2;
+  private readonly continuous: boolean;
   private selectionMode: boolean;
   private selectedIds: Set<string>;
   private reducedMotion: boolean;
@@ -90,6 +93,7 @@ export class ShelfEngine {
     this.onActivate = options.onActivate;
     this.onInspectionChange = options.onInspectionChange;
     this.onToggleSelection = options.onToggleSelection;
+    this.continuous = options.continuous ?? false;
     this.textureLoader.setCrossOrigin("use-credentials");
 
     try {
@@ -151,7 +155,8 @@ export class ShelfEngine {
   }
 
   private build(groups: Array<{ label: string; items: Item[] }>, tone: ShelfTone) {
-    const layout = packShelfGroups(groups, this.canvas.clientWidth < 640 ? 3.8 : 7.2);
+    this.viewportShelfWidth = this.canvas.clientWidth < 640 ? 3.8 : 7.2;
+    const layout = packShelfGroups(groups, this.viewportShelfWidth, { continuous: this.continuous });
     this.rowCount = Math.max(1, layout.rowCount);
     this.shelfWidth = layout.shelfWidth;
     const rowSpacing = 3.15;
@@ -161,7 +166,7 @@ export class ShelfEngine {
     for (let row = 0; row < this.rowCount; row += 1) {
       const y = yTop - row * rowSpacing - 1.38;
       const shelf = this.createShelf(this.shelfWidth + 0.75);
-      shelf.position.set(0, y - 0.04, 0);
+      shelf.position.set(this.continuous ? Math.max(0, (this.shelfWidth - this.viewportShelfWidth) / 2) : 0, y - 0.04, 0);
       this.scene.add(shelf);
     }
 
@@ -594,6 +599,15 @@ export class ShelfEngine {
     const neighbors = this.bookNodes.filter((node) => node !== active && node.row === active.row);
     const gap = 0.045;
     const start = heroX + active.coverWidth / 2 + 0.06;
+    if (this.continuous) {
+      let cursor = start;
+      for (const node of neighbors) {
+        node.showcaseScaleX = 1;
+        node.showcaseX = cursor + node.thickness / 2;
+        cursor += node.thickness + gap;
+      }
+      return;
+    }
     const available = Math.max(0.5, this.shelfWidth / 2 + 0.28 - start);
     const naturalWidth = neighbors.reduce((sum, node) => sum + node.thickness + gap, 0);
     const scale = naturalWidth > 0 ? THREE.MathUtils.clamp(available / naturalWidth, 0.48, 1.35) : 1;

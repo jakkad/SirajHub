@@ -1,14 +1,14 @@
-import { BookOpenCheck, Layers3, ListTree, RefreshCw } from "lucide-react";
+import { BookOpenCheck, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Item } from "../../lib/api";
 import { STATUSES, type StatusId } from "../../lib/constants";
-import { finishedRatingGroups } from "../../lib/bookshelf-layout";
 import { useBookPageCountStatus, useLookupBookPageCounts } from "../../hooks/useItems";
 import type { SelectionProps } from "./TypePageLayout";
 import { BookShelfScene } from "./bookshelf/BookShelfScene";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface BookshelfViewProps {
   items: Item[];
@@ -23,7 +23,9 @@ const SECTION_COPY: Record<StatusId, { kicker: string; description: string }> = 
 };
 
 export function BookshelfView({ items, selectionProps }: BookshelfViewProps) {
-  const [groupFinished, setGroupFinished] = useState(true);
+  const [activeShelf, setActiveShelf] = useState<StatusId>(() => {
+    return (["suggestions", "in_progress", "finished"] as const).find((status) => items.some((item) => item.status === status)) ?? "suggestions";
+  });
   const queryClient = useQueryClient();
   const previousCompleted = useRef(0);
   const { mutate: lookupPages, data: lookupResult, isPending: lookupPending } = useLookupBookPageCounts();
@@ -38,17 +40,28 @@ export function BookshelfView({ items, selectionProps }: BookshelfViewProps) {
     previousCompleted.current = completed;
   }, [lookupStatus?.completedCount, queryClient]);
 
-  const sections = useMemo(() => STATUSES.map((status) => ({
-    status,
-    items: items.filter((item) => item.status === status.id),
-  })).filter((section) => section.items.length > 0), [items]);
+  const shelves = useMemo(() => STATUSES
+    .filter((status) => status.id !== "archived" || items.some((item) => item.status === "archived"))
+    .map((status) => {
+      const sectionItems = items.filter((item) => item.status === status.id);
+      const sorted = [...sectionItems].sort((a, b) => status.id === "finished"
+        ? (b.finishedAt ?? b.updatedAt) - (a.finishedAt ?? a.updatedAt)
+        : (a.position ?? 0) - (b.position ?? 0));
+      return { status, items: sorted };
+    }), [items]);
+
+  useEffect(() => {
+    if (shelves.some((shelf) => shelf.status.id === activeShelf)) return;
+    const next = shelves.find((shelf) => shelf.items.length > 0);
+    if (next) setActiveShelf(next.status.id);
+  }, [activeShelf, shelves]);
 
   if (items.length === 0) {
     return <div className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">No books saved yet.</div>;
   }
 
   return (
-    <div className="grid gap-14">
+    <div className="grid gap-8">
       <div className="flex flex-col gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-card/65 p-5 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -74,30 +87,45 @@ export function BookshelfView({ items, selectionProps }: BookshelfViewProps) {
         </div>
       </div>
 
-      {sections.map(({ status, items: sectionItems }) => {
-        const isFinished = status.id === "finished";
-        const sorted = [...sectionItems].sort((a, b) => isFinished ? (b.finishedAt ?? b.updatedAt) - (a.finishedAt ?? a.updatedAt) : (a.position ?? 0) - (b.position ?? 0));
-        const groups = isFinished && groupFinished ? finishedRatingGroups(sorted) : [{ label: isFinished ? "Recently finished" : status.label, items: sorted }];
-        const copy = SECTION_COPY[status.id];
-        return (
-          <section key={status.id} className="grid gap-5" aria-labelledby={`shelf-${status.id}`}>
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">{copy.kicker}</p>
-                <h2 id={`shelf-${status.id}`} className="mt-1 font-serif text-3xl font-semibold tracking-tight">{status.label} <span className="text-base font-sans font-normal text-muted-foreground">({sectionItems.length})</span></h2>
-                <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
-              </div>
-              {isFinished ? (
-                <div className="flex rounded-xl border bg-card p-1" aria-label="Finished shelf grouping">
-                  <Button size="sm" variant={groupFinished ? "secondary" : "ghost"} onClick={() => setGroupFinished(true)}><ListTree className="mr-1.5 size-4" /> By rating</Button>
-                  <Button size="sm" variant={!groupFinished ? "secondary" : "ghost"} onClick={() => setGroupFinished(false)}><Layers3 className="mr-1.5 size-4" /> Combined</Button>
+      <Tabs value={activeShelf} onValueChange={(value) => setActiveShelf(value as StatusId)} className="w-full">
+        <TabsList aria-label="Book shelves">
+          {shelves.map(({ status, items: shelfItems }) => (
+            <TabsTrigger key={status.id} value={status.id}>
+              {status.label}
+              <span className="ml-2 text-xs tabular-nums text-muted-foreground">{shelfItems.length}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {shelves.map(({ status, items: shelfItems }) => {
+          const copy = SECTION_COPY[status.id];
+          return (
+            <TabsContent key={status.id} value={status.id} className="mt-6">
+              <section className="grid gap-5" aria-labelledby={`shelf-${status.id}`}>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">{copy.kicker}</p>
+                  <h2 id={`shelf-${status.id}`} className="mt-1 font-serif text-3xl font-semibold tracking-tight">
+                    {status.label} <span className="font-sans text-base font-normal text-muted-foreground">({shelfItems.length})</span>
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
                 </div>
-              ) : null}
-            </div>
-            <BookShelfScene groups={groups} tone={status.id} selectionProps={selectionProps} />
-          </section>
-        );
-      })}
+                {shelfItems.length ? (
+                  <BookShelfScene
+                    groups={[{ label: status.label, items: shelfItems }]}
+                    tone={status.id}
+                    selectionProps={selectionProps}
+                    continuous
+                  />
+                ) : (
+                  <div className="grid min-h-[620px] place-items-center rounded-[28px] border border-dashed bg-card/50 px-6 text-center text-sm text-muted-foreground">
+                    No books on this shelf yet.
+                  </div>
+                )}
+              </section>
+            </TabsContent>
+          );
+        })}
+      </Tabs>
     </div>
   );
 }
