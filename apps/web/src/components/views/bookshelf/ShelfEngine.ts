@@ -39,6 +39,13 @@ const TEMPLATE_COLORS = [
   0xd6b85d, 0x722f36, 0x294868, 0xa95545, 0x496f63,
 ];
 
+const COVER_BOARD_DEPTH = 0.045;
+const COVER_SURFACE_GAP = 0.003;
+
+function coverFaceX(thickness: number, layerOffset = 0) {
+  return thickness / 2 + COVER_BOARD_DEPTH / 2 + COVER_SURFACE_GAP + layerOffset;
+}
+
 const TONES: Record<ShelfTone, { background: number; accent: number; ambient: number }> = {
   suggestions: { background: 0xe7eee9, accent: 0x92b9bd, ambient: 0xb7d0c9 },
   in_progress: { background: 0xf2e6d3, accent: 0xe0a45b, ambient: 0xe8c18d },
@@ -225,7 +232,7 @@ export class ShelfEngine {
     });
     const pages = new THREE.MeshStandardMaterial({ color: 0xeee7d8, roughness: 0.9 });
     const foil = new THREE.MeshStandardMaterial({ color: 0xd5ad67, roughness: 0.36, metalness: 0.5 });
-    const boardGeometry = new RoundedBoxGeometry(0.045, height, coverWidth, 4, 0.025);
+    const boardGeometry = new RoundedBoxGeometry(COVER_BOARD_DEPTH, height, coverWidth, 4, 0.025);
     const spineGeometry = new RoundedBoxGeometry(thickness, height, 0.055, 4, 0.025);
     const pageGeometry = new RoundedBoxGeometry(Math.max(0.08, thickness - 0.075), height - 0.115, coverWidth - 0.105, 3, 0.018);
     this.track(boardGeometry, spineGeometry, pageGeometry, cloth, pages, foil);
@@ -382,7 +389,7 @@ export class ShelfEngine {
     this.track(texture, geometry, material);
     const cover = new THREE.Mesh(geometry, material);
     cover.rotation.y = Math.PI / 2;
-    cover.position.set(thickness / 2 + 0.002, height / 2, 0);
+    cover.position.set(coverFaceX(thickness), height / 2, 0);
     cover.userData.itemId = item.id;
     root.add(cover);
   }
@@ -405,7 +412,7 @@ export class ShelfEngine {
         this.track(texture, geometry, material);
         const cover = new THREE.Mesh(geometry, material);
         cover.rotation.y = Math.PI / 2;
-        cover.position.set(thickness / 2 + 0.008, height / 2, 0);
+        cover.position.set(coverFaceX(thickness, 0.002), height / 2, 0);
         cover.renderOrder = 3;
         cover.userData.itemId = item.id;
         root.add(cover);
