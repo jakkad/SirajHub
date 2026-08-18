@@ -54,7 +54,9 @@ export function packShelfGroups(groups: Array<{ label: string; items: Item[] }>,
       books.push({
         item,
         thickness,
-        height: 1.65 + (stableBookHash(item.id) % 27) / 100,
+        // Keep the shelf feeling like a collection of real hardcovers. Thickness is
+        // page-driven; height only supplies restrained edition-to-edition variation.
+        height: 2.55 + (stableBookHash(item.id) % 31) / 100,
         x: cursor + thickness / 2,
         row: rowOffset + row,
       });
