@@ -1,4 +1,4 @@
-import { ArrowUpRight, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "../../../lib/api";
@@ -162,7 +162,10 @@ export function BookShelfScene({ groups, tone, selectionProps }: Props) {
               </div>
               <div className="pointer-events-auto mt-6 flex items-center gap-4">
                 {inspecting ? (
-                  <Button variant="ghost" className="h-auto border-b border-[#29251f] px-0 py-2 text-[11px] font-semibold uppercase tracking-[.18em] hover:bg-transparent" onClick={closeInspection}>Return to shelf <RotateCcw className="ml-3 size-4" /></Button>
+                  <button type="button" className="group inline-flex items-center gap-3 border-b border-[#29251f]/70 pb-2 text-[11px] font-semibold uppercase tracking-[.18em] transition-colors hover:border-[#29251f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#29251f]/40 focus-visible:ring-offset-4 focus-visible:ring-offset-[#f2eee5]" onClick={closeInspection}>
+                    <ArrowLeft className="size-4 transition-transform group-hover:-translate-x-1" />
+                    Return to shelf
+                  </button>
                 ) : (
                   <Button variant="ghost" className="h-auto border-b border-[#29251f] px-0 py-2 text-[11px] font-semibold uppercase tracking-[.18em] hover:bg-transparent" onClick={() => engineRef.current?.inspect(activeBook.id)}>Inspect volume <ArrowUpRight className="ml-3 size-4" /></Button>
                 )}

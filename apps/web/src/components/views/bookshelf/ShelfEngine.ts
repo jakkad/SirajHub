@@ -83,6 +83,7 @@ export class ShelfEngine {
     this.onActivate = options.onActivate;
     this.onInspectionChange = options.onInspectionChange;
     this.onToggleSelection = options.onToggleSelection;
+    this.textureLoader.setCrossOrigin("use-credentials");
 
     try {
       this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
@@ -296,31 +297,42 @@ export class ShelfEngine {
 
   private addSpineLabel(root: THREE.Group, item: Item, thickness: number, height: number, coverWidth: number, baseColor: THREE.Color) {
     const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 1024;
+    const labelWidth = Math.max(0.08, thickness - 0.025);
+    const labelHeight = height - 0.08;
+    canvas.height = 1536;
+    canvas.width = Math.round(THREE.MathUtils.clamp(canvas.height * (labelWidth / labelHeight), 128, 320));
     const context = canvas.getContext("2d")!;
     context.fillStyle = `#${baseColor.getHexString()}`;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = "rgba(220,169,82,.9)";
-    context.lineWidth = 7;
+    context.lineWidth = Math.max(5, canvas.width * 0.045);
     context.beginPath();
-    context.moveTo(32, 52);
-    context.lineTo(32, 972);
+    context.moveTo(canvas.width * 0.14, 54);
+    context.lineTo(canvas.width * 0.14, canvas.height - 54);
     context.stroke();
+
+    const titleCharacters = Array.from(item.title.replace(/\s+/g, " ").trim());
+    const title = titleCharacters.length > 28 ? `${titleCharacters.slice(0, 27).join("")}…` : titleCharacters.join("");
+    const foreground = baseColor.getHSL({ h: 0, s: 0, l: 0 }).l > 0.6 ? "#211f1a" : "#fff8e8";
+    const outline = baseColor.getHSL({ h: 0, s: 0, l: 0 }).l > 0.6 ? "rgba(255,248,232,.38)" : "rgba(25,22,18,.45)";
     context.save();
-    context.translate(154, 940);
+    context.translate(canvas.width * 0.61, canvas.height / 2);
     context.rotate(-Math.PI / 2);
-    context.fillStyle = baseColor.getHSL({ h: 0, s: 0, l: 0 }).l > 0.68 ? "#28251f" : "#f6eedc";
-    context.textAlign = "left";
-    context.font = "600 48px Georgia, serif";
-    const title = item.title.length > 32 ? `${item.title.slice(0, 30)}…` : item.title;
-    context.fillText(title, 0, 0, 820);
-    context.font = "500 25px Arial, sans-serif";
-    context.fillText(item.creator ?? "", 0, 50, 700);
+    context.fillStyle = foreground;
+    context.strokeStyle = outline;
+    context.lineWidth = Math.max(2, canvas.width * 0.018);
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.font = `700 ${Math.round(THREE.MathUtils.clamp(canvas.width * 0.45, 58, 112))}px Georgia, "Noto Naskh Arabic", serif`;
+    context.strokeText(title, 0, 0, canvas.height - 250);
+    context.fillText(title, 0, 0, canvas.height - 250);
     context.restore();
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    const geometry = new THREE.PlaneGeometry(Math.max(0.08, thickness - 0.025), height - 0.08);
+    texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    const geometry = new THREE.PlaneGeometry(labelWidth, labelHeight);
     const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
     this.track(texture, geometry, material);
     const label = new THREE.Mesh(geometry, material);
@@ -377,17 +389,24 @@ export class ShelfEngine {
 
   private addCoverTexture(root: THREE.Group, item: Item, thickness: number, height: number, coverWidth: number) {
     this.textureLoader.load(
-      item.coverUrl!,
+      `/api/items/${encodeURIComponent(item.id)}/cover?v=${item.updatedAt}`,
       (texture) => {
         if (this.disposed) return texture.dispose();
         texture.colorSpace = THREE.SRGBColorSpace;
-        texture.anisotropy = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
+        texture.anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
         const geometry = new THREE.PlaneGeometry(coverWidth - 0.075, height - 0.085);
-        const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
+        const material = new THREE.MeshBasicMaterial({
+          map: texture,
+          toneMapped: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        });
         this.track(texture, geometry, material);
         const cover = new THREE.Mesh(geometry, material);
         cover.rotation.y = Math.PI / 2;
-        cover.position.set(thickness / 2 + 0.004, height / 2, 0);
+        cover.position.set(thickness / 2 + 0.008, height / 2, 0);
+        cover.renderOrder = 3;
         cover.userData.itemId = item.id;
         root.add(cover);
       },

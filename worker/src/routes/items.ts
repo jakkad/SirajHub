@@ -614,6 +614,59 @@ async function runImportJob(
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
 
+function isSafeCoverUrl(value: string): URL | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (
+      hostname === "localhost" ||
+      hostname.endsWith(".localhost") ||
+      hostname.endsWith(".local") ||
+      hostname.includes(":")
+    ) return null;
+
+    const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4) {
+      const octets = ipv4.slice(1).map(Number);
+      if (octets.some((part) => part > 255)) return null;
+      const [first, second] = octets;
+      if (
+        first === 0 ||
+        first === 10 ||
+        first === 127 ||
+        (first === 169 && second === 254) ||
+        (first === 172 && second != null && second >= 16 && second <= 31) ||
+        (first === 192 && second === 168)
+      ) return null;
+    }
+
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCoverImage(initialUrl: URL): Promise<Response> {
+  let url = initialUrl;
+  for (let redirects = 0; redirects <= 3; redirects += 1) {
+    const response = await fetch(url, {
+      redirect: "manual",
+      headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,image/gif" },
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("Location");
+      const nextUrl = location ? isSafeCoverUrl(new URL(location, url).toString()) : null;
+      if (!nextUrl) throw new Error("Unsafe cover redirect");
+      url = nextUrl;
+      continue;
+    }
+    return response;
+  }
+  throw new Error("Too many cover redirects");
+}
+
 router.get("/", async (c) => {
   const userId = c.get("userId");
   const { status, content_type, q } = c.req.query();
@@ -665,6 +718,40 @@ router.get("/duplicates", async (c) => {
       })),
     })),
   });
+});
+
+router.get("/:id/cover", async (c) => {
+  const userId = c.get("userId");
+  const id = c.req.param("id");
+  const db = createDb(c.env.DB);
+  const [item] = await db
+    .select({ coverUrl: items.coverUrl })
+    .from(items)
+    .where(and(eq(items.id, id), eq(items.userId, userId)));
+
+  if (!item?.coverUrl) return c.json({ error: "Cover not found" }, 404);
+  const coverUrl = isSafeCoverUrl(item.coverUrl);
+  if (!coverUrl) return c.json({ error: "Unsupported cover URL" }, 400);
+
+  try {
+    const response = await fetchCoverImage(coverUrl);
+    if (!response.ok) return c.json({ error: "Cover could not be loaded" }, 502);
+    const contentType = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim().toLowerCase();
+    if (!contentType || !["image/avif", "image/webp", "image/png", "image/jpeg", "image/gif"].includes(contentType)) {
+      return c.json({ error: "Cover response is not a supported image" }, 415);
+    }
+
+    return new Response(response.body, {
+      status: 200,
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "private, max-age=86400",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch {
+    return c.json({ error: "Cover could not be loaded" }, 502);
+  }
 });
 
 router.get("/import/sources", (c) => {
