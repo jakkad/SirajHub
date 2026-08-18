@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { Item } from "../../../lib/api";
-import { packShelfGroups, stableBookHash } from "../../../lib/bookshelf-layout";
+import { inspectionCameraDistance, packShelfGroups, stableBookHash } from "../../../lib/bookshelf-layout";
 
 export type ShelfTone = "suggestions" | "in_progress" | "finished" | "archived";
 
@@ -27,6 +27,7 @@ interface BookNode {
   selectedOutline: THREE.Mesh;
   row: number;
   thickness: number;
+  height: number;
   coverWidth: number;
   showcaseX: number;
   showcaseScaleX: number;
@@ -172,6 +173,7 @@ export class ShelfEngine {
           selectedOutline: outline,
           row: layoutBook.row,
           thickness: layoutBook.thickness,
+          height: layoutBook.height,
           coverWidth: layoutBook.height * 0.66,
           showcaseX: root.position.x,
           showcaseScaleX: 1,
@@ -469,9 +471,7 @@ export class ShelfEngine {
     this.updateShowcaseLayout();
     this.inspectionId = id;
     this.controls.enabled = true;
-    this.controls.target.set(node.showcaseX, node.home.y + 1.35, 0.65);
-    this.camera.position.set(node.showcaseX + 2.7, node.home.y + 1.45, 4.5);
-    this.camera.lookAt(this.controls.target);
+    this.frameInspection(node);
     this.onActivate(node.item);
     this.onInspectionChange?.(true);
   }
@@ -479,6 +479,9 @@ export class ShelfEngine {
   returnToShelf() {
     this.inspectionId = null;
     this.controls.enabled = false;
+    this.camera.clearViewOffset();
+    this.controls.minDistance = 2.5;
+    this.controls.maxDistance = 9;
     this.resetCamera();
     if (this.activeIndex >= 0) this.onActivate(this.bookNodes[this.activeIndex]!.item);
     this.onInspectionChange?.(false);
@@ -504,6 +507,10 @@ export class ShelfEngine {
     this.camera.fov = width < 600 ? 33 : width < 920 ? 30 : 27;
     this.camera.updateProjectionMatrix();
     if (!this.inspectionId) this.resetCamera();
+    else {
+      const inspected = this.bookNodes.find((node) => node.item.id === this.inspectionId);
+      if (inspected) this.frameInspection(inspected);
+    }
   }
 
   private shelfCameraDistance() {
@@ -514,8 +521,38 @@ export class ShelfEngine {
 
   private resetCamera() {
     const targetY = 0.35;
+    this.camera.clearViewOffset();
     this.camera.position.set(0, targetY, this.shelfCameraDistance());
     this.camera.lookAt(0, targetY, 0);
+  }
+
+  private frameInspection(node: BookNode) {
+    const width = Math.max(1, this.canvas.clientWidth);
+    const height = Math.max(1, this.canvas.clientHeight);
+    const compact = width < 640;
+    const contextWidth = Math.min(this.shelfWidth, Math.max(node.coverWidth * 2.8, 3.8));
+    const distance = inspectionCameraDistance({
+      bookHeight: node.height,
+      contextWidth,
+      verticalFovDegrees: this.camera.fov,
+      viewportAspect: width / height,
+      usableHorizontalRatio: compact ? 0.9 : 0.64,
+    });
+    const target = new THREE.Vector3(node.showcaseX, node.home.y + node.height / 2, 1.15);
+
+    if (compact) this.camera.clearViewOffset();
+    else {
+      const detailWidth = Math.min(430, width * 0.36);
+      this.camera.setViewOffset(width, height, -detailWidth * 0.46, 0, width, height);
+    }
+
+    this.controls.target.copy(target);
+    this.controls.minDistance = distance * 0.72;
+    this.controls.maxDistance = distance * 1.45;
+    this.camera.position.set(target.x, target.y + node.height * 0.025, target.z + distance);
+    this.camera.lookAt(target);
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
   }
 
   private updateShowcaseLayout() {

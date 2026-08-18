@@ -4,6 +4,14 @@ export const BOOK_THICKNESS_MIN = 0.2;
 export const BOOK_THICKNESS_MAX = 0.5;
 export const BOOK_THICKNESS_MISSING = 0.35;
 
+export interface InspectionFrameInput {
+  bookHeight: number;
+  contextWidth: number;
+  verticalFovDegrees: number;
+  viewportAspect: number;
+  usableHorizontalRatio: number;
+}
+
 export interface ShelfLayoutBook {
   item: Item;
   thickness: number;
@@ -23,6 +31,22 @@ export function pageCountToThickness(pageCount: number | null | undefined) {
   if (pageCount == null || !Number.isFinite(pageCount)) return BOOK_THICKNESS_MISSING;
   const clamped = Math.max(80, Math.min(1200, pageCount));
   return BOOK_THICKNESS_MIN + ((clamped - 80) / (1200 - 80)) * (BOOK_THICKNESS_MAX - BOOK_THICKNESS_MIN);
+}
+
+export function inspectionCameraDistance({
+  bookHeight,
+  contextWidth,
+  verticalFovDegrees,
+  viewportAspect,
+  usableHorizontalRatio,
+}: InspectionFrameInput) {
+  const halfVerticalTangent = Math.tan((verticalFovDegrees * Math.PI) / 360);
+  const safeAspect = Math.max(0.5, viewportAspect);
+  const safeHorizontalRatio = Math.max(0.45, Math.min(1, usableHorizontalRatio));
+  const verticalDistance = (Math.max(0.1, bookHeight) * 1.35) / (2 * halfVerticalTangent);
+  const horizontalDistance = (Math.max(0.1, contextWidth) * 1.12)
+    / (2 * halfVerticalTangent * safeAspect * safeHorizontalRatio);
+  return Math.max(verticalDistance, horizontalDistance);
 }
 
 export function stableBookHash(id: string) {
