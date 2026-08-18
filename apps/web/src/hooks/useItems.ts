@@ -15,6 +15,7 @@ const IMPORT_SOURCES_QUERY_KEY = "import-sources";
 const IMPORT_JOBS_QUERY_KEY = "import-jobs";
 const SAVED_VIEWS_QUERY_KEY = "saved-views";
 const DUPLICATES_QUERY_KEY = "duplicate-groups";
+const BOOK_PAGE_COUNTS_QUERY_KEY = "book-page-counts";
 
 export function useItems(filters?: { status?: StatusId; content_type?: ContentTypeId }) {
   return useQuery({
@@ -73,6 +74,29 @@ export function useBulkDeleteItems() {
   return useMutation({
     mutationFn: (ids: string[]) => itemsApi.bulkDelete(ids),
     onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+  });
+}
+
+export function useLookupBookPageCounts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids?: string[]) => itemsApi.lookupBookPageCounts(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [BOOK_PAGE_COUNTS_QUERY_KEY] });
+      qc.invalidateQueries({ queryKey: [QUERY_KEY] });
+    },
+  });
+}
+
+export function useBookPageCountStatus(enabled = true) {
+  return useQuery({
+    queryKey: [BOOK_PAGE_COUNTS_QUERY_KEY],
+    queryFn: () => itemsApi.bookPageCountStatus(),
+    enabled,
+    refetchInterval(query) {
+      const data = query.state.data;
+      return data && data.queuedCount + data.processingCount > 0 ? 2000 : false;
+    },
   });
 }
 

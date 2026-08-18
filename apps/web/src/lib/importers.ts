@@ -96,12 +96,15 @@ function parseGoodreads(text: string): PreparedImportResult {
     const shelf = getCell(row, headers, ["exclusive shelf", "exclusive_shelf", "bookshelves"]);
     const isbn = getCell(row, headers, ["isbn13", "isbn"]);
     const ratingValue = Number.parseFloat(getCell(row, headers, ["my rating"]));
+    const pagesRaw = getCell(row, headers, ["number of pages", "number_of_pages", "page count", "pages"]);
+    const pageCount = /^\d+$/.test(pagesRaw) && Number(pagesRaw) > 0 ? Number(pagesRaw) : undefined;
     pushRow(result, index + 2, {
       title,
       contentType: "book",
       creator: creator || undefined,
       status: normalizeStatus(shelf) ?? "suggestions",
       rating: normalizeRatingScale(ratingValue, 1, 5) ?? undefined,
+      pageCount,
       releaseDate: getCell(row, headers, ["year published", "original publication year"]) || undefined,
       externalId: isbn || undefined,
       sourceMetadata: { shelf, isbn },

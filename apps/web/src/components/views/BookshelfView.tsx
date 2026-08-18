@@ -1,304 +1,103 @@
-import { useEffect, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { BookOpenCheck, Layers3, ListTree, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Item } from "../../lib/api";
-import { STATUSES } from "../../lib/constants";
-
+import { STATUSES, type StatusId } from "../../lib/constants";
+import { finishedRatingGroups } from "../../lib/bookshelf-layout";
+import { useBookPageCountStatus, useLookupBookPageCounts } from "../../hooks/useItems";
 import type { SelectionProps } from "./TypePageLayout";
-import { SelectionOverlay } from "./SelectionOverlay";
+import { BookShelfScene } from "./bookshelf/BookShelfScene";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface BookshelfViewProps {
   items: Item[];
   selectionProps?: SelectionProps;
 }
 
-function idToHash(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  return Math.abs(hash);
-}
-
-function hashToColor(hash: number) {
-  const hue = hash % 360;
-  const saturation = 34 + (hash % 26);
-  const lightness = 28 + (hash % 18);
-  return { hue, saturation, lightness };
-}
-
-function hasArabicText(value: string) {
-  return /[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff]/.test(value);
-}
-
-function rgbToHsl(r: number, g: number, b: number) {
-  r /= 255;
-  g /= 255;
-  b /= 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h = 0;
-  let s = 0;
-  const l = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r:
-        h = (g - b) / d + (g < b ? 6 : 0);
-        break;
-      case g:
-        h = (b - r) / d + 2;
-        break;
-      default:
-        h = (r - g) / d + 4;
-        break;
-    }
-    h /= 6;
-  }
-
-  return {
-    hue: Math.round(h * 360),
-    saturation: Math.round(s * 100),
-    lightness: Math.round(l * 100),
-  };
-}
-
-function useCoverColor(coverUrl: string | null, fallback: ReturnType<typeof hashToColor>) {
-  const [color, setColor] = useState(fallback);
-
-  useEffect(() => {
-    setColor(fallback);
-    if (!coverUrl) return;
-
-    let cancelled = false;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.decoding = "async";
-
-    img.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        const size = 24;
-        canvas.width = size;
-        canvas.height = size;
-        const context = canvas.getContext("2d", { willReadFrequently: true });
-        if (!context) return;
-
-        context.drawImage(img, 0, 0, size, size);
-        const pixels = context.getImageData(0, 0, size, size).data;
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        let count = 0;
-
-        for (let i = 0; i < pixels.length; i += 16) {
-          const alpha = pixels[i + 3] ?? 0;
-          if (alpha < 180) continue;
-          r += pixels[i] ?? 0;
-          g += pixels[i + 1] ?? 0;
-          b += pixels[i + 2] ?? 0;
-          count++;
-        }
-
-        if (!cancelled && count > 0) {
-          const next = rgbToHsl(Math.round(r / count), Math.round(g / count), Math.round(b / count));
-          setColor({
-            hue: next.hue,
-            saturation: Math.max(24, Math.min(next.saturation, 58)),
-            lightness: Math.max(24, Math.min(next.lightness, 44)),
-          });
-        }
-      } catch {
-        if (!cancelled) setColor(fallback);
-      }
-    };
-
-    img.onerror = () => {
-      if (!cancelled) setColor(fallback);
-    };
-    img.src = coverUrl;
-
-    return () => {
-      cancelled = true;
-    };
-  }, [coverUrl, fallback.hue, fallback.lightness, fallback.saturation]);
-
-  return color;
-}
-
-function Book({ item, selectionProps }: { item: Item; selectionProps?: SelectionProps }) {
-  const hash = idToHash(item.id);
-  const isArabicTitle = hasArabicText(item.title);
-  const titleGlyphCount = Array.from(item.title.replace(/\s+/g, "")).length;
-  
-  // Deterministic spine generation
-  const spineHeight = 180 + (hash % 100); // 180px - 280px height
-  const spineWidth = 26 + (hash % 24);    // 26px - 50px width
-  const coverWidth = spineHeight * 0.65;  // Native book aspect ratio (appx 2:3)
-  const arabicTrackLength = spineHeight * 0.72;
-  const arabicFontSize = Math.max(
-    10,
-    Math.min(spineWidth * 0.46, arabicTrackLength / Math.max(titleGlyphCount * 0.58, 1), 17)
-  );
-  
-  const fallbackColor = hashToColor(hash);
-  const coverColor = useCoverColor(item.coverUrl, fallbackColor);
-  const spineColor = `hsl(${coverColor.hue}, ${coverColor.saturation}%, ${coverColor.lightness}%)`;
-  const spineDark = `hsl(${coverColor.hue}, ${Math.min(coverColor.saturation + 8, 70)}%, ${Math.max(coverColor.lightness - 12, 12)}%)`;
-  const spineLight = `hsl(${coverColor.hue}, ${Math.max(coverColor.saturation - 8, 18)}%, ${Math.min(coverColor.lightness + 14, 62)}%)`;
-  const ornamentColor = coverColor.lightness > 36 ? "hsl(42 64% 22% / 0.72)" : "hsl(43 74% 76% / 0.78)";
-  const textColor = coverColor.lightness > 36 ? "hsl(40 42% 12%)" : "hsl(42 78% 88%)";
-  
-  const bookCssVars = {
-    '--spine-w': `${spineWidth}px`,
-    '--cover-w': `${coverWidth}px`,
-    '--spine-base': spineColor,
-    '--spine-dark': spineDark,
-    '--spine-light': spineLight,
-    '--spine-ornament': ornamentColor,
-    '--spine-text': textColor,
-  } as React.CSSProperties;
-
-  return (
-    <Link to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }} className="block outline-none">
-      <div
-        className="group relative flex-shrink-0 flex items-end justify-center transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer overflow-hidden origin-bottom z-10 w-[var(--spine-w)] hover:w-[var(--cover-w)] hover:z-50 hover:shadow-[20px_20px_40px_rgba(0,0,0,0.4)] shadow-[4px_0_10px_rgba(0,0,0,0.2)] border-y border-r border-black/20"
-        style={{
-          height: spineHeight,
-          ...bookCssVars,
-        }}
-      >
-        {selectionProps?.isSelectionMode && (
-          <SelectionOverlay 
-            isSelected={selectionProps.selectedIds.has(item.id)} 
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              selectionProps.toggleSelection(item.id);
-            }} 
-          />
-        )}
-        {/* Absolute Cover Container (Always rendered at coverWidth, hides behind spineWidth overflow otherwise) */}
-        <div 
-           className="absolute bottom-0 left-0 h-full transition-all duration-500"
-           style={{ width: coverWidth, background: spineColor }}
-        >
-          {item.coverUrl ? (
-             <img src={item.coverUrl} className="w-full h-full object-cover transition-all duration-300 contrast-125 saturate-110" alt={item.title} />
-          ) : (
-             <div className="w-full h-full flex items-center justify-center relative p-6 bg-gradient-to-br from-white/10 to-transparent">
-               {/* Pattern overlay for books missing covers */}
-               <div className="absolute inset-x-0 top-10 h-1 bg-black/20" />
-               <div className="absolute inset-x-0 bottom-10 h-1 bg-black/20" />
-               <span className="text-xl font-serif text-center font-bold tracking-tight drop-shadow-md line-clamp-4" style={{ color: textColor }}>{item.title}</span>
-             </div>
-          )}
-          
-          {/* Inner spine crease overlay to make it look like a real book cover fold */}
-          <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/40 via-transparent to-transparent pointer-events-none" />
-        </div>
-
-        {/* Generated antique spine. It covers the clipped cover until hover reveals the real art. */}
-        <div 
-          className="absolute left-0 bottom-0 top-0 flex items-center justify-center overflow-hidden transition-opacity duration-300 group-hover:opacity-0 pointer-events-none"
-          style={{ width: spineWidth }}
-        >
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,var(--spine-dark)_0%,var(--spine-base)_18%,var(--spine-light)_48%,var(--spine-base)_75%,var(--spine-dark)_100%)]" />
-          <div className="absolute inset-y-0 left-0 w-[3px] bg-black/35" />
-          <div className="absolute inset-y-0 right-0 w-[2px] bg-white/20" />
-          <div className="absolute inset-x-[18%] top-3 h-px bg-[var(--spine-ornament)]" />
-          <div className="absolute inset-x-[24%] top-5 h-px bg-[var(--spine-ornament)] opacity-70" />
-          <div className="absolute inset-x-[24%] bottom-5 h-px bg-[var(--spine-ornament)] opacity-70" />
-          <div className="absolute inset-x-[18%] bottom-3 h-px bg-[var(--spine-ornament)]" />
-          <div className="absolute left-1/2 top-9 h-6 w-px -translate-x-1/2 bg-[var(--spine-ornament)] opacity-60" />
-          <div className="absolute bottom-9 left-1/2 h-6 w-px -translate-x-1/2 bg-[var(--spine-ornament)] opacity-60" />
-          {isArabicTitle ? (
-            <svg
-              className="absolute inset-0 overflow-visible"
-              viewBox={`0 0 ${spineWidth} ${spineHeight}`}
-              aria-hidden="true"
-            >
-              <text
-                x={spineWidth / 2}
-                y={spineHeight / 2}
-                fill="var(--spine-text)"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                direction="rtl"
-                unicodeBidi="plaintext"
-                fontFamily='"Noto Naskh Arabic", "Amiri", "Geeza Pro", "Arial", sans-serif'
-                fontSize={arabicFontSize}
-                fontWeight={700}
-                transform={`rotate(90 ${spineWidth / 2} ${spineHeight / 2})`}
-              >
-                {item.title}
-              </text>
-            </svg>
-          ) : (
-            <span
-              className="relative whitespace-nowrap overflow-hidden font-serif font-semibold uppercase leading-none text-[var(--spine-text)] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
-              style={{
-                writingMode: "vertical-rl",
-                transform: "rotate(180deg)",
-                fontSize: Math.max(10, Math.min(spineWidth * 0.34, 14)),
-                letterSpacing: "0.11em",
-                maxHeight: "76%",
-              }}
-            >
-              {item.title}
-            </span>
-          )}
-        </div>
-
-      </div>
-    </Link>
-  );
-}
-
-function Shelf({ label, items, selectionProps }: { label: string; items: Item[]; selectionProps?: SelectionProps }) {
-  if (items.length === 0) return null;
-
-  return (
-    <div className="mb-20">
-      {/* Shelf label */}
-      <h3 className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground uppercase mb-4 pl-4 border-l-2 border-[var(--hero-accent)]">
-        {label} <span className="opacity-50 ml-2">({items.length})</span>
-      </h3>
-
-      {/* Actual Physical Shelf Row Container */}
-      <div className="w-full overflow-x-auto pb-8 pt-4 px-4 custom-scrollbar">
-        {/* The Books */}
-        <div className="flex items-end min-w-min" style={{ gap: "2px" }}>
-          {items.map((item) => (
-            <Book key={item.id} item={item} selectionProps={selectionProps} />
-          ))}
-        </div>
-        
-        {/* The Wooden/Concrete physical shelf line that books rest on */}
-        <div className="w-full h-4 mt-0 bg-[hsl(var(--card))] rounded-b shadow-[0_15px_15px_-10px_rgba(0,0,0,0.3)] border-t-2 border-black/10 dark:border-white/5 relative z-0">
-          <div className="w-full h-1 bg-black/10" />
-        </div>
-      </div>
-    </div>
-  );
-}
+const SECTION_COPY: Record<StatusId, { kicker: string; description: string }> = {
+  suggestions: { kicker: "Discover", description: "Cool light for books still calling from the horizon." },
+  in_progress: { kicker: "Reading now", description: "Warm amber shelves with progress glowing along each spine." },
+  finished: { kicker: "The library", description: "A walnut-and-cream record of books you have completed." },
+  archived: { kicker: "Quiet stacks", description: "A subdued home for books kept out of the active rotation." },
+};
 
 export function BookshelfView({ items, selectionProps }: BookshelfViewProps) {
+  const [groupFinished, setGroupFinished] = useState(true);
+  const queryClient = useQueryClient();
+  const previousCompleted = useRef(0);
+  const { mutate: lookupPages, data: lookupResult, isPending: lookupPending } = useLookupBookPageCounts();
+  const { data: lookupStatus } = useBookPageCountStatus(items.length > 0);
+  const missingCount = items.filter((item) => item.pageCount == null).length;
+  const selectedBookIds = selectionProps ? [...selectionProps.selectedIds].filter((id) => items.some((item) => item.id === id)) : [];
+  const workRemaining = (lookupStatus?.queuedCount ?? 0) + (lookupStatus?.processingCount ?? 0);
+
+  useEffect(() => {
+    const completed = lookupStatus?.completedCount ?? 0;
+    if (completed > previousCompleted.current) queryClient.invalidateQueries({ queryKey: ["items"] });
+    previousCompleted.current = completed;
+  }, [lookupStatus?.completedCount, queryClient]);
+
+  const sections = useMemo(() => STATUSES.map((status) => ({
+    status,
+    items: items.filter((item) => item.status === status.id),
+  })).filter((section) => section.items.length > 0), [items]);
+
   if (items.length === 0) {
-    return <div className="text-sm text-muted-foreground p-8">No books saved yet.</div>;
+    return <div className="rounded-3xl border border-dashed p-10 text-center text-sm text-muted-foreground">No books saved yet.</div>;
   }
 
-  const shelves = STATUSES.map((s) => ({
-    id: s.id,
-    label: s.label,
-    items: [...items.filter((i) => i.status === s.id)].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-  })).filter((s) => s.items.length > 0);
-
   return (
-    <div>
-      {shelves.map((shelf) => (
-        <Shelf key={shelf.id} label={shelf.label} items={shelf.items} selectionProps={selectionProps} />
-      ))}
+    <div className="grid gap-14">
+      <div className="flex flex-col gap-4 rounded-[24px] border border-[hsl(var(--border))] bg-card/65 p-5 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary"><BookOpenCheck className="mr-1 size-3.5" /> Page counts</Badge>
+            <span className="text-sm font-semibold text-foreground">{missingCount} missing</span>
+            {workRemaining ? <span className="text-xs text-muted-foreground">{workRemaining} lookup job{workRemaining === 1 ? "" : "s"} active</span> : null}
+          </div>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Page counts set each book’s physical thickness. Missing counts use a balanced midpoint.</p>
+          {lookupResult ? <p className="mt-1 text-xs text-muted-foreground">Queued {lookupResult.queuedCount}; {lookupResult.alreadyKnownCount} already known; {lookupResult.skippedCount} skipped.</p> : null}
+          {lookupStatus && (lookupStatus.completedCount > 0 || lookupStatus.failedCount > 0) ? (
+            <p className="mt-1 text-xs text-muted-foreground">{lookupStatus.completedCount} completed · {lookupStatus.failedCount} failed</p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {selectionProps?.isSelectionMode ? (
+            <Button variant="outline" disabled={!selectedBookIds.length || lookupPending} onClick={() => lookupPages(selectedBookIds)}>
+              <RefreshCw className={`mr-2 size-4 ${lookupPending ? "animate-spin" : ""}`} /> Check selected
+            </Button>
+          ) : null}
+          <Button disabled={!missingCount || lookupPending} onClick={() => lookupPages(undefined)}>
+            <RefreshCw className={`mr-2 size-4 ${lookupPending ? "animate-spin" : ""}`} /> Check all missing
+          </Button>
+        </div>
+      </div>
+
+      {sections.map(({ status, items: sectionItems }) => {
+        const isFinished = status.id === "finished";
+        const sorted = [...sectionItems].sort((a, b) => isFinished ? (b.finishedAt ?? b.updatedAt) - (a.finishedAt ?? a.updatedAt) : (a.position ?? 0) - (b.position ?? 0));
+        const groups = isFinished && groupFinished ? finishedRatingGroups(sorted) : [{ label: isFinished ? "Recently finished" : status.label, items: sorted }];
+        const copy = SECTION_COPY[status.id];
+        return (
+          <section key={status.id} className="grid gap-5" aria-labelledby={`shelf-${status.id}`}>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">{copy.kicker}</p>
+                <h2 id={`shelf-${status.id}`} className="mt-1 font-serif text-3xl font-semibold tracking-tight">{status.label} <span className="text-base font-sans font-normal text-muted-foreground">({sectionItems.length})</span></h2>
+                <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
+              </div>
+              {isFinished ? (
+                <div className="flex rounded-xl border bg-card p-1" aria-label="Finished shelf grouping">
+                  <Button size="sm" variant={groupFinished ? "secondary" : "ghost"} onClick={() => setGroupFinished(true)}><ListTree className="mr-1.5 size-4" /> By rating</Button>
+                  <Button size="sm" variant={!groupFinished ? "secondary" : "ghost"} onClick={() => setGroupFinished(false)}><Layers3 className="mr-1.5 size-4" /> Combined</Button>
+                </div>
+              ) : null}
+            </div>
+            <BookShelfScene groups={groups} tone={status.id} selectionProps={selectionProps} />
+          </section>
+        );
+      })}
     </div>
   );
 }

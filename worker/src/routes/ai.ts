@@ -18,6 +18,7 @@ import {
   retryAiJob,
   serializeJob,
   syncSuggestMetrics,
+  type AiJobType,
 } from "../services/ai-queue";
 import type { Env } from "../types";
 
@@ -276,7 +277,7 @@ router.post("/jobs/:id/repeat", async (c) => {
   }
 
   await processAiQueue(c.env);
-  const latest = await getLatestJob(db, userId, job.jobType as "analyze_item" | "score_item", job.itemId ?? undefined);
+  const latest = await getLatestJob(db, userId, job.jobType as AiJobType, job.itemId ?? undefined);
 
   return c.json({
     ok: true,

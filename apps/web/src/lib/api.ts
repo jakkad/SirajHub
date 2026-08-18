@@ -44,6 +44,7 @@ export interface Item {
   coverUrl: string | null;
   releaseDate: string | null;
   durationMins: number | null;
+  pageCount: number | null;
   sourceUrl: string | null;
   externalId: string | null;
   metadata: string | null;
@@ -80,6 +81,7 @@ export interface CreateItemInput {
   coverUrl?: string;
   releaseDate?: string;
   durationMins?: number;
+  pageCount?: number;
   rating?: number;
   notes?: string;
   sourceUrl?: string;
@@ -148,6 +150,7 @@ export type UpdateItemInput = Partial<
     | "cooldownUntil"
     | "externalId"
     | "durationMins"
+    | "pageCount"
     | "metadata"
     | "progressPercent" | "progressCurrent" | "progressTotal" | "lastTouchedAt"
     | "startedAt" | "finishedAt"
@@ -190,6 +193,7 @@ export interface FetchedMetadata {
   description?: string;
   coverUrl?: string;
   releaseDate?: string;
+  pageCount?: number;
   durationMins?: number;
   sourceUrl?: string;
   externalId?: string;
@@ -204,6 +208,7 @@ export interface SearchSuggestion {
   description?: string;
   coverUrl?: string;
   releaseDate?: string;
+  pageCount?: number;
   sourceUrl?: string;
   externalId?: string;
   metadata?: string;
@@ -281,7 +286,7 @@ export interface RankedSuggestion {
 export interface AiJobSummary {
   id: string;
   itemId?: string | null;
-  jobType: "analyze_item" | "score_item";
+  jobType: "analyze_item" | "score_item" | "fetch_metadata" | "fetch_book_pages";
   status: "queued" | "processing" | "completed" | "failed";
   runAfter: number;
   completedAt: number | null;
@@ -533,6 +538,21 @@ export interface ImportJobSummary {
   updatedAt: number;
 }
 
+export interface BookPageCountLookupResult {
+  requestedCount: number;
+  queuedCount: number;
+  alreadyKnownCount: number;
+  skippedCount: number;
+}
+
+export interface BookPageCountStatus {
+  missingCount: number;
+  queuedCount: number;
+  processingCount: number;
+  completedCount: number;
+  failedCount: number;
+}
+
 export interface Reminder {
   id: string;
   type: "untouched_30_days" | "resume_in_progress" | "high_score_waiting";
@@ -730,6 +750,17 @@ export const itemsApi = {
 
   listDuplicates(): Promise<{ groups: DuplicateGroup[] }> {
     return request("/api/items/duplicates");
+  },
+
+  lookupBookPageCounts(ids?: string[]): Promise<BookPageCountLookupResult> {
+    return request("/api/items/books/page-counts/lookup", {
+      method: "POST",
+      body: JSON.stringify(ids ? { ids } : {}),
+    });
+  },
+
+  bookPageCountStatus(): Promise<BookPageCountStatus> {
+    return request("/api/items/books/page-counts/status");
   },
 
   merge(sourceId: string, targetId: string): Promise<Item> {

@@ -16,6 +16,7 @@ export interface FetchedMetadata {
   coverUrl?: string;
   releaseDate?: string;  // YYYY-MM-DD or YYYY
   durationMins?: number;
+  pageCount?: number;
   sourceUrl?: string;
   externalId?: string;
   metadata?: string;     // JSON blob for type-specific extras
@@ -29,6 +30,7 @@ export interface SearchSuggestion {
   description?: string;
   coverUrl?: string;
   releaseDate?: string;
+  pageCount?: number;
   sourceUrl?: string;
   externalId?: string;
   metadata?: string;

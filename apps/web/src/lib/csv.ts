@@ -33,6 +33,8 @@ export interface ManualCsvMapping {
   fixedReleaseDate: string;
   rating: string;
   fixedRating: string;
+  pageCount: string;
+  fixedPageCount: string;
   notes: string;
   fixedNotes: string;
   sourceUrl: string;
@@ -62,6 +64,11 @@ const HEADER_ALIASES: Record<string, keyof CreateItemInput | "skip"> = {
   release_date: "releaseDate",
   date: "releaseDate",
   rating: "rating",
+  pagecount: "pageCount",
+  page_count: "pageCount",
+  pages: "pageCount",
+  numberofpages: "pageCount",
+  number_of_pages: "pageCount",
   notes: "notes",
   note: "notes",
   sourceurl: "sourceUrl",
@@ -203,6 +210,12 @@ export function prepareCsvImport(parsed: ParsedCsvFile): CsvImportPreparation {
         return;
       }
 
+      if (target === "pageCount") {
+        const pageCount = parsePositiveInteger(value);
+        if (pageCount != null) mapped.pageCount = pageCount;
+        return;
+      }
+
       if (
         target === "title" ||
         target === "creator" ||
@@ -236,6 +249,7 @@ export function prepareCsvImport(parsed: ParsedCsvFile): CsvImportPreparation {
       coverUrl: mapped.coverUrl?.trim() || undefined,
       releaseDate: mapped.releaseDate?.trim() || undefined,
       rating: mapped.rating,
+      pageCount: mapped.pageCount,
       notes: mapped.notes?.trim() || undefined,
       sourceUrl: mapped.sourceUrl?.trim() || undefined,
     };
@@ -269,6 +283,8 @@ export function createDefaultManualCsvMapping(parsed: ParsedCsvFile): ManualCsvM
     fixedReleaseDate: "",
     rating: findHeader(headers, ["rating", "your rating", "my rating"]) ?? "",
     fixedRating: "",
+    pageCount: findHeader(headers, ["pageCount", "page_count", "pages", "number of pages", "number_of_pages"]) ?? "",
+    fixedPageCount: "",
     notes: findHeader(headers, ["notes", "note"]) ?? "",
     fixedNotes: "",
     sourceUrl: findHeader(headers, ["sourceurl", "source_url", "source", "url", "link", "letterboxd uri"]) ?? "",
@@ -287,6 +303,7 @@ export function prepareMappedCsvImport(parsed: ParsedCsvFile, mapping: ManualCsv
     const mappedContentType = mapping.fixedContentType || normalizeContentType(getMappedCell(parsed.headers, row, mapping.contentType));
     const mappedStatus = mapping.fixedStatus || normalizeStatus(getMappedCell(parsed.headers, row, mapping.status)) || "suggestions";
     const ratingValue = parseMappedRating(getMappedCell(parsed.headers, row, mapping.rating) || mapping.fixedRating);
+    const pageCountValue = parsePositiveInteger(getMappedCell(parsed.headers, row, mapping.pageCount) || mapping.fixedPageCount);
 
     if (!mappedTitle.trim()) {
       errors.push({ row: rowNumber, error: "Missing title value for the selected title column." });
@@ -307,6 +324,7 @@ export function prepareMappedCsvImport(parsed: ParsedCsvFile, mapping: ManualCsv
       coverUrl: (getMappedCell(parsed.headers, row, mapping.coverUrl) || mapping.fixedCoverUrl).trim() || undefined,
       releaseDate: normalizeReleaseDate(getMappedCell(parsed.headers, row, mapping.releaseDate) || mapping.fixedReleaseDate) || undefined,
       rating: ratingValue ?? undefined,
+      pageCount: pageCountValue ?? undefined,
       notes: (getMappedCell(parsed.headers, row, mapping.notes) || mapping.fixedNotes).trim() || undefined,
       sourceUrl: (getMappedCell(parsed.headers, row, mapping.sourceUrl) || mapping.fixedSourceUrl).trim() || undefined,
     };
@@ -345,6 +363,12 @@ function normalizeStatus(value: string): StatusId | null {
 
 function parseMappedRating(value: string) {
   return parseSevenStarRating(value);
+}
+
+function parsePositiveInteger(value: string) {
+  if (!/^\d+$/.test(value.trim())) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function normalizeReleaseDate(value: string) {

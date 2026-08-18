@@ -57,9 +57,10 @@ export const items = sqliteTable(
     coverUrl: text("cover_url"), // poster / thumbnail / book cover URL
     releaseDate: text("release_date"), // ISO date string (YYYY-MM-DD)
     durationMins: integer("duration_mins"), // runtime for movies/episodes
+    pageCount: integer("page_count"), // edition-specific page count for books
 
     // Type-specific extras stored as JSON
-    // Books: { isbn, pageCount, genres[] }
+    // Books: { isbn, genres[] } (pageCount is a first-class column)
     // Movies/TV: { tmdbId, genres[], rating, seasons }
     // Podcasts: { feedUrl, episodeCount, publisher }
     // YouTube: { channelId, viewCount, duration }
@@ -332,7 +333,7 @@ export const aiJobs = sqliteTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     itemId: text("item_id").references(() => items.id, { onDelete: "cascade" }),
-    jobType: text("job_type").notNull(), // 'analyze_item' | 'score_item'
+    jobType: text("job_type").notNull(), // analyze_item | score_item | fetch_metadata | fetch_book_pages
     status: text("status").notNull().default("queued"), // 'queued' | 'processing' | 'completed' | 'failed'
     payload: text("payload").notNull(), // JSON blob
     result: text("result"), // JSON blob

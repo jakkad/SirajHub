@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Ellipsis, ExternalLink, PencilLine, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AIPanel } from "../components/AIPanel";
 import { InlineTagManager } from "../components/InlineTagManager";
 import { RatingSelector } from "../components/RatingSelector";
 import { useScoreItem } from "../hooks/useAI";
-import { useItems, useUpdateItem, useDeleteItem, useResyncTVItem } from "../hooks/useItems";
+import { useItems, useUpdateItem, useDeleteItem, useResyncTVItem, useLookupBookPageCounts, useBookPageCountStatus } from "../hooks/useItems";
 import { useAddItemToList, useCreateList, useItemLists, useRemoveItemFromList } from "../hooks/useLists";
 import { useCreateNoteEntry, useDeleteNoteEntry, useNoteEntries } from "../hooks/useNotes";
 import { useLabs } from "../hooks/useLabs";
@@ -55,11 +56,15 @@ function getTypeColor(typeId?: string) {
 function ItemDetailPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: allItems = [], isLoading } = useItems();
+  const item = allItems.find((candidate) => candidate.id === id);
   const { labs } = useLabs();
   const { mutate: updateItem } = useUpdateItem();
   const { mutate: resyncTVItem, data: tvResyncResult, isPending: resyncingTV } = useResyncTVItem();
   const { mutate: deleteItem, isPending: deleting } = useDeleteItem();
+  const { mutate: lookupPages, isPending: lookingUpPages, data: pageLookupResult } = useLookupBookPageCounts();
+  const { data: pageLookupStatus } = useBookPageCountStatus(Boolean(item?.contentType === "book"));
   const { mutate: queueScore, isPending: queueingScore } = useScoreItem(id);
   const { data: itemListsData } = useItemLists(id, { enabled: labs.lists });
   const { mutate: addItemToList, isPending: addingToList } = useAddItemToList();
@@ -68,8 +73,6 @@ function ItemDetailPage() {
   const { data: noteEntriesData } = useNoteEntries(id);
   const { mutate: createNoteEntry, isPending: creatingNoteEntry } = useCreateNoteEntry(id);
   const { mutate: deleteNoteEntry, isPending: deletingNoteEntry } = useDeleteNoteEntry(id);
-
-  const item = allItems.find((candidate) => candidate.id === id);
 
   const [notes, setNotes] = useState("");
   const [suggestedTags, setSuggestedTags] = useState<string[] | null>(null);
@@ -85,6 +88,7 @@ function ItemDetailPage() {
     releaseDate: "",
     finishedDate: "",
     coverUrl: "",
+    pageCount: "",
     contentType: "book" as typeof CONTENT_TYPES[number]["id"],
   });
   const [progressForm, setProgressForm] = useState({
@@ -111,6 +115,7 @@ function ItemDetailPage() {
       releaseDate: item.releaseDate ?? "",
       finishedDate: item.finishedAt ? new Date(item.finishedAt).toISOString().slice(0, 10) : "",
       coverUrl: item.coverUrl ?? "",
+      pageCount: item.pageCount?.toString() ?? "",
       contentType: item.contentType,
     });
     setProgressForm({
@@ -126,6 +131,10 @@ function ItemDetailPage() {
     const defaultTarget = itemListsData.lists.find((list) => !list.containsItem)?.id ?? "";
     setListToAdd(defaultTarget);
   }, [itemListsData]);
+
+  useEffect(() => {
+    if ((pageLookupStatus?.completedCount ?? 0) > 0) queryClient.invalidateQueries({ queryKey: ["items"] });
+  }, [pageLookupStatus?.completedCount, queryClient]);
 
   if (isLoading) {
     return <div className="py-24 text-center text-muted-foreground">Loading…</div>;
@@ -206,6 +215,7 @@ function ItemDetailPage() {
         releaseDate: editForm.releaseDate || null,
         finishedAt: editForm.finishedDate ? new Date(editForm.finishedDate).getTime() : null,
         coverUrl: editForm.coverUrl.trim() || null,
+        pageCount: editForm.contentType === "book" && editForm.pageCount ? Number(editForm.pageCount) : null,
         contentType: editForm.contentType,
       },
       { onSuccess: () => setEditOpen(false) }
@@ -323,6 +333,11 @@ function ItemDetailPage() {
                 {currentItem.releaseDate ? (
                   <Badge variant="secondary" className="px-3 py-1 text-xs bg-[hsl(var(--secondary)_/_0.5)] backdrop-blur">
                     {currentItem.releaseDate.slice(0, 4)}
+                  </Badge>
+                ) : null}
+                {currentItem.contentType === "book" ? (
+                  <Badge variant="outline" className="px-3 py-1 text-xs">
+                    {currentItem.pageCount ? `${currentItem.pageCount.toLocaleString()} pages` : "Page count unknown"}
                   </Badge>
                 ) : null}
               </div>
@@ -585,6 +600,22 @@ function ItemDetailPage() {
         <aside className="sticky top-28 flex flex-col gap-8 w-full">
           
           <div className="flex flex-col gap-3">
+            {currentItem.contentType === "book" ? (
+              <div className="grid gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between paper-card font-medium"
+                  onClick={() => lookupPages([currentItem.id])}
+                  disabled={lookingUpPages || currentItem.pageCount != null}
+                >
+                  {currentItem.pageCount ? `${currentItem.pageCount.toLocaleString()} pages` : lookingUpPages ? "Checking pages…" : "Check pages"}
+                  <RefreshCw className={`size-4 opacity-50 ${lookingUpPages ? "animate-spin" : ""}`} />
+                </Button>
+                {pageLookupResult?.queuedCount ? <p className="px-2 text-xs text-muted-foreground">Lookup queued. This page will refresh when processing completes.</p> : null}
+                {pageLookupStatus?.failedCount ? <p className="px-2 text-xs text-destructive">No page count was found for this edition. You can add it manually in Edit Metadata.</p> : null}
+              </div>
+            ) : null}
             <Dialog open={editOpen} onOpenChange={setEditOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full justify-between paper-card font-medium">
@@ -614,6 +645,9 @@ function ItemDetailPage() {
                     <div className="flex flex-col gap-2"><Label>Release Date</Label><Input type="date" value={editForm.releaseDate} onChange={e => setEditForm(p => ({...p, releaseDate: e.target.value}))} /></div>
                   </div>
                   <div className="flex flex-col gap-2"><Label>Finished Date</Label><Input type="date" value={editForm.finishedDate} onChange={e => setEditForm(p => ({...p, finishedDate: e.target.value}))} /></div>
+                  {editForm.contentType === "book" ? (
+                    <div className="flex flex-col gap-2"><Label>Number of pages</Label><Input type="number" min="1" step="1" value={editForm.pageCount} onChange={e => setEditForm(p => ({...p, pageCount: e.target.value}))} placeholder="Positive integer" /></div>
+                  ) : null}
                   <div className="flex flex-col gap-2"><Label>Cover URL</Label><Input value={editForm.coverUrl} onChange={e => setEditForm(p => ({...p, coverUrl: e.target.value}))} /></div>
                   <div className="flex flex-col gap-2"><Label>Description</Label><Textarea value={editForm.description} onChange={e => setEditForm(p => ({...p, description: e.target.value}))} className="min-h-[100px]" /></div>
                 </div>

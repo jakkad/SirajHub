@@ -18,7 +18,7 @@ import {
   useUserProfile,
   useUserSettings,
 } from "../hooks/useUser";
-import { userApi, type AiPrompts, type InterestProfiles, type InterestWeight, type LabsSettings } from "../lib/api";
+import { userApi, type AiPrompts, type AiQueueJob, type InterestProfiles, type InterestWeight, type LabsSettings } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -893,23 +893,7 @@ function QueueJobList({
   onDelete,
   deleting,
 }: {
-  jobs: Array<{
-    id: string;
-    itemId?: string | null;
-    itemTitle?: string | null;
-    jobType: "analyze_item" | "score_item";
-    status: "queued" | "processing" | "completed" | "failed";
-    runAfter: number;
-    completedAt: number | null;
-    lastError: string | null;
-    result: unknown | null;
-    modelUsed: string | null;
-    modelFamily: "gemini" | "gemma" | null;
-    supportLevel: "stable" | "experimental" | null;
-    attempts: number;
-    createdAt: number;
-    updatedAt: number;
-  }>;
+  jobs: AiQueueJob[];
   emptyLabel: string;
   onRetry?: (jobId: string) => void;
   retrying?: boolean;
@@ -928,7 +912,11 @@ function QueueJobList({
         const title =
           job.jobType === "analyze_item"
             ? "Item analysis"
-            : "Suggest score";
+            : job.jobType === "score_item"
+              ? "Suggest score"
+              : job.jobType === "fetch_book_pages"
+                ? "Book page count"
+                : "Metadata refresh";
 
         const itemLabel = job.itemTitle ?? "Untitled item";
         const metaLabel =

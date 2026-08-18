@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb } from "../db/client";
-import { importJobs, importSourceMappings, itemTags, items } from "../db/schema";
+import { aiJobs, importJobs, importSourceMappings, itemTags, items } from "../db/schema";
 import { resolveAiQueueIntervalMinutes, resolveMetadataEnv } from "../lib/user-settings";
-import { getRunAfterFromInterval, queueAiJob, syncSuggestMetrics } from "../services/ai-queue";
+import { getRunAfterFromInterval, processAiQueue, queueAiJob, syncSuggestMetrics } from "../services/ai-queue";
 import { fetchTMDB } from "../services/metadata/movies";
 import type { Env } from "../types";
 
@@ -106,6 +106,7 @@ type ImportRowInput = {
   coverUrl?: string;
   releaseDate?: string;
   durationMins?: number;
+  pageCount?: number;
   rating?: number;
   notes?: string;
   sourceUrl?: string;
@@ -134,6 +135,10 @@ function isValidOptionalNonNegativeInteger(value: number | null | undefined) {
   return value == null || (Number.isInteger(value) && value >= 0);
 }
 
+function isValidOptionalPositiveInteger(value: number | null | undefined) {
+  return value == null || (Number.isInteger(value) && value > 0);
+}
+
 function normalizeString(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -145,6 +150,19 @@ function parseMetadataObject(value: string | null | undefined): Record<string, u
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
   } catch {
     return {};
+  }
+}
+
+function sanitizeMetadata(value: string | null | undefined) {
+  if (value == null) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return value.trim() || null;
+    const metadata = parsed as Record<string, unknown>;
+    delete metadata.pageCount;
+    return Object.keys(metadata).length ? JSON.stringify(metadata) : null;
+  } catch {
+    return value.trim() || null;
   }
 }
 
@@ -448,9 +466,11 @@ async function runImportJob(
       !isValidOptionalNonNegativeInteger(row.progressCurrent ?? null) ||
       !isValidOptionalNonNegativeInteger(row.progressTotal ?? null) ||
       !isValidOptionalNonNegativeInteger(row.durationMins ?? null) ||
+      !isValidOptionalPositiveInteger(row.pageCount ?? null) ||
+      (contentType !== "book" && row.pageCount != null) ||
       (row.progressPercent != null && row.progressPercent > 100)
     ) {
-      errors.push({ row: rowNumber, title, error: "Invalid duration or progress values." });
+      errors.push({ row: rowNumber, title, error: "Page count must be a positive integer; duration and progress values must be non-negative integers." });
       await db.insert(importSourceMappings).values({
         id: ulid(),
         importJobId,
@@ -513,11 +533,12 @@ async function runImportJob(
       coverUrl: row.coverUrl?.trim() || null,
       releaseDate: row.releaseDate?.trim() || null,
       durationMins: row.durationMins ?? null,
+      pageCount: row.pageCount ?? null,
       rating,
       notes: row.notes?.trim() || null,
       sourceUrl: row.sourceUrl?.trim() || null,
       externalId: row.externalId?.trim() || null,
-      metadata: row.metadata?.trim() || null,
+      metadata: sanitizeMetadata(row.metadata),
       position: 0,
       progressPercent: progress.progressPercent,
       progressCurrent: progress.progressCurrent,
@@ -546,6 +567,9 @@ async function runImportJob(
     });
 
     const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
+    if (contentType === "book" && row.pageCount == null) {
+      await queueAiJob(db, userId, "fetch_book_pages", { itemId: id }, getRunAfterFromInterval(intervalMinutes), id);
+    }
     if (options?.resyncMetadata) {
       await queueAiJob(db, userId, "fetch_metadata", { itemId: id }, getRunAfterFromInterval(intervalMinutes), id);
     } else {
@@ -677,6 +701,7 @@ router.post("/", async (c) => {
     coverUrl?: string;
     releaseDate?: string;
     durationMins?: number;
+    pageCount?: number;
     rating?: number;
     notes?: string;
     sourceUrl?: string;
@@ -702,12 +727,14 @@ router.post("/", async (c) => {
   }
   if (
     !isValidOptionalNonNegativeInteger(body.durationMins ?? null) ||
+    !isValidOptionalPositiveInteger(body.pageCount ?? null) ||
+    (body.contentType !== "book" && body.pageCount != null) ||
     !isValidOptionalNonNegativeInteger(body.progressPercent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressCurrent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressTotal ?? null) ||
     (body.progressPercent != null && body.progressPercent > 100)
   ) {
-    return c.json({ error: "Duration and progress values must be non-negative integers and percent must be 0–100." }, 400);
+    return c.json({ error: "Page count must be a positive integer; duration and progress must be non-negative integers and percent must be 0–100." }, 400);
   }
 
   const db = createDb(c.env.DB);
@@ -752,11 +779,12 @@ router.post("/", async (c) => {
     coverUrl: body.coverUrl?.trim() || null,
     releaseDate: body.releaseDate?.trim() || null,
     durationMins: body.durationMins ?? null,
+    pageCount: body.pageCount ?? null,
     rating: body.rating ?? null,
     notes: body.notes?.trim() || null,
     sourceUrl: body.sourceUrl?.trim() || null,
     externalId: body.externalId?.trim() || null,
-    metadata: body.metadata?.trim() || null,
+    metadata: sanitizeMetadata(body.metadata),
     position: 0,
     progressPercent: progress.progressPercent,
     progressCurrent: progress.progressCurrent,
@@ -815,6 +843,7 @@ router.post("/merge", async (c) => {
       releaseDate: target.releaseDate ?? source.releaseDate,
       durationMins: target.durationMins ?? source.durationMins,
       metadata: target.metadata ?? source.metadata,
+      pageCount: target.pageCount ?? source.pageCount,
       rating: target.rating ?? source.rating,
       notes: mergedNotes,
       progressCurrent: mergedProgressCurrent,
@@ -872,6 +901,57 @@ router.post("/import/source", async (c) => {
   const db = createDb(c.env.DB);
   const result = await runImportJob(db, userId, source, rows, { resyncMetadata: body.resyncMetadata });
   return c.json(result, 201);
+});
+
+router.post("/books/page-counts/lookup", async (c) => {
+  const userId = c.get("userId");
+  const body: { ids?: string[] } = await c.req.json<{ ids?: string[] }>().catch(() => ({}));
+  const requestedIds: string[] | null = Array.isArray(body.ids) ? [...new Set(body.ids.filter((id): id is string => typeof id === "string" && Boolean(id.trim())))] : null;
+  const db = createDb(c.env.DB);
+
+  const candidates = await db
+    .select()
+    .from(items)
+    .where(
+      requestedIds
+        ? and(eq(items.userId, userId), eq(items.contentType, "book"), inArray(items.id, requestedIds))
+        : and(eq(items.userId, userId), eq(items.contentType, "book"), isNull(items.pageCount))
+    );
+
+  const missing = candidates.filter((item) => item.pageCount == null);
+  const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
+  for (const item of missing) {
+    await queueAiJob(db, userId, "fetch_book_pages", { itemId: item.id }, getRunAfterFromInterval(intervalMinutes), item.id);
+  }
+  if (missing.length > 0) c.executionCtx.waitUntil(processAiQueue(c.env));
+
+  return c.json({
+    requestedCount: requestedIds?.length ?? candidates.length,
+    queuedCount: missing.length,
+    alreadyKnownCount: candidates.length - missing.length,
+    skippedCount: requestedIds ? requestedIds.length - candidates.length : 0,
+  }, 202);
+});
+
+router.get("/books/page-counts/status", async (c) => {
+  const userId = c.get("userId");
+  const db = createDb(c.env.DB);
+  const [jobs, missing] = await Promise.all([
+    db.select().from(aiJobs).where(and(eq(aiJobs.userId, userId), eq(aiJobs.jobType, "fetch_book_pages"))),
+    db.select({ id: items.id }).from(items).where(and(eq(items.userId, userId), eq(items.contentType, "book"), isNull(items.pageCount))),
+  ]);
+  const latestByItem = new Map<string, (typeof jobs)[number]>();
+  for (const job of jobs.sort((a, b) => b.createdAt - a.createdAt)) {
+    if (job.itemId && !latestByItem.has(job.itemId)) latestByItem.set(job.itemId, job);
+  }
+  const latest = [...latestByItem.values()];
+  return c.json({
+    missingCount: missing.length,
+    queuedCount: latest.filter((job) => job.status === "queued").length,
+    processingCount: latest.filter((job) => job.status === "processing").length,
+    completedCount: latest.filter((job) => job.status === "completed").length,
+    failedCount: latest.filter((job) => job.status === "failed").length,
+  });
 });
 
 router.post("/:id/resync-tv", async (c) => {
@@ -934,6 +1014,7 @@ router.patch("/:id", async (c) => {
       coverUrl: string | null;
       releaseDate: string | null;
       durationMins: number | null;
+      pageCount: number | null;
       sourceUrl: string | null;
       externalId: string | null;
       metadata: string | null;
@@ -966,13 +1047,14 @@ router.patch("/:id", async (c) => {
   }
   if (
     !isValidOptionalNonNegativeInteger(body.durationMins ?? null) ||
+    !isValidOptionalPositiveInteger(body.pageCount ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressPercent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressCurrent ?? null) ||
     !isValidOptionalNonNegativeInteger(body.progressTotal ?? null) ||
     !isValidOptionalNonNegativeInteger(body.lastTouchedAt ?? null) ||
     (body.progressPercent != null && body.progressPercent > 100)
   ) {
-    return c.json({ error: "Duration and progress values must be non-negative integers and percent must be 0–100." }, 400);
+    return c.json({ error: "Page count must be a positive integer; duration and progress must be non-negative integers and percent must be 0–100." }, 400);
   }
   if (!isValidOptionalNonNegativeInteger(body.manualBoost ?? null)) {
     return c.json({ error: "Manual boost must be a non-negative integer." }, 400);
@@ -997,6 +1079,10 @@ router.patch("/:id", async (c) => {
     .where(and(eq(items.id, id), eq(items.userId, userId)));
 
   if (!existing) return c.json({ error: "Not found" }, 404);
+  const effectiveContentType = body.contentType ?? existing.contentType;
+  if (body.pageCount != null && effectiveContentType !== "book") {
+    return c.json({ error: "Page count is only supported for books." }, 400);
+  }
 
   const duplicate = await findDuplicateCandidate(
     db,
@@ -1032,6 +1118,7 @@ router.patch("/:id", async (c) => {
       "coverUrl",
       "releaseDate",
       "durationMins",
+      "pageCount",
       "sourceUrl",
       "externalId",
       "metadata",
@@ -1046,6 +1133,8 @@ router.patch("/:id", async (c) => {
       "cooldownUntil",
     ]),
   };
+  if ("metadata" in body) update.metadata = sanitizeMetadata(body.metadata);
+  if (body.contentType && body.contentType !== "book") update.pageCount = null;
 
   if ("progressPercent" in body || "progressCurrent" in body || "progressTotal" in body) {
     const progress = deriveProgress({

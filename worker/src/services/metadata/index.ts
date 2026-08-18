@@ -43,6 +43,7 @@ export function resolveSuggestion(
     description: suggestion.description,
     coverUrl: suggestion.coverUrl,
     releaseDate: suggestion.releaseDate,
+    pageCount: suggestion.pageCount,
     sourceUrl: suggestion.sourceUrl,
     externalId: suggestion.externalId,
     metadata: suggestion.metadata,

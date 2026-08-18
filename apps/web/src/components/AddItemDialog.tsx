@@ -64,6 +64,7 @@ const DEFAULT_FORM = {
   releaseDate: "",
   finishedDate: "",
   rating: "",
+  pageCount: "",
   notes: "",
   sourceUrl: "",
 };
@@ -93,6 +94,8 @@ function createEmptyManualMapping(): ManualCsvMapping {
     fixedReleaseDate: "",
     rating: "",
     fixedRating: "",
+    pageCount: "",
+    fixedPageCount: "",
     notes: "",
     fixedNotes: "",
     sourceUrl: "",
@@ -119,6 +122,7 @@ function metadataToDraft(meta: FetchedMetadata, fallbackSource: string | undefin
     releaseDate: meta.releaseDate ?? "",
     finishedDate: "",
     rating: "",
+    pageCount: meta.pageCount?.toString() ?? "",
     notes: "",
     sourceUrl: meta.sourceUrl ?? fallbackSource ?? "",
   };
@@ -291,6 +295,7 @@ export function AddItemDialog({ open, onClose }: Props) {
         releaseDate: form.releaseDate || undefined,
         finishedAt: form.finishedDate ? new Date(form.finishedDate).getTime() : undefined,
         rating: form.rating ? parseSevenStarRating(form.rating) ?? undefined : undefined,
+        pageCount: form.contentType === "book" && form.pageCount ? Number(form.pageCount) : undefined,
         notes: form.notes.trim() || undefined,
         sourceUrl: form.sourceUrl.trim() || undefined,
         durationMins: resolvedExtras.durationMins,
@@ -655,6 +660,11 @@ function ItemDetailsForm({ form, setField }: { form: ItemDraft; setField: (field
             onChange={(rating) => setField("rating", rating?.toString() ?? "")}
           />
         </Field>
+        {form.contentType === "book" ? (
+          <Field label="Number of pages">
+            <Input type="number" min="1" step="1" value={form.pageCount} onChange={(e) => setField("pageCount", e.target.value)} placeholder="e.g. 320" />
+          </Field>
+        ) : null}
         {form.status === "finished" ? (
           <Field label="Finished Date">
             <Input type="date" value={form.finishedDate} onChange={(e) => setField("finishedDate", e.target.value)} />
@@ -888,6 +898,10 @@ function ManualMappingGrid({
         {getRatingLabel(parseSevenStarRating(mapping.fixedRating)) ? (
           <p className="mt-1 text-xs text-muted-foreground">{getRatingLabel(parseSevenStarRating(mapping.fixedRating))}</p>
         ) : null}
+      </Field>
+      <MappingField label="Page count column" value={mapping.pageCount} onChange={(value) => setMapping((prev) => ({ ...prev, pageCount: value }))} headers={headers} />
+      <Field label="Fixed page count">
+        <Input type="number" min="1" step="1" value={mapping.fixedPageCount} onChange={(e) => setMapping((prev) => ({ ...prev, fixedPageCount: e.target.value }))} placeholder="Positive integer" />
       </Field>
       <MappingField label="Description column" value={mapping.description} onChange={(value) => setMapping((prev) => ({ ...prev, description: value }))} headers={headers} />
       <Field label="Fixed description">

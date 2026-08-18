@@ -10,6 +10,7 @@ interface OLSearchResult {
   first_publish_year?: number;
   isbn?: string[];
   key?: string;
+  number_of_pages_median?: number;
 }
 
 interface OLSearch {
@@ -45,13 +46,15 @@ export async function fetchBooks(input: string, env: Env): Promise<FetchedMetada
   // ── Primary: Open Library (no key needed) ─────────────────────────────────
   const olRes = await fetch(
     `https://openlibrary.org/search.json?q=${encodeURIComponent(input)}` +
-      `&fields=title,author_name,cover_i,first_publish_year,isbn,key&limit=5`
+      `&fields=title,author_name,cover_i,first_publish_year,isbn,key,number_of_pages_median&limit=5`
   );
 
+  let openLibraryFallback: OLSearchResult | undefined;
   if (olRes.ok) {
     const olData = (await olRes.json()) as OLSearch;
-    const book = olData.docs?.[0];
-    if (book) {
+    const book = olData.docs?.find((entry) => normalizePageCount(entry.number_of_pages_median) != null) ?? olData.docs?.[0];
+    openLibraryFallback = book;
+    if (book && normalizePageCount(book.number_of_pages_median) != null) {
       return {
         title: book.title,
         contentType: "book",
@@ -62,6 +65,7 @@ export async function fetchBooks(input: string, env: Env): Promise<FetchedMetada
         releaseDate: book.first_publish_year
           ? String(book.first_publish_year)
           : undefined,
+        pageCount: normalizePageCount(book.number_of_pages_median),
         sourceUrl: book.key
           ? `https://openlibrary.org${book.key}`
           : `https://openlibrary.org/search?q=${encodeURIComponent(input)}`,
@@ -73,13 +77,19 @@ export async function fetchBooks(input: string, env: Env): Promise<FetchedMetada
   // ── Fallback: Google Books ─────────────────────────────────────────────────
   const gbRes = await fetch(
     `https://www.googleapis.com/books/v1/volumes` +
-      `?q=${encodeURIComponent(input)}&key=${env.GOOGLE_BOOKS_API_KEY}&maxResults=5`
+      `?q=${encodeURIComponent(input)}${env.GOOGLE_BOOKS_API_KEY ? `&key=${env.GOOGLE_BOOKS_API_KEY}` : ""}&maxResults=5`
   );
-  if (!gbRes.ok) throw new Error(`Book not found for "${input}"`);
+  if (!gbRes.ok) {
+    if (openLibraryFallback) return openLibraryResult(openLibraryFallback, input);
+    throw new Error(`Book not found for "${input}"`);
+  }
 
   const gbData = (await gbRes.json()) as GBSearch;
   const vol = gbData.items?.[0]?.volumeInfo;
-  if (!vol) throw new Error(`Book not found for "${input}"`);
+  if (!vol) {
+    if (openLibraryFallback) return openLibraryResult(openLibraryFallback, input);
+    throw new Error(`Book not found for "${input}"`);
+  }
 
   const isbn = gbData.items?.[0]?.volumeInfo.industryIdentifiers?.find(
     (i) => i.type === "ISBN_13"
@@ -92,13 +102,26 @@ export async function fetchBooks(input: string, env: Env): Promise<FetchedMetada
     description: vol.description?.slice(0, 500),
     coverUrl: vol.imageLinks?.thumbnail?.replace("http:", "https:"),
     releaseDate: vol.publishedDate,
+    pageCount: normalizePageCount(vol.pageCount),
     sourceUrl: vol.infoLink,
     externalId: gbData.items?.[0]?.id,
     metadata: JSON.stringify({
       isbn,
-      pageCount: vol.pageCount,
       categories: vol.categories,
     }),
+  };
+}
+
+function openLibraryResult(book: OLSearchResult, input: string): FetchedMetadata {
+  return {
+    title: book.title,
+    contentType: "book",
+    creator: book.author_name?.[0],
+    coverUrl: book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg` : undefined,
+    releaseDate: book.first_publish_year ? String(book.first_publish_year) : undefined,
+    pageCount: normalizePageCount(book.number_of_pages_median),
+    sourceUrl: book.key ? `https://openlibrary.org${book.key}` : `https://openlibrary.org/search?q=${encodeURIComponent(input)}`,
+    metadata: JSON.stringify({ isbn: book.isbn?.[0] }),
   };
 }
 
@@ -107,7 +130,7 @@ export async function searchBooks(query: string, env: Env): Promise<SearchSugges
 
   const olRes = await fetch(
     `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}` +
-      `&fields=title,author_name,cover_i,first_publish_year,isbn,key&limit=5`
+      `&fields=title,author_name,cover_i,first_publish_year,isbn,key,number_of_pages_median&limit=5`
   );
 
   if (olRes.ok) {
@@ -122,6 +145,7 @@ export async function searchBooks(query: string, env: Env): Promise<SearchSugges
           ? `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`
           : undefined,
         releaseDate: book.first_publish_year ? String(book.first_publish_year) : undefined,
+        pageCount: normalizePageCount(book.number_of_pages_median),
         sourceUrl: book.key ? `https://openlibrary.org${book.key}` : undefined,
         externalId: book.key,
         metadata: JSON.stringify({ isbn: book.isbn?.[0] }),
@@ -148,11 +172,11 @@ export async function searchBooks(query: string, env: Env): Promise<SearchSugges
     description: item.volumeInfo.description?.slice(0, 500),
     coverUrl: item.volumeInfo.imageLinks?.thumbnail?.replace("http:", "https:"),
     releaseDate: item.volumeInfo.publishedDate,
+    pageCount: normalizePageCount(item.volumeInfo.pageCount),
     sourceUrl: item.volumeInfo.infoLink,
     externalId: item.id,
     metadata: JSON.stringify({
       categories: item.volumeInfo.categories,
-      pageCount: item.volumeInfo.pageCount,
       isbn: item.volumeInfo.industryIdentifiers?.find((i) => i.type === "ISBN_13")?.identifier,
     }),
   }));
@@ -269,6 +293,7 @@ async function fetchGoodreadsBook(url: string): Promise<FetchedMetadata> {
     description: description || undefined,
     coverUrl: ogImage || undefined,
     releaseDate: structured.releaseDate || undefined,
+    pageCount: structured.pageCount,
     sourceUrl: url,
     externalId: extractGoodreadsBookId(url),
     metadata: JSON.stringify({
@@ -319,6 +344,7 @@ function extractGoodreadsStructuredBookData(html: string) {
     creator: "",
     description: "",
     releaseDate: "",
+    pageCount: undefined as number | undefined,
   };
 
   const ldJsonMatches = [...html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
@@ -334,6 +360,7 @@ function extractGoodreadsStructuredBookData(html: string) {
     result.description ||= normalizeDescription(asNonEmptyString(book.description));
     result.creator ||= extractAuthorName(book.author);
     result.releaseDate ||= normalizeReleaseDate(asNonEmptyString(book.datePublished));
+    result.pageCount ??= normalizePageCount(book.numberOfPages);
 
     if (result.title || result.description || result.creator || result.releaseDate) {
       break;
@@ -348,6 +375,11 @@ function extractGoodreadsStructuredBookData(html: string) {
   }
 
   return result;
+}
+
+function normalizePageCount(value: unknown) {
+  const parsed = typeof value === "number" ? value : Number.parseInt(asNonEmptyString(value).replace(/[^\d]/g, ""), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function safeParseJson(input: string): unknown {

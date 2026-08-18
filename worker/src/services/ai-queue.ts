@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lte } from "drizzle-orm";
 import { ulid } from "ulidx";
 import { createDb, type Db } from "../db/client";
 import { aiCache, aiJobs, itemTags, items, tags } from "../db/schema";
@@ -17,11 +17,27 @@ import { analyzeItem, scoreSuggestMetric } from "./ai";
 import { dispatch } from "./metadata";
 import type { Env } from "../types";
 
-export type AiJobType = "analyze_item" | "score_item" | "fetch_metadata";
+export type AiJobType = "analyze_item" | "score_item" | "fetch_metadata" | "fetch_book_pages";
 export type AiJobStatus = "queued" | "processing" | "completed" | "failed";
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MINUTES = 60;
 const IMMEDIATE_RUN_THRESHOLD = 5;
+
+function mergeMetadataJson(existingValue: string | null, freshValue: string | undefined) {
+  const parse = (value: string | null | undefined) => {
+    if (!value) return {};
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const merged = { ...parse(freshValue), ...parse(existingValue) };
+  delete merged.pageCount;
+  return Object.keys(merged).length > 0 ? JSON.stringify(merged) : null;
+}
 
 export function serializeJob(job: typeof aiJobs.$inferSelect) {
   const modelMeta = getAiModelMeta(job.modelUsed);
@@ -442,15 +458,53 @@ async function processFetchMetadataJob(db: Db, env: Env, job: typeof aiJobs.$inf
       durationMins: item.durationMins || metadata.durationMins || null,
       sourceUrl: item.sourceUrl || metadata.sourceUrl || null,
       externalId: item.externalId || metadata.externalId || null,
-      metadata: item.metadata || metadata.metadata || null,
+      metadata: mergeMetadataJson(item.metadata, metadata.metadata),
       updatedAt: now,
     })
     .where(eq(items.id, item.id));
+  if (item.pageCount == null && metadata.pageCount != null) {
+    await db
+      .update(items)
+      .set({ pageCount: metadata.pageCount })
+      .where(and(eq(items.id, item.id), eq(items.userId, job.userId), isNull(items.pageCount)));
+  }
 
   const intervalMinutes = await resolveAiQueueIntervalMinutes(db, job.userId);
   await queueAiJob(db, job.userId, "score_item", { itemId }, getRunAfterFromInterval(intervalMinutes), itemId);
 
   return { model: null, result: { success: true, metadata } };
+}
+
+async function processFetchBookPagesJob(db: Db, env: Env, job: typeof aiJobs.$inferSelect) {
+  const payload = JSON.parse(job.payload) as { itemId?: string };
+  const itemId = payload.itemId ?? job.itemId ?? undefined;
+  if (!itemId) throw new Error("Missing item id");
+
+  const [item] = await db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, itemId), eq(items.userId, job.userId)));
+
+  if (!item) throw new Error("Item not found");
+  if (item.contentType !== "book") throw new Error("Page-count lookup only supports books");
+  if (item.pageCount != null) {
+    return { model: null, result: { success: true, pageCount: item.pageCount, alreadyKnown: true } };
+  }
+
+  const resolvedEnv = await resolveMetadataEnv(db, job.userId, env);
+  const metadata = await dispatch(
+    { query: [item.title, item.creator].filter(Boolean).join(" "), contentType: "book" },
+    resolvedEnv
+  );
+  if (!metadata.pageCount) throw new Error("No page count found for this edition");
+
+  const now = Date.now();
+  await db
+    .update(items)
+    .set({ pageCount: metadata.pageCount, updatedAt: now })
+    .where(and(eq(items.id, item.id), eq(items.userId, job.userId), eq(items.contentType, "book"), isNull(items.pageCount)));
+
+  return { model: null, result: { success: true, pageCount: metadata.pageCount, providerMetadata: metadata.metadata ?? null } };
 }
 
 export async function processAiQueue(env: Env) {
@@ -484,6 +538,8 @@ export async function processAiQueue(env: Env) {
             ? await processAnalyzeJob(db, env, job)
             : job.jobType === "fetch_metadata"
             ? await processFetchMetadataJob(db, env, job)
+            : job.jobType === "fetch_book_pages"
+            ? await processFetchBookPagesJob(db, env, job)
             : await processScoreJob(db, env, job);
 
         await db
