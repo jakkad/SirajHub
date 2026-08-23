@@ -26,6 +26,7 @@ interface TypePageLayoutProps {
   title: string;
   color: string;
   showStatusFilters?: boolean;
+  defaultStatusFilter?: StatusId | "all";
   children: (items: Item[], selectionProps?: { isSelectionMode: boolean; selectedIds: Set<string>; toggleSelection: (id: string) => void }) => React.ReactNode;
 }
 
@@ -63,11 +64,11 @@ function getThemeAccent(typeId: string) {
   }
 }
 
-export function TypePageLayout({ contentType, title, showStatusFilters = true, children }: TypePageLayoutProps) {
+export function TypePageLayout({ contentType, title, showStatusFilters = true, defaultStatusFilter = "all", children }: TypePageLayoutProps) {
   const accentColor = getThemeAccent(contentType);
   const { labs } = useLabs();
   
-  const [statusFilter, setStatusFilter] = useState<StatusId | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusId | "all">(defaultStatusFilter);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [viewName, setViewName] = useState("");
   const [draftFilters, setDraftFilters] = useState<SavedViewFilters>({});
@@ -182,8 +183,8 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, c
           {showStatusFilters ? <div className="flex flex-wrap items-center gap-2 w-full pt-2">
             {STATUS_FILTERS.map((sf) => {
               const count = countByStatus(sf.id);
-              if (sf.id !== "all" && count === 0) return null;
               const isActive = statusFilter === sf.id && activeViewId === null;
+              if (sf.id !== "all" && count === 0 && !isActive) return null;
               
               return (
                 <button

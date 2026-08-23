@@ -12,7 +12,7 @@ function BooksPage() {
       contentType="book"
       title="Books"
       color="var(--color-book)"
-      showStatusFilters={false}
+      defaultStatusFilter="finished"
     >
       {(items, selectionProps) => <BookGridView items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
