@@ -33,7 +33,7 @@ function BookCard({ item, selectionProps }: { item: Item; selectionProps?: Selec
       className="group block rounded-lg outline-none transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <div
-        className="relative aspect-[2/3] overflow-hidden rounded-lg border bg-muted"
+        className="relative aspect-[2/3] overflow-hidden rounded-lg bg-muted"
         style={item.coverUrl ? undefined : { background: idToGradient(item.id) }}
       >
         {selectionProps?.isSelectionMode ? (
