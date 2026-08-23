@@ -120,6 +120,9 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
   const activeSortDirection = effectiveFilters.sortDirection ?? DEFAULT_SORT_DIRECTION;
   const activeSortLabel = SORT_OPTIONS.find((option) => option.id === activeSortBy)?.label ?? "Updated date";
   const activeDirectionLabel = SORT_DIRECTIONS.find((option) => option.id === activeSortDirection)?.label ?? "Descending";
+  const missingPageCount = contentType === "book"
+    ? allItems.filter((item) => item.pageCount == null).length
+    : null;
 
   const countByStatus = (id: StatusId | "all") =>
     id === "all" ? allItems.length : allItems.filter((i) => i.status === id).length;
@@ -157,6 +160,11 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
                   {allItems.length} Saved
                 </Badge>
               <span className="font-mono text-xs text-muted-foreground/80">{visibleItems.length} currently shown</span>
+              {missingPageCount != null ? (
+                <Badge variant="secondary" className="whitespace-nowrap tracking-wide">
+                  {missingPageCount} page count{missingPageCount === 1 ? "" : "s"} missing
+                </Badge>
+              ) : null}
             </div>
           </div>
 
