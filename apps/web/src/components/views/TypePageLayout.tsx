@@ -9,11 +9,20 @@ import { useLabs } from "../../hooks/useLabs";
 import { NextToConsume } from "../dashboard/NextToConsume";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Filter, Bookmark, X, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ArrowUpDown, Bookmark, ChevronDown, Filter, Search, X } from "lucide-react";
 
 export interface SelectionProps {
   isSelectionMode: boolean;
@@ -109,6 +118,8 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
   const visibleItems = sortItems(filteredItems, effectiveFilters);
   const activeSortBy = effectiveFilters.sortBy ?? DEFAULT_SORT_BY;
   const activeSortDirection = effectiveFilters.sortDirection ?? DEFAULT_SORT_DIRECTION;
+  const activeSortLabel = SORT_OPTIONS.find((option) => option.id === activeSortBy)?.label ?? "Updated date";
+  const activeDirectionLabel = SORT_DIRECTIONS.find((option) => option.id === activeSortDirection)?.label ?? "Descending";
 
   const countByStatus = (id: StatusId | "all") =>
     id === "all" ? allItems.length : allItems.filter((i) => i.status === id).length;
@@ -131,42 +142,86 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
     <div className="flex flex-col gap-10 pb-20 w-full" style={{ '--hero-accent': accentColor } as React.CSSProperties}>
       
       {/* ─── RADIANT HERO HEADER ────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[2rem] border-0 ring-1 ring-[hsl(var(--border)_/_0.6)] paper-card p-6 md:p-10 !bg-[hsl(var(--background)_/_0.8)] shadow-lg group w-full">
+      <div className="group relative w-full overflow-hidden rounded-[2rem] border-0 p-6 shadow-lg ring-1 ring-[hsl(var(--border)_/_0.6)] paper-card !bg-[hsl(var(--background)_/_0.8)] md:p-8">
         <div className="absolute -top-32 -right-10 size-96 bg-[var(--hero-accent)]/15 blur-3xl rounded-full pointer-events-none transition-transform duration-1000 group-hover:scale-110" />
         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-transparent to-[var(--hero-accent)]/5 pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col gap-8 w-full">
+        <div className="relative z-10 flex w-full flex-col gap-5">
           {/* Top Title Row */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 w-full">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+            <h1 className="text-5xl font-extrabold tracking-tight text-foreground drop-shadow-sm md:text-6xl">
+              {title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-3">
                 <Badge variant="outline" className="bg-[var(--hero-accent)]/10 text-[var(--hero-accent)] border-[var(--hero-accent)]/20 px-3 py-1 text-xs backdrop-blur font-bold tracking-wide uppercase">
                   {allItems.length} Saved
                 </Badge>
-                <span className="text-xs text-muted-foreground/80 font-mono">{visibleItems.length} currently shown</span>
-              </div>
-              <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-foreground drop-shadow-sm">
-                {title}
-              </h1>
+              <span className="font-mono text-xs text-muted-foreground/80">{visibleItems.length} currently shown</span>
             </div>
+          </div>
 
-            <div className="flex items-center gap-3">
+          {/* Status and collection controls */}
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            {showStatusFilters ? <div className="-mx-1 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto px-1 pb-1 xl:mx-0 xl:flex-wrap xl:overflow-visible xl:px-0 xl:pb-0">
+              {STATUS_FILTERS.map((sf) => {
+                const count = countByStatus(sf.id);
+                const isActive = statusFilter === sf.id && activeViewId === null;
+                if (sf.id !== "all" && count === 0 && !isActive) return null;
+
+                return (
+                  <button
+                    key={sf.id}
+                    type="button"
+                    onClick={() => { setActiveViewId(null); setStatusFilter(sf.id); }}
+                    className={cn(
+                      "relative flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-300",
+                      isActive
+                        ? "bg-[var(--hero-accent)]/15 border-[var(--hero-accent)]/40 text-[var(--hero-accent)] shadow-sm"
+                        : "bg-[hsl(var(--card)_/_0.4)] border-[hsl(var(--border)_/_0.5)] text-foreground/70 hover:bg-[hsl(var(--card)_/_0.8)] hover:text-foreground backdrop-blur-sm"
+                    )}
+                  >
+                    <span>{sf.label}</span>
+                    <span className={cn(
+                      "flex items-center justify-center rounded-full px-2 py-0.5 text-[10px]",
+                      isActive ? "bg-[var(--hero-accent)] text-white" : "bg-background/80 text-muted-foreground"
+                    )}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div> : <div />}
+
+            <div className="flex max-w-full shrink-0 items-center gap-2 overflow-x-auto pb-1 xl:justify-end xl:overflow-visible xl:pb-0">
               {smartViewsOpen && activeViewId === null && (
-                 <Badge variant="secondary" className="bg-card/70 backdrop-blur border-[hsl(var(--border)_/_0.4)]">
+                 <Badge variant="secondary" className="hidden max-w-48 truncate border-[hsl(var(--border)_/_0.4)] bg-card/70 backdrop-blur 2xl:inline-flex">
                    {summarizeSavedViewFilters(effectiveFilters) || "No filters"}
                  </Badge>
               )}
               <Button
                 variant={smartViewsOpen ? "default" : "outline"}
-                className={`rounded-full shadow-sm transition-all h-9 px-4 ${smartViewsOpen ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
+                size="sm"
+                className={cn(
+                  "shrink-0 rounded-full",
+                  smartViewsOpen
+                    ? "border-transparent bg-[var(--hero-accent)] text-white"
+                    : "border-[hsl(var(--border)_/_0.6)] bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)]"
+                )}
                 onClick={() => setSmartViewsOpen((c) => !c)}
+                aria-expanded={smartViewsOpen}
               >
-                <Filter className="mr-2 size-4" />
-                {smartViewsOpen ? "Close Filters" : labs.smartViews ? "Smart Views & Filters" : "Filters"}
+                <Filter data-icon="inline-start" className="size-4" />
+                <span>{smartViewsOpen ? "Close" : "Filters"}</span>
               </Button>
               <Button
                 variant={isSelectionMode ? "default" : "outline"}
-                className={`rounded-full shadow-sm transition-all h-9 px-4 ${isSelectionMode ? 'bg-[var(--hero-accent)] text-white border-transparent' : 'bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)] border-[hsl(var(--border)_/_0.6)]'}`}
+                size="sm"
+                className={cn(
+                  "shrink-0 rounded-full",
+                  isSelectionMode
+                    ? "border-transparent bg-[var(--hero-accent)] text-white"
+                    : "border-[hsl(var(--border)_/_0.6)] bg-card/50 backdrop-blur-md hover:bg-[var(--hero-accent)]/10 hover:text-[var(--hero-accent)]"
+                )}
                 onClick={() => {
                   setIsSelectionMode((prev) => {
                     if (prev) setSelectedIds(new Set());
@@ -176,61 +231,53 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
               >
                 {isSelectionMode ? "Cancel Select" : "Select"}
               </Button>
-            </div>
-          </div>
 
-          {/* Inline Status Filters */}
-          {showStatusFilters ? <div className="flex flex-wrap items-center gap-2 w-full pt-2">
-            {STATUS_FILTERS.map((sf) => {
-              const count = countByStatus(sf.id);
-              const isActive = statusFilter === sf.id && activeViewId === null;
-              if (sf.id !== "all" && count === 0 && !isActive) return null;
-              
-              return (
-                <button
-                  key={sf.id}
-                  onClick={() => { setActiveViewId(null); setStatusFilter(sf.id as StatusId | "all"); }}
-                  className={`relative flex items-center gap-2 rounded-full px-4 py-2 transition-all duration-300 text-sm font-semibold border ${
-                    isActive 
-                      ? "bg-[var(--hero-accent)]/15 border-[var(--hero-accent)]/40 text-[var(--hero-accent)] shadow-sm"
-                      : "bg-[hsl(var(--card)_/_0.4)] border-[hsl(var(--border)_/_0.5)] text-foreground/70 hover:bg-[hsl(var(--card)_/_0.8)] hover:text-foreground backdrop-blur-sm"
-                  }`}
-                >
-                  <span>{sf.label}</span>
-                  <span className={`flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] ${isActive ? "bg-[var(--hero-accent)] text-white" : "bg-background/80 text-muted-foreground"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div> : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 rounded-full bg-card/50 backdrop-blur-md"
+                    aria-label={`Sort by ${activeSortLabel}`}
+                  >
+                    <ArrowUpDown data-icon="inline-start" className="size-4" />
+                    <span className="hidden sm:inline">Sort:</span>
+                    <span>{activeSortLabel}</span>
+                    <ChevronDown data-icon="inline-end" className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={activeSortBy} onValueChange={(value) => updateDraftFilters({ sortBy: value as ItemSortBy })}>
+                    {SORT_OPTIONS.map((option) => (
+                      <DropdownMenuRadioItem key={option.id} value={option.id}>{option.label}</DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          <div className="flex flex-col gap-3 rounded-2xl border border-[hsl(var(--border)_/_0.45)] bg-[hsl(var(--card)_/_0.35)] p-3 backdrop-blur-sm sm:flex-row sm:items-end">
-            <div className="flex min-w-[180px] flex-1 flex-col gap-2">
-              <Label className="text-xs text-muted-foreground">Sort By</Label>
-              <Select value={activeSortBy} onValueChange={(value) => updateDraftFilters({ sortBy: value as ItemSortBy })}>
-                <SelectTrigger className="h-9 rounded-xl bg-card/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex min-w-[160px] flex-1 flex-col gap-2">
-              <Label className="text-xs text-muted-foreground">Direction</Label>
-              <Select value={activeSortDirection} onValueChange={(value) => updateDraftFilters({ sortDirection: value as SortDirection })}>
-                <SelectTrigger className="h-9 rounded-xl bg-card/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_DIRECTIONS.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 rounded-full bg-card/50 backdrop-blur-md"
+                    aria-label={`Sort direction: ${activeDirectionLabel}`}
+                  >
+                    <span className="hidden sm:inline">Direction:</span>
+                    <span>{activeDirectionLabel}</span>
+                    <ChevronDown data-icon="inline-end" className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Direction</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={activeSortDirection} onValueChange={(value) => updateDraftFilters({ sortDirection: value as SortDirection })}>
+                    {SORT_DIRECTIONS.map((option) => (
+                      <DropdownMenuRadioItem key={option.id} value={option.id}>{option.label}</DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
