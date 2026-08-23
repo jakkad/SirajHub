@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { TypePageLayout } from "../components/views/TypePageLayout";
-import { BookshelfView } from "../components/views/BookshelfView";
+import { BookGridView } from "../components/views/BookGridView";
 
 export const Route = createFileRoute("/books")({
   component: BooksPage,
@@ -14,7 +14,7 @@ function BooksPage() {
       color="var(--color-book)"
       showStatusFilters={false}
     >
-      {(items, selectionProps) => <BookshelfView items={items} selectionProps={selectionProps} />}
+      {(items, selectionProps) => <BookGridView items={items} selectionProps={selectionProps} />}
     </TypePageLayout>
   );
 }
