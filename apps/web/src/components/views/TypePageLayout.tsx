@@ -1,5 +1,14 @@
-import { useState } from "react";
-import { useCreateSavedView, useDeleteSavedView, useItems, useSavedViews, useBulkDeleteItems } from "../../hooks/useItems";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useBookPageCountStatus,
+  useBulkDeleteItems,
+  useCreateSavedView,
+  useDeleteSavedView,
+  useItems,
+  useLookupBookPageCounts,
+  useSavedViews,
+} from "../../hooks/useItems";
 import { DEFAULT_SORT_BY, DEFAULT_SORT_DIRECTION, summarizeSavedViewFilters, matchesSavedViewFilters, sortItems } from "../../lib/saved-views";
 import type { ContentTypeId, StatusId } from "../../lib/constants";
 import { STATUSES } from "../../lib/constants";
@@ -22,7 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { ArrowUpDown, Bookmark, ChevronDown, Filter, Search, X } from "lucide-react";
+import { ArrowUpDown, Bookmark, ChevronDown, Filter, RefreshCw, Search, X } from "lucide-react";
 
 export interface SelectionProps {
   isSelectionMode: boolean;
@@ -76,6 +85,8 @@ function getThemeAccent(typeId: string) {
 export function TypePageLayout({ contentType, title, showStatusFilters = true, defaultStatusFilter = "all", children }: TypePageLayoutProps) {
   const accentColor = getThemeAccent(contentType);
   const { labs } = useLabs();
+  const queryClient = useQueryClient();
+  const previousPageCountCompleted = useRef(0);
   
   const [statusFilter, setStatusFilter] = useState<StatusId | "all">(defaultStatusFilter);
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
@@ -87,6 +98,8 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
   const { mutate: createSavedView, isPending: savingView } = useCreateSavedView();
   const { mutate: deleteSavedView } = useDeleteSavedView();
   const { mutate: bulkDeleteItems, isPending: bulkDeleting } = useBulkDeleteItems();
+  const { mutate: lookupBookPageCounts, isPending: pageCountLookupPending } = useLookupBookPageCounts();
+  const { data: pageCountStatus } = useBookPageCountStatus(contentType === "book" && allItems.length > 0);
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -121,8 +134,18 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
   const activeSortLabel = SORT_OPTIONS.find((option) => option.id === activeSortBy)?.label ?? "Updated date";
   const activeDirectionLabel = SORT_DIRECTIONS.find((option) => option.id === activeSortDirection)?.label ?? "Descending";
   const missingPageCount = contentType === "book"
-    ? allItems.filter((item) => item.pageCount == null).length
+    ? pageCountStatus?.missingCount ?? allItems.filter((item) => item.pageCount == null).length
     : null;
+  const pageCountWorkRemaining = (pageCountStatus?.queuedCount ?? 0) + (pageCountStatus?.processingCount ?? 0);
+
+  useEffect(() => {
+    if (contentType !== "book") return;
+    const completed = pageCountStatus?.completedCount ?? 0;
+    if (completed > previousPageCountCompleted.current) {
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+    }
+    previousPageCountCompleted.current = completed;
+  }, [contentType, pageCountStatus?.completedCount, queryClient]);
 
   const countByStatus = (id: StatusId | "all") =>
     id === "all" ? allItems.length : allItems.filter((i) => i.status === id).length;
@@ -151,21 +174,32 @@ export function TypePageLayout({ contentType, title, showStatusFilters = true, d
 
         <div className="relative z-10 flex w-full flex-col gap-5">
           {/* Top Title Row */}
-          <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
-            <h1 className="text-5xl font-extrabold tracking-tight text-foreground drop-shadow-sm md:text-6xl">
-              {title}
-            </h1>
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+              <h1 className="text-5xl font-extrabold tracking-tight text-foreground drop-shadow-sm md:text-6xl">
+                {title}
+              </h1>
+              <div className="flex flex-wrap items-center gap-3">
                 <Badge variant="outline" className="bg-[var(--hero-accent)]/10 text-[var(--hero-accent)] border-[var(--hero-accent)]/20 px-3 py-1 text-xs backdrop-blur font-bold tracking-wide uppercase">
                   {allItems.length} Saved
                 </Badge>
-              <span className="font-mono text-xs text-muted-foreground/80">{visibleItems.length} currently shown</span>
-              {missingPageCount != null ? (
-                <Badge variant="secondary" className="whitespace-nowrap tracking-wide">
-                  {missingPageCount} page count{missingPageCount === 1 ? "" : "s"} missing
-                </Badge>
-              ) : null}
+                <span className="font-mono text-xs text-muted-foreground/80">{visibleItems.length} currently shown</span>
+              </div>
             </div>
+
+            {missingPageCount != null ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="shrink-0 self-end rounded-full uppercase tracking-wide"
+                disabled={missingPageCount === 0 || pageCountLookupPending || pageCountWorkRemaining > 0}
+                onClick={() => lookupBookPageCounts(undefined)}
+                aria-label={`${missingPageCount} page count${missingPageCount === 1 ? "" : "s"} missing. Check missing page counts.`}
+              >
+                <RefreshCw data-icon="inline-start" className={cn((pageCountLookupPending || pageCountWorkRemaining > 0) && "animate-spin")} />
+                {missingPageCount} page count{missingPageCount === 1 ? "" : "s"} missing
+              </Button>
+            ) : null}
           </div>
 
           {/* Status and collection controls */}

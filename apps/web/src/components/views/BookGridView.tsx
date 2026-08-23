@@ -1,13 +1,7 @@
-import { useEffect, useRef } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, BookOpenCheck, RefreshCw } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
-import { useBookPageCountStatus, useLookupBookPageCounts } from "../../hooks/useItems";
 import type { Item } from "../../lib/api";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { SelectionOverlay } from "./SelectionOverlay";
 import type { SelectionProps } from "./TypePageLayout";
 
@@ -71,22 +65,6 @@ function BookCard({ item, selectionProps }: { item: Item; selectionProps?: Selec
 }
 
 export function BookGridView({ items, selectionProps }: BookGridViewProps) {
-  const queryClient = useQueryClient();
-  const previousCompleted = useRef(0);
-  const { mutate: lookupPages, data: lookupResult, isPending: lookupPending } = useLookupBookPageCounts();
-  const { data: lookupStatus } = useBookPageCountStatus(items.length > 0);
-  const missingCount = items.filter((item) => item.pageCount == null).length;
-  const selectedBookIds = selectionProps
-    ? [...selectionProps.selectedIds].filter((id) => items.some((item) => item.id === id))
-    : [];
-  const workRemaining = (lookupStatus?.queuedCount ?? 0) + (lookupStatus?.processingCount ?? 0);
-
-  useEffect(() => {
-    const completed = lookupStatus?.completedCount ?? 0;
-    if (completed > previousCompleted.current) queryClient.invalidateQueries({ queryKey: ["items"] });
-    previousCompleted.current = completed;
-  }, [lookupStatus?.completedCount, queryClient]);
-
   if (items.length === 0) {
     return (
       <div className="rounded-[18px] border border-dashed p-10 text-center text-sm text-muted-foreground">
@@ -96,59 +74,13 @@ export function BookGridView({ items, selectionProps }: BookGridViewProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 rounded-[18px] border bg-card/65 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">
-            <BookOpenCheck className="mr-1 size-3.5" />
-            {missingCount} page count{missingCount === 1 ? "" : "s"} missing
-          </Badge>
-          {workRemaining > 0 ? (
-            <span className="text-xs text-muted-foreground">
-              {workRemaining} lookup job{workRemaining === 1 ? "" : "s"} active
-            </span>
-          ) : null}
-          {lookupResult ? (
-            <span className="text-xs text-muted-foreground">
-              {lookupResult.queuedCount} queued · {lookupResult.alreadyKnownCount} already known · {lookupResult.skippedCount} skipped
-            </span>
-          ) : null}
-          {lookupStatus && lookupStatus.failedCount > 0 ? (
-            <span className="text-xs text-destructive">{lookupStatus.failedCount} failed</span>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {selectionProps?.isSelectionMode ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={selectedBookIds.length === 0 || lookupPending}
-              onClick={() => lookupPages(selectedBookIds)}
-            >
-              <RefreshCw data-icon="inline-start" className={cn(lookupPending && "animate-spin")} />
-              Check selected
-            </Button>
-          ) : null}
-          <Button
-            size="sm"
-            disabled={missingCount === 0 || lookupPending}
-            onClick={() => lookupPages(undefined)}
-          >
-            <RefreshCw data-icon="inline-start" className={cn(lookupPending && "animate-spin")} />
-            Check missing
-          </Button>
-        </div>
-      </div>
-
-      <div
-        className="grid"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}
-      >
-        {items.map((item) => (
-          <BookCard key={item.id} item={item} selectionProps={selectionProps} />
-        ))}
-      </div>
+    <div
+      className="grid"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}
+    >
+      {items.map((item) => (
+        <BookCard key={item.id} item={item} selectionProps={selectionProps} />
+      ))}
     </div>
   );
 }
