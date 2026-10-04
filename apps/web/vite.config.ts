@@ -12,6 +12,7 @@ export default defineConfig({
   plugins: [
     // Must be before react() — generates routeTree.gen.ts from route files
     TanStackRouterVite({
+      autoCodeSplitting: true,
       routesDirectory: "./src/routes",
       generatedRouteTree: "./src/routeTree.gen.ts",
     }),

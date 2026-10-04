@@ -372,7 +372,5 @@ function parsePositiveInteger(value: string) {
 }
 
 function normalizeReleaseDate(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  return /^\d{4}$/.test(trimmed) ? trimmed : trimmed;
+  return value.trim();
 }

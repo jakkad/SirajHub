@@ -1,3 +1,4 @@
+import { detectFromUrl } from "./detect";
 import type { Env } from "../../types";
 import type { ContentType, DispatchInput, FetchedMetadata, SearchSuggestion } from "./types";
 import { fetchYouTube } from "./youtube";
@@ -8,21 +9,6 @@ import { fetchArticle } from "./articles";
 import { fetchTweet } from "./tweets";
 
 export type { FetchedMetadata, ContentType, SearchSuggestion };
-
-/**
- * Infers content type from a URL.
- * Returns null if the URL doesn't match any known pattern (treat as article).
- */
-function detectFromUrl(url: string): ContentType {
-  if (/youtube\.com\/watch|youtu\.be\//.test(url)) return "youtube";
-  if (/themoviedb\.org\/movie\//.test(url)) return "movie";
-  if (/themoviedb\.org\/tv\//.test(url)) return "tv";
-  if (/twitter\.com\/.+\/status\/|x\.com\/.+\/status\//.test(url)) return "tweet";
-  if (/goodreads\.com|openlibrary\.org|google\.com\/books/.test(url)) return "book";
-  if (/podcasts\.apple\.com|anchor\.fm|buzzsprout\.com|podbean\.com/.test(url))
-    return "podcast";
-  return "article";
-}
 
 export function resolveSuggestion(
   suggestion: SearchSuggestion,

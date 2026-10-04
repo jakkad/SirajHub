@@ -207,8 +207,7 @@ export async function syncSuggestMetric(db: Db, item: typeof items.$inferSelect,
     })
     .where(eq(items.id, item.id));
 
-  const [updated] = await db.select().from(items).where(eq(items.id, item.id));
-  return updated ?? item;
+  return { ...item, suggestMetricFinal: finalScore, suggestMetricUpdatedAt: item.suggestMetricUpdatedAt ?? now };
 }
 
 export async function syncSuggestMetrics(db: Db, itemList: Array<typeof items.$inferSelect>, now = Date.now()) {
@@ -522,7 +521,7 @@ export async function processAiQueue(env: Env) {
 
     for (const job of dueJobs) {
       const attempt = job.attempts + 1;
-      await db
+      const [claimed] = await db
         .update(aiJobs)
         .set({
           status: "processing",
@@ -530,7 +529,11 @@ export async function processAiQueue(env: Env) {
           updatedAt: Date.now(),
           lastError: null,
         })
-        .where(eq(aiJobs.id, job.id));
+        .where(and(eq(aiJobs.id, job.id), eq(aiJobs.status, "queued"), lte(aiJobs.runAfter, Date.now())))
+        .returning({ id: aiJobs.id });
+
+      // Another request or cron invocation may have claimed this job first.
+      if (!claimed) continue;
 
       try {
         const output =

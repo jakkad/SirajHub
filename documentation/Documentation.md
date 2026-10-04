@@ -1,6 +1,6 @@
 # SirajHub User and Maintenance Guide
 
-Documentation version: **4.03** (September 20, 2026)
+Documentation version: **4.04** (October 4, 2026)
 
 SirajHub is a private media library for capturing, organizing, prioritizing, and tracking books, movies, TV shows, podcasts, YouTube videos, articles, and posts. It runs as a React application and Cloudflare Worker backed by D1 and KV.
 
@@ -127,6 +127,7 @@ Run these from the repository root:
 
 ```bash
 pnpm typecheck
+pnpm test
 pnpm build
 ```
 
@@ -184,3 +185,5 @@ Pushing to `main` also triggers GitHub Actions to install dependencies, build, d
 3. Run `pnpm typecheck` and `pnpm build`.
 4. Apply migrations locally and test sign-in, capture, edit, import, and direct subpage refresh.
 5. Deploy, apply production migrations, and verify `/api/health` plus one authenticated request.
+
+See [the October 4 maintenance notes](Refactor-2026-10-04.md) for security boundaries, validation results, and proposed features.

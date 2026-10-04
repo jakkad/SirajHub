@@ -1,12 +1,8 @@
+import { fetchPublicResource } from "../../lib/public-fetch";
 import type { FetchedMetadata } from "./types";
 
 export async function fetchArticle(url: string): Promise<FetchedMetadata> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; SirajHub/1.0; +https://sirajhub.app)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-  });
+  const res = await fetchPublicResource(url, { accept: "text/html,application/xhtml+xml" });
 
   if (!res.ok) throw new Error(`Failed to fetch article: HTTP ${res.status}`);
 

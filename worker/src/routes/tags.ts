@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createDb } from "../db/client";
 import { tags, itemTags, items } from "../db/schema";
 import { ulid } from "ulidx";

@@ -1,3 +1,4 @@
+import { fetchPublicResource, parsePublicUrl } from "../lib/public-fetch";
 import { Hono } from "hono";
 import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { ulid } from "ulidx";
@@ -390,6 +391,8 @@ async function runImportJob(
   const duplicates: Array<{ row: number; title?: string; duplicate: ReturnType<typeof serializeDuplicate> }> = [];
   const errors: Array<{ row: number; title?: string; error: string }> = [];
 
+  const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
+
   for (const [index, row] of rows.entries()) {
     const rowNumber = index + 2;
     const title = row.title?.trim();
@@ -566,7 +569,6 @@ async function runImportJob(
       createdAt: Date.now(),
     });
 
-    const intervalMinutes = await resolveAiQueueIntervalMinutes(db, userId);
     if (contentType === "book" && row.pageCount == null) {
       await queueAiJob(db, userId, "fetch_book_pages", { itemId: id }, getRunAfterFromInterval(intervalMinutes), id);
     }
@@ -613,59 +615,6 @@ async function runImportJob(
 }
 
 const router = new Hono<{ Bindings: Env; Variables: Variables }>();
-
-function isSafeCoverUrl(value: string): URL | null {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-
-    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    if (
-      hostname === "localhost" ||
-      hostname.endsWith(".localhost") ||
-      hostname.endsWith(".local") ||
-      hostname.includes(":")
-    ) return null;
-
-    const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-    if (ipv4) {
-      const octets = ipv4.slice(1).map(Number);
-      if (octets.some((part) => part > 255)) return null;
-      const [first, second] = octets;
-      if (
-        first === 0 ||
-        first === 10 ||
-        first === 127 ||
-        (first === 169 && second === 254) ||
-        (first === 172 && second != null && second >= 16 && second <= 31) ||
-        (first === 192 && second === 168)
-      ) return null;
-    }
-
-    return url;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchCoverImage(initialUrl: URL): Promise<Response> {
-  let url = initialUrl;
-  for (let redirects = 0; redirects <= 3; redirects += 1) {
-    const response = await fetch(url, {
-      redirect: "manual",
-      headers: { Accept: "image/avif,image/webp,image/png,image/jpeg,image/gif" },
-    });
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("Location");
-      const nextUrl = location ? isSafeCoverUrl(new URL(location, url).toString()) : null;
-      if (!nextUrl) throw new Error("Unsafe cover redirect");
-      url = nextUrl;
-      continue;
-    }
-    return response;
-  }
-  throw new Error("Too many cover redirects");
-}
 
 router.get("/", async (c) => {
   const userId = c.get("userId");
@@ -730,11 +679,11 @@ router.get("/:id/cover", async (c) => {
     .where(and(eq(items.id, id), eq(items.userId, userId)));
 
   if (!item?.coverUrl) return c.json({ error: "Cover not found" }, 404);
-  const coverUrl = isSafeCoverUrl(item.coverUrl);
+  const coverUrl = parsePublicUrl(item.coverUrl);
   if (!coverUrl) return c.json({ error: "Unsupported cover URL" }, 400);
 
   try {
-    const response = await fetchCoverImage(coverUrl);
+    const response = await fetchPublicResource(coverUrl.href, { accept: "image/avif,image/webp,image/png,image/jpeg,image/gif", maxBytes: 10 * 1024 * 1024 });
     if (!response.ok) return c.json({ error: "Cover could not be loaded" }, 502);
     const contentType = response.headers.get("Content-Type")?.split(";", 1)[0]?.trim().toLowerCase();
     if (!contentType || !["image/avif", "image/webp", "image/png", "image/jpeg", "image/gif"].includes(contentType)) {
@@ -1244,10 +1193,6 @@ router.patch("/:id", async (c) => {
     if (body.status === "finished" && !("finishedAt" in body)) {
       update.finishedAt = existing.finishedAt ?? now;
     }
-    if (body.status !== "finished" && !("finishedAt" in body)) {
-      // Keep existing finishedAt — don't clear it on status change back
-    }
-
     // Movies: auto-set progress based purely on status
     if (existing.contentType === "movie" && !("progressPercent" in body) && !("progressCurrent" in body) && !("progressTotal" in body)) {
       update.progressPercent = body.status === "finished" ? 100 : 0;

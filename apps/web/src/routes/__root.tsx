@@ -1,3 +1,4 @@
+import { UserQueryProvider } from "@/components/UserQueryProvider";
 import { createRootRoute, Outlet, redirect, useRouter, useRouterState } from "@tanstack/react-router";
 import { lazy, Suspense, useState, useEffect } from "react";
 import { authClient } from "@/lib/auth-client";
@@ -29,11 +30,20 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   const context = Route.useRouteContext();
-  const router = useRouter();
-  const user = (context as { user?: { name?: string; email?: string } }).user;
-  const { location } = useRouterState();
-  const isLoginPage = location.pathname === "/login";
+  const user = (context as { user?: { id: string; name?: string; email?: string } }).user;
+  const isLoginPage = useRouterState({ select: (state) => state.location.pathname === "/login" });
+  if (!user || isLoginPage) {
+    return <div className="paper-page" style={{ minHeight: "100vh" }}><Outlet /></div>;
+  }
+  return (
+    <UserQueryProvider key={user.id}>
+      <AuthenticatedLayout user={user} />
+    </UserQueryProvider>
+  );
+}
 
+function AuthenticatedLayout({ user }: { user: { name?: string; email?: string } }) {
+  const router = useRouter();
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(readSidebarPreference);
@@ -48,14 +58,6 @@ function RootLayout() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  if (!user || isLoginPage) {
-    return (
-      <div className="paper-page" style={{ minHeight: "100vh" }}>
-        <Outlet />
-      </div>
-    );
-  }
 
   return (
     <TooltipProvider>
@@ -83,16 +85,16 @@ function RootLayout() {
 
       {/* ── Global overlays ────────────────────────────────────────────────── */}
       <Suspense fallback={null}>
-        <AddItemDialog open={addItemOpen} onClose={() => setAddItemOpen(false)} />
+        {addItemOpen && <AddItemDialog open onClose={() => setAddItemOpen(false)} />}
 
-        <SearchCommand
-          open={searchOpen}
+        {searchOpen && <SearchCommand
+          open
           onClose={() => setSearchOpen(false)}
           onSelect={(item) => {
             setSearchOpen(false);
             router.navigate({ to: "/item/$id", params: { id: item.id } });
           }}
-        />
+        />}
       </Suspense>
     </TooltipProvider>
   );

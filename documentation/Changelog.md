@@ -1,6 +1,6 @@
 # SirajHub Changelog
 
-This end-user changelog covers the full project history, from the first plan on April 14, 2026 through the current v4.03 release. Entries are intentionally brief. Versions marked `*` were not named in Git and were assigned during this audit according to their timeline.
+This end-user changelog covers the full project history, from the first plan on April 14, 2026 through the current v4.04 release. Entries are intentionally brief. Versions marked `*` were not named in Git and were assigned during this audit according to their timeline.
 
 ## v4
 
@@ -112,3 +112,17 @@ This end-user changelog covers the full project history, from the first plan on 
 | 0.1.1* | 2026-04-14 | Fixed Vite configuration portability. |
 | 0.1* | 2026-04-14 | Created the React/Worker monorepo, D1 schema, KV cache, local development flow, health endpoint, and automated deployment. |
 | 0.0 | 2026-04-14 | Added the original product and implementation plan; no runnable product yet. |
+
+## v4.04 — October 4, 2026
+
+| Version | Date | User-facing changes |
+|---|---|---|
+| 4.04 | 2026-10-04 | Hardened remote metadata fetching and API requests, isolated cached data between accounts, prevented concurrent AI-job execution, updated vulnerable dependencies, and reduced the main frontend bundle by 25.5%. |
+
+- Remote article, Goodreads, and cover requests now share URL checks, redirect validation, a 15-second deadline, and response-size limits. API mutations reject untrusted browser origins, and request bodies are limited to 10 MiB.
+- Each signed-in account gets its own query cache. Item changes also refresh dependent lists and recommendations, so another account cannot reuse private cached data and edited items do not leave stale views.
+- Pages and capture/search dialogs load their code when needed. Imports read queue settings once per batch, score updates avoid redundant reads, and AI workers claim a queued job before processing it to prevent two workers from running it together.
+- Extracted password and URL helpers, removed obsolete configuration and no-op code, and updated authentication, database, routing, and build dependencies. Existing password formats remain compatible.
+- Type checks, the production build, 10 regression tests, and local authentication/item-operation checks passed. The full dependency audit reported zero known vulnerabilities. CI now runs type checks and regression tests before deployment.
+
+See [the detailed refactor notes](Refactor-2026-10-04.md) for measured bundle sizes, remaining security boundaries, and follow-up work.

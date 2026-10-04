@@ -28,8 +28,6 @@ router.post("/", async (c) => {
   }
 
   const db = createDb(c.env.DB);
-  const resolvedEnv = await resolveMetadataEnv(db, userId, c.env);
-
   // Return from cache if URL was recently fetched
   if (url) {
     const [cached] = await db
@@ -37,10 +35,16 @@ router.post("/", async (c) => {
       .from(urlCache)
       .where(eq(urlCache.url, url));
 
-    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-      return c.json(JSON.parse(cached.metadata));
+    if (cached && (!content_type || cached.source === content_type) && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+      try {
+        return c.json(JSON.parse(cached.metadata));
+      } catch {
+        // Refresh corrupt or legacy cache entries instead of failing capture.
+      }
     }
   }
+
+  const resolvedEnv = await resolveMetadataEnv(db, userId, c.env);
 
   // Fetch fresh metadata
   let metadata;

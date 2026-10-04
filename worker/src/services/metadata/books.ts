@@ -1,3 +1,4 @@
+import { fetchPublicResource } from "../../lib/public-fetch";
 import type { Env } from "../../types";
 import type { FetchedMetadata, SearchSuggestion } from "./types";
 
@@ -192,12 +193,7 @@ function isGoodreadsUrl(input: string) {
 }
 
 async function fetchGoodreadsBook(url: string): Promise<FetchedMetadata> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; SirajHub/1.0; +https://sirajhub.app)",
-      Accept: "text/html,application/xhtml+xml",
-    },
-  });
+  const res = await fetchPublicResource(url, { accept: "text/html,application/xhtml+xml" });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch Goodreads book: HTTP ${res.status}`);

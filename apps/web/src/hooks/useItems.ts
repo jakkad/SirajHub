@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import {
   ingestApi,
   itemsApi,
@@ -17,6 +17,13 @@ const SAVED_VIEWS_QUERY_KEY = "saved-views";
 const DUPLICATES_QUERY_KEY = "duplicate-groups";
 const BOOK_PAGE_COUNTS_QUERY_KEY = "book-page-counts";
 
+// Item changes also affect list previews, recommendations, and duplicate groups.
+function invalidateLibrary(client: QueryClient) {
+  return Promise.all([
+    QUERY_KEY, DUPLICATES_QUERY_KEY, "custom-lists", "item-lists", "ai-next", "reminders",
+  ].map((key) => client.invalidateQueries({ queryKey: [key] })));
+}
+
 export function useItems(filters?: { status?: StatusId; content_type?: ContentTypeId }) {
   return useQuery({
     queryKey: [QUERY_KEY, filters],
@@ -28,7 +35,7 @@ export function useCreateItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateItemInput) => itemsApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+    onSuccess: () => invalidateLibrary(qc),
   });
 }
 
@@ -38,7 +45,7 @@ export function useImportItems() {
     mutationFn: ({ source, rows, resyncMetadata }: { source?: string; rows: ImportRowInput[]; resyncMetadata?: boolean }) =>
       source && source !== "csv" ? itemsApi.importSource(source, rows, resyncMetadata) : itemsApi.importCsv(rows, resyncMetadata),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QUERY_KEY] });
+      void invalidateLibrary(qc);
       qc.invalidateQueries({ queryKey: [IMPORT_JOBS_QUERY_KEY] });
     },
   });
@@ -49,7 +56,7 @@ export function useUpdateItem() {
   return useMutation({
     mutationFn: ({ id, ...updates }: { id: string } & UpdateItemInput) =>
       itemsApi.update(id, updates),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+    onSuccess: () => invalidateLibrary(qc),
   });
 }
 
@@ -57,7 +64,7 @@ export function useResyncTVItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => itemsApi.resyncTV(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+    onSuccess: () => invalidateLibrary(qc),
   });
 }
 
@@ -65,7 +72,7 @@ export function useDeleteItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => itemsApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+    onSuccess: () => invalidateLibrary(qc),
   });
 }
 
@@ -73,7 +80,7 @@ export function useBulkDeleteItems() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (ids: string[]) => itemsApi.bulkDelete(ids),
-    onSuccess: () => qc.invalidateQueries({ queryKey: [QUERY_KEY] }),
+    onSuccess: () => invalidateLibrary(qc),
   });
 }
 
@@ -83,7 +90,7 @@ export function useLookupBookPageCounts() {
     mutationFn: (ids?: string[]) => itemsApi.lookupBookPageCounts(ids),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [BOOK_PAGE_COUNTS_QUERY_KEY] });
-      qc.invalidateQueries({ queryKey: [QUERY_KEY] });
+      void invalidateLibrary(qc);
     },
   });
 }
@@ -105,8 +112,7 @@ export function useMergeItems() {
   return useMutation({
     mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) => itemsApi.merge(sourceId, targetId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [QUERY_KEY] });
-      qc.invalidateQueries({ queryKey: [DUPLICATES_QUERY_KEY] });
+      void invalidateLibrary(qc);
     },
   });
 }

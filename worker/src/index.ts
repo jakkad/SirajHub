@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { bodyLimit } from "hono/body-limit";
+import { isTrustedOrigin, requestSecurity } from "./middleware/request-security";
 import { createAuth } from "./auth";
 import { requireAuth } from "./middleware/auth";
 import itemsRouter from "./routes/items";
@@ -16,21 +18,15 @@ import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// CORS — allow the Vite dev server locally, and your production domain.
-// Add your custom domain here once set (e.g. "https://sirajhub.yourdomain.com").
-const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  // "https://sirajhub.yourdomain.com",  ← uncomment and fill in Phase 6
-];
-
-app.use(
-  "/api/*",
-  cors({
-    origin: ALLOWED_ORIGINS,
-    credentials: true,
-  })
-);
+app.use("/api/*", requestSecurity);
+app.use("/api/*", bodyLimit({
+  maxSize: 10 * 1024 * 1024,
+  onError: (c) => c.json({ error: "Request exceeds the 10 MB limit" }, 413),
+}));
+app.use("/api/*", cors({
+  origin: (origin, c) => isTrustedOrigin(origin, c.req.url) ? origin : undefined,
+  credentials: true,
+}));
 
 // ── Better Auth handler ───────────────────────────────────────────────────────
 // Handles all auth operations: sign-in, sign-up, sign-out, session, etc.
