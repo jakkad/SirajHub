@@ -9,7 +9,7 @@ import { getRunAfterFromInterval, processAiQueue, queueAiJob, syncSuggestMetrics
 import { fetchTMDB } from "../services/metadata/movies";
 import type { Env } from "../types";
 
-type Variables = { userId: string };
+type Variables = { userId: string; syncKey?: boolean };
 
 const VALID_CONTENT_TYPES = new Set(["book", "movie", "tv", "podcast", "youtube", "article", "tweet"]);
 const VALID_STATUSES = new Set(["suggestions", "in_progress", "finished", "archived"]);
@@ -1040,6 +1040,10 @@ router.post("/:id/resync-tv", async (c) => {
 router.patch("/:id", async (c) => {
   const userId = c.get("userId");
   const id = c.req.param("id");
+  const revision = c.req.header("If-Match");
+  if (c.get("syncKey") && (!revision || !/^"\d{1,15}"$/.test(revision))) {
+    return c.json({ error: "An item revision is required" }, 428);
+  }
   const body = await c.req.json<
     Partial<{
       title: string;
@@ -1110,11 +1114,15 @@ router.patch("/:id", async (c) => {
       sourceUrl: items.sourceUrl,
       externalId: items.externalId,
       contentType: items.contentType,
+      updatedAt: items.updatedAt,
     })
     .from(items)
     .where(and(eq(items.id, id), eq(items.userId, userId)));
 
   if (!existing) return c.json({ error: "Not found" }, 404);
+  if (c.get("syncKey") && revision !== `"${existing.updatedAt}"`) {
+    return c.json({ error: "Item changed in SirajHub. Sync again to review the changes." }, 412);
+  }
   const effectiveContentType = body.contentType ?? existing.contentType;
   if (body.pageCount != null && effectiveContentType !== "book") {
     return c.json({ error: "Page count is only supported for books." }, 400);
@@ -1125,9 +1133,9 @@ router.patch("/:id", async (c) => {
     userId,
     {
       title: body.title ?? existing.title,
-      creator: body.creator ?? existing.creator,
-      sourceUrl: body.sourceUrl ?? existing.sourceUrl,
-      externalId: body.externalId ?? existing.externalId,
+      creator: "creator" in body ? body.creator : existing.creator,
+      sourceUrl: "sourceUrl" in body ? body.sourceUrl : existing.sourceUrl,
+      externalId: "externalId" in body ? body.externalId : existing.externalId,
       contentType: body.contentType ?? existing.contentType,
     },
     id
@@ -1142,7 +1150,7 @@ router.patch("/:id", async (c) => {
     );
   }
 
-  const now = Date.now();
+  const now = Math.max(Date.now(), existing.updatedAt + 1);
   const update: Record<string, unknown> = {
     updatedAt: now,
     ...buildUpdatePayload(body as Record<string, unknown>, [
@@ -1201,12 +1209,15 @@ router.patch("/:id", async (c) => {
     }
   }
 
-  await db
+  const [written] = await db
     .update(items)
     .set(update)
-    .where(and(eq(items.id, id), eq(items.userId, userId)));
+    .where(and(eq(items.id, id), eq(items.userId, userId),
+      c.get("syncKey") ? eq(items.updatedAt, existing.updatedAt) : undefined))
+    .returning();
+  if (!written) return c.json({ error: "Item changed before the update was saved" }, 412);
 
-  let [updated] = await db.select().from(items).where(eq(items.id, id));
+  let updated = written;
 
   const scoringRelevantKeys = [
     "title",

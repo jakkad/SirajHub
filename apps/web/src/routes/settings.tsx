@@ -18,11 +18,11 @@ import {
   useUserProfile,
   useUserSettings,
 } from "../hooks/useUser";
-import { userApi, type AiPrompts, type AiQueueJob, type InterestProfiles, type InterestWeight, type LabsSettings } from "../lib/api";
+import { obsidianSyncKeysApi, userApi, type ObsidianSyncKey, type AiPrompts, type AiQueueJob, type InterestProfiles, type InterestWeight, type LabsSettings } from "../lib/api";
 import { CONTENT_TYPES } from "../lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -526,6 +526,91 @@ function ProfileTab({ profile }: { profile?: { name: string; email: string; pref
   );
 }
 
+function ObsidianSyncKeysCard() {
+  const [keys, setKeys] = useState<ObsidianSyncKey[] | null>(null);
+  const [issued, setIssued] = useState<{ id: string; key: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void obsidianSyncKeysApi.list().then(
+      ({ keys }) => { if (active) setKeys(keys); },
+      () => { if (active) setMessage("Could not load sync keys. Reopen this tab to retry."); },
+    );
+    return () => { active = false; };
+  }, []);
+
+  async function change(id?: string) {
+    setBusy(true);
+    setMessage("");
+    try {
+      if (id) {
+        await obsidianSyncKeysApi.revoke(id);
+        setKeys((current) => current?.filter((key) => key.id !== id) ?? []);
+        setIssued((current) => current?.id === id ? null : current);
+        setMessage("Key revoked.");
+      } else {
+        const { key, ...record } = await obsidianSyncKeysApi.create();
+        setKeys((current) => [record, ...(current ?? [])]);
+        setIssued({ id: record.id, key });
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not update sync keys.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copy() {
+    if (!issued) return;
+    try {
+      await navigator.clipboard.writeText(issued.key);
+      setMessage("Key copied.");
+    } catch {
+      setMessage("Select the key and copy it manually.");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Obsidian sync keys</CardTitle>
+        <CardDescription>Give Siraj Sync access to read, create, and update items in your library.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {issued && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="issued-obsidian-key">New sync key · shown once</Label>
+            <Input id="issued-obsidian-key" value={issued.key} readOnly onFocus={(event) => event.target.select()} />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => void copy()}>Copy key</Button>
+              <Button variant="ghost" onClick={() => { setIssued(null); setMessage(""); }}>Done</Button>
+            </div>
+          </div>
+        )}
+        {keys?.length === 0 && <p className="text-sm text-muted-foreground">No active sync keys.</p>}
+        {!!keys?.length && (
+          <ul className="flex flex-col gap-2">
+            {keys.map((key) => (
+              <li className="flex flex-wrap items-center justify-between gap-2" key={key.id}>
+                <span className="text-sm">Key …{key.id.slice(-6)} · {new Date(key.createdAt).toLocaleString()}</span>
+                <Button size="sm" variant="outline" disabled={busy} aria-label={`Revoke key ending in ${key.id.slice(-6)}`} onClick={() => void change(key.id)}>
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p role="status" className="text-sm text-muted-foreground">{message || (!keys ? "Loading sync keys…" : "")}</p>
+      </CardContent>
+      <CardFooter>
+        <Button disabled={!keys || busy || !!issued} onClick={() => void change()}>Generate sync key</Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
 function ApiKeysTab() {
   const { data: settings } = useUserSettings();
   const { mutate: updateKey, isPending } = useUpdateApiKey();
@@ -564,6 +649,7 @@ function ApiKeysTab() {
 
   return (
     <div className="grid gap-5">
+      <ObsidianSyncKeysCard />
       {API_KEY_SERVICES.map((svc) => {
         const isSet = settings?.[svc.id as keyof typeof settings] === "set";
         return (

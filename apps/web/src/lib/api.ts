@@ -409,6 +409,17 @@ export const tagsApi = {
   },
 };
 
+export interface ObsidianSyncKey {
+  id: string;
+  createdAt: number;
+}
+
+export const obsidianSyncKeysApi = {
+  list: () => request<{ keys: ObsidianSyncKey[] }>("/api/user/sync-keys"),
+  create: () => request<ObsidianSyncKey & { key: string }>("/api/user/sync-keys", { method: "POST" }),
+  revoke: (id: string) => request<{ ok: true }>(`/api/user/sync-keys/${encodeURIComponent(id)}`, { method: "DELETE" }),
+};
+
 // ── User API ──────────────────────────────────────────────────────────────────
 
 export interface UserProfile {

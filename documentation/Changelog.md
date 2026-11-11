@@ -127,12 +127,13 @@ This end-user changelog covers the full project history, from the first plan on 
 
 See [the detailed refactor notes](Refactor-2026-10-04.md) for measured bundle sizes, remaining security boundaries, and follow-up work.
 
-## v4.05 — Unreleased
+## v4.05 — November 11, 2026
 
 | Version | Date | User-facing changes |
 |---|---|---|
-| 4.05 | Unreleased | Added Obsidian sync keys in Settings → API Keys so Siraj Sync can read, create, and update library items. |
+| 4.05 | 2026-11-11 | Added Obsidian sync keys in Settings → API Keys so Siraj Sync can read, create, and update library items. |
 
 - Generate a key, copy it when it is shown, and revoke it when it is no longer needed. SirajHub stores a hash of the key, so the full key cannot be retrieved later.
 - Each key is tied to one account. Siraj Sync reads that account's library in pages and can create items or update supported fields. Sync keys cannot delete items, manage keys, or export account data.
 - Sync updates must include the item revision from the last read. If the item has changed since then, SirajHub rejects the update so the client can fetch the latest version before retrying.
+- The local smoke test verifies key creation and revocation, account isolation, item reads and writes, and rejection of stale updates.

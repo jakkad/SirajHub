@@ -12,6 +12,8 @@ import userRouter from "./routes/user";
 import viewsRouter from "./routes/views";
 import listsRouter from "./routes/lists";
 import remindersRouter from "./routes/reminders";
+import syncRouter from "./routes/sync";
+import syncKeysRouter from "./routes/sync-keys";
 import notesRouter from "./routes/notes";
 import { processAiQueue } from "./services/ai-queue";
 import type { Env } from "./types";
@@ -44,6 +46,8 @@ app.get("/api/health", (c) => {
 app.use("/api/*", requireAuth);
 
 // ── API routes ────────────────────────────────────────────────────────────────
+app.route("/api/sync", syncRouter);
+app.route("/api/user/sync-keys", syncKeysRouter);
 app.route("/api/items", itemsRouter);
 app.route("/api/ingest", ingestRouter);
 app.route("/api/ai", aiRouter);

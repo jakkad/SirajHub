@@ -18,6 +18,13 @@ export const user = sqliteTable("user", {
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
+export const obsidianSyncKeys = sqliteTable("obsidian_sync_keys", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  digest: text("digest").notNull().unique(),
+  createdAt: integer("created_at").notNull(),
+}, (t) => [index("idx_obsidian_sync_keys_user").on(t.userId)]);
+
 // ── Sessions (managed by Better Auth, Phase 2) ───────────────────────────────
 export const session = sqliteTable("session", {
   id: text("id").primaryKey(),
