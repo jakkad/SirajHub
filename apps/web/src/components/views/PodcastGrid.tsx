@@ -89,7 +89,7 @@ export function PodcastGrid({ items, selectionProps }: PodcastGridProps) {
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", textAlign: "center", marginTop: 2 }}>{meta.publisher}</div>
                   )}
                 </div>
-                <CoverOverlay year={getFinishedYear(item.finishedAt)} />
+                <CoverOverlay item={item} year={getFinishedYear(item.finishedAt)} />
               </div>
 
               {/* Title */}

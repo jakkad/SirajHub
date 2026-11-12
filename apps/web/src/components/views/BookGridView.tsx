@@ -27,7 +27,6 @@ function BookCard({ item, selectionProps, finishedYear }: {
     <Link
       to="/item/$id"
       params={{ id: item.id }}
-      aria-label={finishedYear != null ? `${item.title}, finished in ${finishedYear}` : item.title}
       title={item.title}
       className="group block rounded-lg outline-none transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
@@ -59,7 +58,7 @@ function BookCard({ item, selectionProps, finishedYear }: {
           </div>
         )}
 
-        <CoverOverlay year={finishedYear} title={item.title} />
+        <CoverOverlay item={item} year={finishedYear} />
       </div>
     </Link>
   );

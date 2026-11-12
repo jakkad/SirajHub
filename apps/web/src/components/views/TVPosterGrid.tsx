@@ -91,7 +91,7 @@ export function TVPosterGrid({ items, selectionProps }: TVPosterGridProps) {
                   </div>
                 )}
 
-                <CoverOverlay year={getFinishedYear(item.finishedAt)} title={item.title} rating={item.rating} />
+                <CoverOverlay item={item} year={getFinishedYear(item.finishedAt)} />
               </div>
             </div>
           </Link>

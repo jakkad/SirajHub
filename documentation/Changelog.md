@@ -147,3 +147,12 @@ See [the detailed refactor notes](Refactor-2026-10-04.md) for measured bundle si
 - The shared overlay reads the year from the item's Finished Date. It replaces the release year on movie and TV cards and omits the year when an item has no finished date.
 - The overlay appears on hover or keyboard focus. On touch devices, it stays visible for items with a finished date.
 - Turn the year off for all media under **Settings → Profile → Media Display → Show finished year**. The account setting defaults to On and carries over the earlier Books preference.
+
+## v4.07 — November 12, 2026
+
+| Version | Date | User-facing changes |
+|---|---|---|
+| 4.07 | 2026-11-12 | Added star ratings to the overlay across all seven media library views. |
+
+- The shared overlay shows the title on the first line, with the finished year on the left and the saved star rating on the right below it.
+- The rating remains visible when the finished year is missing or switched off. Video durations now appear in the top-right corner to give the stars room.

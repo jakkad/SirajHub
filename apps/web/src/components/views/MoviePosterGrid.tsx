@@ -69,7 +69,7 @@ export function MoviePosterGrid({ items, selectionProps }: MoviePosterGridProps)
                   <span style={{ fontSize: 36 }}>🎬</span>
                 )}
 
-                <CoverOverlay year={getFinishedYear(item.finishedAt)} title={item.title} rating={item.rating} />
+                <CoverOverlay item={item} year={getFinishedYear(item.finishedAt)} />
               </div>
             </div>
           </Link>

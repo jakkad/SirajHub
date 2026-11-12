@@ -87,7 +87,7 @@ export function ArticleList({ items, selectionProps }: ArticleListProps) {
                      <span className="truncate max-w-[120px]">{domain}</span>
                   </div>
                 )}
-                <CoverOverlay year={getFinishedYear(item.finishedAt)} />
+                <CoverOverlay item={item} year={getFinishedYear(item.finishedAt)} />
               </div>
 
               {/* Title & Desc */}

@@ -108,14 +108,14 @@ export function VideoGrid({ items, selectionProps }: VideoGridProps) {
                 </div>
               </div>
 
-              <CoverOverlay year={getFinishedYear(item.finishedAt)} />
+              <CoverOverlay item={item} year={getFinishedYear(item.finishedAt)} />
 
               {/* Duration badge */}
               {item.durationMins && (
                 <div
                   style={{
                     position: "absolute",
-                    bottom: 6,
+                    top: 6,
                     right: 6,
                     background: "oklch(0% 0 0 / 0.8)",
                     color: "white",
