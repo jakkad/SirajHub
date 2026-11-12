@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
 import type { SelectionProps } from "./TypePageLayout";
+import { CoverOverlay, useFinishedYear } from "./CoverOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
 
 interface VideoGridProps {
@@ -17,6 +18,8 @@ function formatDuration(mins: number | null): string {
 }
 
 export function VideoGrid({ items, selectionProps }: VideoGridProps) {
+  const getFinishedYear = useFinishedYear();
+
   if (items.length === 0) {
     return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No videos saved yet.</div>;
   }
@@ -30,8 +33,8 @@ export function VideoGrid({ items, selectionProps }: VideoGridProps) {
       }}
     >
       {items.map((item) => (
-        <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
-          <div style={{ cursor: "pointer" }} className="group">
+        <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="group" style={{ textDecoration: "none" }}>
+          <div style={{ cursor: "pointer" }}>
             {/* 16:9 thumbnail */}
             <div
               style={{
@@ -104,6 +107,8 @@ export function VideoGrid({ items, selectionProps }: VideoGridProps) {
                   ▶
                 </div>
               </div>
+
+              <CoverOverlay year={getFinishedYear(item.finishedAt)} />
 
               {/* Duration badge */}
               {item.durationMins && (

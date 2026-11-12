@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { BookOpen } from "lucide-react";
 
 import type { Item } from "../../lib/api";
+import { CoverOverlay, useFinishedYear } from "./CoverOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
 import type { SelectionProps } from "./TypePageLayout";
 
@@ -17,12 +18,16 @@ function idToGradient(id: string) {
   return `linear-gradient(135deg, oklch(38% 0.1 ${hue}), oklch(22% 0.06 ${(hue + 45) % 360}))`;
 }
 
-function BookCard({ item, selectionProps }: { item: Item; selectionProps?: SelectionProps }) {
+function BookCard({ item, selectionProps, finishedYear }: {
+  item: Item;
+  selectionProps?: SelectionProps;
+  finishedYear: number | null;
+}) {
   return (
     <Link
       to="/item/$id"
       params={{ id: item.id }}
-      aria-label={item.title}
+      aria-label={finishedYear != null ? `${item.title}, finished in ${finishedYear}` : item.title}
       title={item.title}
       className="group block rounded-lg outline-none transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
@@ -54,17 +59,15 @@ function BookCard({ item, selectionProps }: { item: Item; selectionProps?: Selec
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-2.5 pb-2.5 pt-8 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-          <p dir="auto" className="line-clamp-2 text-start text-[11px] font-bold leading-[1.3] text-white">
-            {item.title}
-          </p>
-        </div>
+        <CoverOverlay year={finishedYear} title={item.title} />
       </div>
     </Link>
   );
 }
 
 export function BookGridView({ items, selectionProps }: BookGridViewProps) {
+  const getFinishedYear = useFinishedYear();
+
   if (items.length === 0) {
     return (
       <div className="rounded-[18px] border border-dashed p-10 text-center text-sm text-muted-foreground">
@@ -79,7 +82,7 @@ export function BookGridView({ items, selectionProps }: BookGridViewProps) {
       style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}
     >
       {items.map((item) => (
-        <BookCard key={item.id} item={item} selectionProps={selectionProps} />
+        <BookCard key={item.id} item={item} selectionProps={selectionProps} finishedYear={getFinishedYear(item.finishedAt)} />
       ))}
     </div>
   );

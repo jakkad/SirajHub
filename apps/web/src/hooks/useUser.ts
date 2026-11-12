@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { userApi, userSettingsApi, type AiPrompts, type InterestProfiles, type LabsSettings } from "../lib/api";
+import { userApi, userSettingsApi, type AiPrompts, type InterestProfiles, type LabsSettings, type UserSettings } from "../lib/api";
 
 export function useUserProfile() {
   return useQuery({
@@ -98,6 +98,19 @@ export function useUpdateLabs() {
           : current
       );
       qc.invalidateQueries({ queryKey: ["user-settings"] });
+    },
+  });
+}
+
+export function useUpdateFinishedYear() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (showFinishedYear: boolean) => userSettingsApi.updateFinishedYear(showFinishedYear),
+    onSuccess: ({ showFinishedYear }) => {
+      qc.setQueryData<UserSettings>(["user-settings"], (current) =>
+        current ? { ...current, showFinishedYear } : current,
+      );
+      return qc.invalidateQueries({ queryKey: ["user-settings"] });
     },
   });
 }

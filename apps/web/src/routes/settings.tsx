@@ -9,6 +9,7 @@ import { useTags, useDeleteTag } from "../hooks/useTags";
 import {
   useClearAiCache,
   useUpdateAiPrompts,
+  useUpdateFinishedYear,
   useUpdateInterestProfiles,
   useUpdateLabs,
   useTestAiModel,
@@ -47,7 +48,6 @@ const API_KEY_SERVICES = [
 
 function SettingsPage() {
   const { data: profile, isLoading } = useUserProfile();
-  const { data: settings } = useUserSettings();
 
   if (isLoading) {
     return <div className="py-20 text-center text-muted-foreground">Loading settings…</div>;
@@ -522,7 +522,47 @@ function ProfileTab({ profile }: { profile?: { name: string; email: string; pref
           </div>
         </CardContent>
       </Card>
+      <MediaDisplayCard />
     </div>
+  );
+}
+
+function MediaDisplayCard() {
+  const { data: settings, isError: settingsError } = useUserSettings();
+  const { mutate, isPending, isError } = useUpdateFinishedYear();
+  const showFinishedYear = settings?.showFinishedYear ?? true;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Media Display</CardTitle>
+        <CardDescription id="media-finished-year-description">
+          Show the year from the finished date on media cards.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Label id="media-finished-year-label" htmlFor="media-finished-year">Show finished year</Label>
+          <Button
+            id="media-finished-year"
+            size="sm"
+            variant={showFinishedYear ? "default" : "outline"}
+            aria-labelledby="media-finished-year-label"
+            aria-describedby="media-finished-year-description"
+            aria-pressed={showFinishedYear}
+            disabled={!settings || isPending}
+            onClick={() => mutate(!showFinishedYear)}
+          >
+            {isPending ? "Saving…" : showFinishedYear ? "On" : "Off"}
+          </Button>
+        </div>
+        {isError || (!settings && settingsError) ? (
+          <p role="alert" className="text-sm text-destructive">
+            {isError ? "Could not save the media display setting." : "Could not load the media display setting."}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

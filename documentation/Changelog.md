@@ -1,6 +1,6 @@
 # SirajHub Changelog
 
-This end-user changelog covers the full project history, from the first plan on April 14, 2026 through the current v4.04 release. Entries are intentionally brief. Versions marked `*` were not named in Git and were assigned during this audit according to their timeline.
+This end-user changelog covers the project history from the first plan on April 14, 2026 through the latest release. Versions marked `*` were assigned during the documentation audit.
 
 ## v4
 
@@ -137,3 +137,13 @@ See [the detailed refactor notes](Refactor-2026-10-04.md) for measured bundle si
 - Each key is tied to one account. Siraj Sync reads that account's library in pages and can create items or update supported fields. Sync keys cannot delete items, manage keys, or export account data.
 - Sync updates must include the item revision from the last read. If the item has changed since then, SirajHub rejects the update so the client can fetch the latest version before retrying.
 - The local smoke test verifies key creation and revocation, account isolation, item reads and writes, and rejection of stale updates.
+
+## v4.06 — November 12, 2026
+
+| Version | Date | User-facing changes |
+|---|---|---|
+| 4.06 | 2026-11-12 | Shows the finished year across all seven media library views using the movie-style overlay. |
+
+- The shared overlay reads the year from the item's Finished Date. It replaces the release year on movie and TV cards and omits the year when an item has no finished date.
+- The overlay appears on hover or keyboard focus. On touch devices, it stays visible for items with a finished date.
+- Turn the year off for all media under **Settings → Profile → Media Display → Show finished year**. The account setting defaults to On and carries over the earlier Books preference.

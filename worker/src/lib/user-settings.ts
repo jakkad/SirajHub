@@ -103,6 +103,8 @@ export type ApiKeysBlob = {
   interestProfiles?: InterestProfiles;
   aiPrompts?: Partial<AiPrompts>;
   labs?: Partial<LabsSettings>;
+  showFinishedYear?: boolean;
+  showBookFinishedYear?: boolean;
 };
 
 export const DEFAULT_LABS_SETTINGS: LabsSettings = {

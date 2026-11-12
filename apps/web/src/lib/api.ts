@@ -462,6 +462,7 @@ export interface UserSettings {
   interestProfiles: InterestProfiles;
   aiPrompts: AiPrompts;
   labs: LabsSettings;
+  showFinishedYear: boolean;
 }
 
 export interface UserSettingsModelTestResponse {
@@ -630,6 +631,13 @@ export const userSettingsApi = {
     return request<{ ok: boolean; labs: LabsSettings }>("/api/user/settings", {
       method: "PATCH",
       body: JSON.stringify({ labs }),
+    });
+  },
+
+  updateFinishedYear(showFinishedYear: boolean): Promise<{ ok: boolean; showFinishedYear: boolean }> {
+    return request("/api/user/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ showFinishedYear }),
     });
   },
 };

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
 import type { SelectionProps } from "./TypePageLayout";
+import { CoverOverlay, useFinishedYear } from "./CoverOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
 
 interface PodcastGridProps {
@@ -9,6 +10,8 @@ interface PodcastGridProps {
 }
 
 export function PodcastGrid({ items, selectionProps }: PodcastGridProps) {
+  const getFinishedYear = useFinishedYear();
+
   if (items.length === 0) {
     return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No podcasts saved yet.</div>;
   }
@@ -26,11 +29,8 @@ export function PodcastGrid({ items, selectionProps }: PodcastGridProps) {
         try { if (item.metadata) meta = JSON.parse(item.metadata); } catch { /* ignore */ }
 
         return (
-          <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
-            <div
-              style={{ cursor: "pointer" }}
-              className="group"
-            >
+          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="group" style={{ textDecoration: "none" }}>
+            <div style={{ cursor: "pointer" }}>
               {/* Square album art */}
               <div
                 style={{
@@ -89,6 +89,7 @@ export function PodcastGrid({ items, selectionProps }: PodcastGridProps) {
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", textAlign: "center", marginTop: 2 }}>{meta.publisher}</div>
                   )}
                 </div>
+                <CoverOverlay year={getFinishedYear(item.finishedAt)} />
               </div>
 
               {/* Title */}

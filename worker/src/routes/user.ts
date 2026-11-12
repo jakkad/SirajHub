@@ -121,13 +121,32 @@ router.get("/settings", async (c) => {
     interestProfiles: normalizeInterestProfiles(keys.interestProfiles),
     aiPrompts: normalizeAiPrompts(keys.aiPrompts),
     labs: normalizeLabsSettings(keys.labs),
+    showFinishedYear: (keys.showFinishedYear ?? keys.showBookFinishedYear) !== false,
   });
 });
 
 // PATCH /api/user/settings — store or clear a single API key / model selection
 router.patch("/settings", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{ service?: string; key?: string; interestProfiles?: unknown; aiPrompts?: unknown; labs?: unknown }>();
+  const body = await c.req.json<{
+    service?: string;
+    key?: string;
+    interestProfiles?: unknown;
+    aiPrompts?: unknown;
+    labs?: unknown;
+    showFinishedYear?: unknown;
+  }>();
+
+  if (body.showFinishedYear !== undefined) {
+    if (typeof body.showFinishedYear !== "boolean") {
+      return c.json({ error: "Finished year setting must be a boolean" }, 400);
+    }
+    const db = createDb(c.env.DB);
+    const current = await readUserSettings(db, userId);
+    current.showFinishedYear = body.showFinishedYear;
+    await writeUserSettings(db, userId, current);
+    return c.json({ ok: true, showFinishedYear: current.showFinishedYear });
+  }
 
   if (body.interestProfiles !== undefined) {
     const db = createDb(c.env.DB);

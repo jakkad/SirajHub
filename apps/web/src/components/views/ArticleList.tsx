@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Clock3, Globe2 } from "lucide-react";
 import type { Item } from "../../lib/api";
 import type { SelectionProps } from "./TypePageLayout";
+import { CoverOverlay, useFinishedYear } from "./CoverOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
 
 interface ArticleListProps {
@@ -42,6 +43,8 @@ function getReadingTime(item: Item): string | null {
 }
 
 export function ArticleList({ items, selectionProps }: ArticleListProps) {
+  const getFinishedYear = useFinishedYear();
+
   if (items.length === 0) {
     return <div className="text-muted-foreground p-8 italic">No articles saved yet.</div>;
   }
@@ -84,6 +87,7 @@ export function ArticleList({ items, selectionProps }: ArticleListProps) {
                      <span className="truncate max-w-[120px]">{domain}</span>
                   </div>
                 )}
+                <CoverOverlay year={getFinishedYear(item.finishedAt)} />
               </div>
 
               {/* Title & Desc */}

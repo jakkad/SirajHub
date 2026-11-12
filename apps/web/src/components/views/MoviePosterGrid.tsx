@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { Item } from "../../lib/api";
 import type { SelectionProps } from "./TypePageLayout";
+import { CoverOverlay, useFinishedYear } from "./CoverOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
 
 interface MoviePosterGridProps {
@@ -17,6 +18,8 @@ function idToGradient(id: string): string {
 }
 
 export function MoviePosterGrid({ items, selectionProps }: MoviePosterGridProps) {
+  const getFinishedYear = useFinishedYear();
+
   if (items.length === 0) {
     return <div style={{ fontSize: 13, color: "var(--color-muted)", padding: "20px 0" }}>No movies saved yet.</div>;
   }
@@ -30,21 +33,9 @@ export function MoviePosterGrid({ items, selectionProps }: MoviePosterGridProps)
       }}
     >
       {items.map((item) => {
-        const year = item.releaseDate?.slice(0, 4);
         return (
-          <Link key={item.id} to="/item/$id" params={{ id: item.id }} style={{ textDecoration: "none" }}>
-            <div
-              style={{ cursor: "pointer", position: "relative" }}
-              className="group"
-              onMouseEnter={(e) => {
-                const overlay = e.currentTarget.querySelector(".poster-overlay") as HTMLElement | null;
-                if (overlay) overlay.style.opacity = "1";
-              }}
-              onMouseLeave={(e) => {
-                const overlay = e.currentTarget.querySelector(".poster-overlay") as HTMLElement | null;
-                if (overlay) overlay.style.opacity = "0";
-              }}
-            >
+          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="group" style={{ textDecoration: "none" }}>
+            <div style={{ cursor: "pointer", position: "relative" }}>
               {/* 2:3 poster */}
               <div
                 style={{
@@ -78,30 +69,7 @@ export function MoviePosterGrid({ items, selectionProps }: MoviePosterGridProps)
                   <span style={{ fontSize: 36 }}>🎬</span>
                 )}
 
-                {/* Hover overlay slides up from bottom */}
-                <div
-                  className="poster-overlay"
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    padding: "28px 10px 10px",
-                    background: "linear-gradient(to top, oklch(0% 0 0 / 0.85) 0%, transparent 100%)",
-                    opacity: 0,
-                    transition: "opacity 0.2s",
-                  }}
-                >
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "white", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                    {item.title}
-                  </div>
-                  {year && (
-                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", marginTop: 3 }}>
-                      {year}
-                      {item.rating && ` · ${"★".repeat(item.rating)}`}
-                    </div>
-                  )}
-                </div>
+                <CoverOverlay year={getFinishedYear(item.finishedAt)} title={item.title} rating={item.rating} />
               </div>
             </div>
           </Link>

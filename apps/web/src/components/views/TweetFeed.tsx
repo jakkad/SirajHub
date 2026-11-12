@@ -1,7 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { CalendarDays, ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Item } from "../../lib/api";
 import type { SelectionProps } from "./TypePageLayout";
+import { CoverOverlay, useFinishedYear } from "./CoverOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
 
 interface TweetFeedProps {
@@ -30,6 +32,8 @@ function getTweetBody(item: Item): string {
 }
 
 export function TweetFeed({ items, selectionProps }: TweetFeedProps) {
+  const getFinishedYear = useFinishedYear();
+
   if (items.length === 0) {
     return <div className="text-muted-foreground italic p-4">No tweets saved yet.</div>;
   }
@@ -39,11 +43,12 @@ export function TweetFeed({ items, selectionProps }: TweetFeedProps) {
       {items.map((item) => {
         const body = getTweetBody(item);
         const handle = getHandle(item.creator);
+        const finishedYear = getFinishedYear(item.finishedAt);
         const createdLabel = getCreatedLabel(item.createdAt);
 
         return (
-          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="block no-underline break-inside-avoid">
-            <article className="relative paper-card rounded-[2rem] p-6 border border-[#3b82f6]/20 bg-gradient-to-br from-[#3b82f6]/5 to-transparent hover:border-[#3b82f6]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_rgba(59,130,246,0.3)] group drop-shadow-sm">
+          <Link key={item.id} to="/item/$id" params={{ id: item.id }} className="group block no-underline break-inside-avoid">
+            <article className={cn("relative paper-card rounded-[2rem] p-6 border border-[#3b82f6]/20 bg-gradient-to-br from-[#3b82f6]/5 to-transparent hover:border-[#3b82f6]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_8px_30px_-12px_rgba(59,130,246,0.3)] overflow-hidden drop-shadow-sm", finishedYear != null && "pb-10")}>
               {selectionProps?.isSelectionMode && (
                 <SelectionOverlay 
                   isSelected={selectionProps.selectedIds.has(item.id)} 
@@ -79,6 +84,7 @@ export function TweetFeed({ items, selectionProps }: TweetFeedProps) {
                   </span>
                 )}
               </div>
+              <CoverOverlay year={finishedYear} />
             </article>
           </Link>
         );
